@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<title>Ekiti State University, Ado-EKiti</title>
+	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport" />
+	<meta content="" name="description" />
+	<meta content="" name="author" />
+	
+	<!-- ================== BEGIN BASE CSS STYLE ================== -->
+	<link href="assets_ajax/css/apple/app.min.css" rel="stylesheet" />
+	<link href="assets_ajax/plugins/ionicons/css/ionicons.min.css" rel="stylesheet" />
+	<!-- ================== END BASE CSS STYLE ================== -->
+</head>
+<body class="pace-top">
+	<!-- begin #page-loader -->
+	<div id="page-loader" class="fade show">
+		<span class="spinner"></span>
+	</div>
+	<!-- end #page-loader -->
+	
+	<!-- begin #page-container -->
+	<div id="page-container" class="fade">
+		<!-- begin error -->
+		<div class="error">
+			<div class="error-code f-s-40">MAINTENANCE MODE</div>
+			<div class="error-content">
+				<div class="error-message">Unable to Procees it...</div>
+				<div class="error-desc mb-3 mb-sm-4 mb-md-5">
+					We are currently upgrading our services.<br />
+					Kindly Check back by 14:00. Friday, 16th August, 2024
+				</div>
+				<div>
+					<a href="index" class="btn btn-success p-l-20 p-r-20">Go Home</a>
+				</div>
+			</div>
+		</div>
+		<!-- end error -->
+		
+		<!-- begin theme-panel -->
+		
+		<!-- end theme-panel -->
+		
+		<!-- begin scroll to top btn -->
+		<a href="javascript:;" class="btn btn-icon btn-circle btn-primary btn-scroll-to-top fade" data-click="scroll-top"><i class="fa fa-angle-up"></i></a>
+		<!-- end scroll to top btn -->
+	</div>
+	<!-- end page container -->
+	
+	<!-- ================== BEGIN BASE JS ================== -->
+	<script src="assets_ajax/js/app.min.js"></script>
+	<script src="assets_ajax/js/theme/apple.min.js"></script>
+	<!-- ================== END BASE JS ================== -->
+</body>
+</html>

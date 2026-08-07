@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Queue Management | EKSU Health Centre</title>
+  <link rel="icon" href="assets/images/eksu_favicon.ico"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
+  <link rel="stylesheet" href="assets/css/style.css"/>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="topnav-brand">
+    <button id="sidebar-toggle" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 8px 0 0"><i class="fa fa-bars"></i></button>
+    <img src="assets/images/eksu_logo.png" alt="EKSU"/>
+    <div class="topnav-brand-text">EKSU<br>Health Centre</div>
+  </div>
+  <div class="topnav-title">Queue Management</div>
+  <div class="topnav-right">
+    <span style="font-size:13px;color:rgba(255,255,255,0.9)"><i class="fa fa-user-circle"></i> <span id="topnav-user"></span></span>
+    <button onclick="Auth.logout()" title="Logout" style="background:none;border:none;color:rgba(255,255,255,0.85);font-size:18px;cursor:pointer"><i class="fa fa-sign-out"></i></button>
+  </div>
+</nav>
+
+<aside class="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Main</div>
+    <div class="sidebar-item"><a href="dashboard.html"><i class="fa fa-tachometer"></i> Dashboard</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Patients</div>
+    <div class="sidebar-item"><a href="patients.html"><i class="fa fa-users"></i> Patient Records</a></div>
+    <div class="sidebar-item"><a href="register.html"><i class="fa fa-user-plus"></i> Register Patient</a></div>
+    <div class="sidebar-item"><a href="records.html"><i class="fa fa-file-text"></i> Health Records</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Operations</div>
+    <div class="sidebar-item"><a href="appointment.html"><i class="fa fa-calendar"></i> Appointments</a></div>
+    <div class="sidebar-item"><a href="queue.html"><i class="fa fa-list-ol"></i> Queue Management</a></div>
+    <div class="sidebar-item"><a href="billing.html"><i class="fa fa-money"></i> Billing</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-item"><a href="index.html" onclick="Auth.logout();return false"><i class="fa fa-sign-out"></i> Logout</a></div>
+  </div>
+</aside>
+
+<main class="page-wrapper">
+  <div class="page-header">
+    <h1><i class="fa fa-list-ol"></i> Queue Management</h1>
+    <div class="breadcrumb"><a href="dashboard.html">Home</a><span>Queue Management</span></div>
+  </div>
+
+  <!-- Queue stats bar -->
+  <div class="stats-grid" style="margin-bottom:20px" id="queue-stats"></div>
+
+  <!-- Active patient banner -->
+  <div id="active-banner" class="alert alert-info" style="display:none;margin-bottom:16px">
+    <i class="fa fa-stethoscope fa-2x"></i>
+    <div>
+      <strong>Now Serving:</strong> <span id="active-name"></span>
+      &nbsp;<span class="badge badge-info" id="active-token"></span>
+      &nbsp;&mdash;&nbsp;<span id="active-dept"></span>
+      <div style="margin-top:4px;font-size:12px">Arrived: <span id="active-time"></span></div>
+    </div>
+    <button class="btn btn-sm btn-teal" style="margin-left:auto" onclick="markDone()">
+      <i class="fa fa-check"></i> Mark as Done &amp; Call Next
+    </button>
+  </div>
+
+  <!-- Controls -->
+  <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+    <button class="btn btn-red" onclick="callNext()">
+      <i class="fa fa-bell"></i> Call Next Patient
+    </button>
+    <button class="btn btn-teal" onclick="openModal('add-queue-modal')">
+      <i class="fa fa-plus"></i> Add to Queue
+    </button>
+    <button class="btn btn-gray" onclick="confirmAction('Clear all completed patients from the queue?', clearDone)">
+      <i class="fa fa-trash-o"></i> Clear Done
+    </button>
+    <div style="margin-left:auto;font-size:13px;color:var(--eksu-muted)">
+      <i class="fa fa-clock-o"></i> <span id="live-time"></span>
+    </div>
+  </div>
+
+  <!-- Queue cards -->
+  <div class="queue-grid" id="queue-grid"></div>
+
+  <!-- Empty state -->
+  <div id="queue-empty" style="display:none;text-align:center;padding:60px 20px;color:var(--eksu-muted)">
+    <i class="fa fa-check-circle fa-3x" style="color:var(--eksu-success);margin-bottom:14px"></i>
+    <h3 style="font-size:18px;color:#555;font-weight:600">Queue is Empty</h3>
+    <p style="margin-top:6px">All patients have been attended to. Add new patients to the queue below.</p>
+    <button class="btn btn-red" style="margin-top:16px" onclick="openModal('add-queue-modal')">
+      <i class="fa fa-plus"></i> Add Patient to Queue
+    </button>
+  </div>
+
+  <!-- Queue table (full list) -->
+  <div class="card mt-3">
+    <div class="card-header">
+      <h3><i class="fa fa-table"></i> Full Queue Log</h3>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr><th>Token</th><th>Patient</th><th>Matric No.</th><th>Department</th><th>Arrived</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="queue-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- Add to Queue Modal -->
+<div class="modal-backdrop" id="add-queue-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h4><i class="fa fa-plus"></i> Add Patient to Queue</h4>
+      <button class="modal-close" onclick="closeModal('add-queue-modal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="queue-form" onsubmit="addToQueue(event)">
+        <div class="form-group" style="margin-bottom:14px">
+          <label>Select Patient <span class="req">*</span></label>
+          <select class="form-control" id="q-patient" required>
+            <option value="">-- Choose registered patient --</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:14px">
+          <label>Arrival Time</label>
+          <input type="time" class="form-control" id="q-time"/>
+        </div>
+        <div class="form-group">
+          <label>Reason for Visit</label>
+          <input class="form-control" id="q-reason" placeholder="Brief description (optional)"/>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-red" onclick="document.getElementById('queue-form').requestSubmit()"><i class="fa fa-plus"></i> Add to Queue</button>
+      <button class="btn btn-gray" onclick="closeModal('add-queue-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="assets/js/app.js"></script>
+<script>
+  initPage();
+
+  // Live clock
+  function updateClock() {
+    const el = document.getElementById('live-time');
+    if (el) el.textContent = new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  function init() {
+    const patients = Store.get('hcms_patients', []);
+    const sel = document.getElementById('q-patient');
+    while (sel.options.length > 1) sel.remove(1);
+    patients.forEach(p => {
+      const o = document.createElement('option');
+      o.value = p.id;
+      o.textContent = `${p.matric} — ${p.name} (${p.dept})`;
+      sel.appendChild(o);
+    });
+    document.getElementById('q-time').value = nowTime();
+    renderQueue();
+  }
+
+  function renderQueue() {
+    const queue = Store.get('hcms_queue', []);
+    const grid  = document.getElementById('queue-grid');
+    const tbody = document.getElementById('queue-table-body');
+    const empty = document.getElementById('queue-empty');
+    const banner = document.getElementById('active-banner');
+
+    // Stats
+    const waiting = queue.filter(q => q.status === 'waiting').length;
+    const active  = queue.filter(q => q.status === 'active').length;
+    const done    = queue.filter(q => q.status === 'done').length;
+    const statsEl = document.getElementById('queue-stats');
+    statsEl.innerHTML = `
+      <div class="stat-card amber"><div class="stat-icon"><i class="fa fa-clock-o"></i></div><div class="stat-info"><div class="stat-value">${waiting}</div><div class="stat-label">Waiting</div></div></div>
+      <div class="stat-card teal"><div class="stat-icon"><i class="fa fa-stethoscope"></i></div><div class="stat-info"><div class="stat-value">${active}</div><div class="stat-label">Being Attended</div></div></div>
+      <div class="stat-card green"><div class="stat-icon"><i class="fa fa-check-circle"></i></div><div class="stat-info"><div class="stat-value">${done}</div><div class="stat-label">Completed</div></div></div>
+      <div class="stat-card red"><div class="stat-icon"><i class="fa fa-users"></i></div><div class="stat-info"><div class="stat-value">${queue.length}</div><div class="stat-label">Total Today</div></div></div>`;
+
+    // Active banner
+    const activeEntry = queue.find(q => q.status === 'active');
+    if (activeEntry) {
+      banner.style.display = 'flex';
+      document.getElementById('active-name').textContent  = activeEntry.name;
+      document.getElementById('active-token').textContent = '#' + activeEntry.token;
+      document.getElementById('active-dept').textContent  = activeEntry.dept;
+      document.getElementById('active-time').textContent  = activeEntry.time;
+    } else {
+      banner.style.display = 'none';
+    }
+
+    // Cards
+    grid.innerHTML = '';
+    const pendingQueue = queue.filter(q => q.status !== 'done');
+    if (pendingQueue.length === 0) {
+      empty.style.display = 'block';
+    } else {
+      empty.style.display = 'none';
+      queue.forEach(q => {
+        const statusLabel = { waiting:'Waiting', active:'In Progress', done:'Completed' };
+        const statusClass = { waiting:'status-waiting', active:'status-active', done:'status-done' };
+        grid.innerHTML += `
+          <div class="queue-card ${statusClass[q.status]||''}">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div class="queue-number">#${q.token}</div>
+              <span class="badge ${q.status==='done'?'badge-success':q.status==='active'?'badge-info':'badge-pending'}">${statusLabel[q.status]||q.status}</span>
+            </div>
+            <div class="queue-name">${q.name}</div>
+            <div class="queue-dept"><i class="fa fa-graduation-cap" style="font-size:11px"></i> ${q.dept}</div>
+            <div class="queue-time"><i class="fa fa-clock-o" style="font-size:11px"></i> Arrived ${q.time}</div>
+            ${q.reason ? `<div class="queue-time"><i class="fa fa-comment-o" style="font-size:11px"></i> ${q.reason}</div>` : ''}
+            <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+              ${q.status==='waiting' ? `<button class="btn btn-sm btn-teal" onclick="setStatus(${q.id},'active')" style="flex:1"><i class="fa fa-play"></i> Call</button>` : ''}
+              ${q.status==='active'  ? `<button class="btn btn-sm btn-red" onclick="setStatus(${q.id},'done')" style="flex:1"><i class="fa fa-check"></i> Done</button>` : ''}
+              ${q.status==='done'    ? `<button class="btn btn-sm btn-gray" onclick="removeFromQueue(${q.id})" style="flex:1"><i class="fa fa-trash"></i> Remove</button>` : ''}
+            </div>
+          </div>`;
+      });
+    }
+
+    // Table
+    tbody.innerHTML = '';
+    [...queue].reverse().forEach(q => {
+      const statusMap = { waiting:'badge-pending', active:'badge-info', done:'badge-success' };
+      tbody.innerHTML += `<tr>
+        <td class="text-bold text-red">${q.token}</td>
+        <td>${q.name}</td>
+        <td>${q.matric}</td>
+        <td>${q.dept}</td>
+        <td>${q.time}</td>
+        <td><span class="badge ${statusMap[q.status]||'badge-secondary'}">${q.status}</span></td>
+        <td>
+          ${q.status==='waiting' ? `<button class="btn btn-sm btn-teal" onclick="setStatus(${q.id},'active')"><i class="fa fa-play"></i></button>` : ''}
+          ${q.status==='active'  ? `<button class="btn btn-sm btn-red"  onclick="setStatus(${q.id},'done')"><i class="fa fa-check"></i></button>` : ''}
+          <button class="btn btn-sm btn-gray" style="margin-left:4px" onclick="removeFromQueue(${q.id})"><i class="fa fa-trash"></i></button>
+        </td>
+      </tr>`;
+    });
+  }
+
+  function callNext() {
+    const queue = Store.get('hcms_queue', []);
+    const active = queue.find(q => q.status === 'active');
+    if (active) { toast('There is already a patient being attended to. Mark them as done first.', 'warning'); return; }
+    const next = queue.find(q => q.status === 'waiting');
+    if (!next) { toast('No patients waiting in the queue.', 'info'); return; }
+    next.status = 'active';
+    Store.set('hcms_queue', queue);
+    toast(`Now calling #${next.token} — ${next.name}`, 'info');
+    renderQueue();
+  }
+
+  function markDone() {
+    const queue = Store.get('hcms_queue', []);
+    const active = queue.find(q => q.status === 'active');
+    if (!active) return;
+    active.status = 'done';
+    Store.set('hcms_queue', queue);
+    // Auto-call next
+    const next = queue.find(q => q.status === 'waiting');
+    if (next) {
+      next.status = 'active';
+      Store.set('hcms_queue', queue);
+      toast(`Done. Now calling #${next.token} — ${next.name}`, 'success');
+    } else {
+      toast('Patient marked as done. No more patients in queue.', 'success');
+    }
+    renderQueue();
+  }
+
+  function setStatus(id, status) {
+    const queue = Store.get('hcms_queue', []);
+    const entry = queue.find(q => q.id === id);
+    if (!entry) return;
+    if (status === 'active') {
+      const alreadyActive = queue.find(q => q.status === 'active');
+      if (alreadyActive) { toast('Another patient is currently being attended to. Mark them as done first.', 'warning'); return; }
+    }
+    entry.status = status;
+    Store.set('hcms_queue', queue);
+    renderQueue();
+  }
+
+  function removeFromQueue(id) {
+    const queue = Store.get('hcms_queue', []).filter(q => q.id !== id);
+    Store.set('hcms_queue', queue);
+    renderQueue();
+  }
+
+  function clearDone() {
+    const queue = Store.get('hcms_queue', []).filter(q => q.status !== 'done');
+    Store.set('hcms_queue', queue);
+    toast('Completed entries cleared.', 'info');
+    renderQueue();
+  }
+
+  function addToQueue(e) {
+    e.preventDefault();
+    const patientId = parseInt(document.getElementById('q-patient').value);
+    if (!patientId) { toast('Please select a patient.', 'error'); return; }
+
+    const patients = Store.get('hcms_patients', []);
+    const p = patients.find(x => x.id === patientId);
+    if (!p) return;
+
+    const queue = Store.get('hcms_queue', []);
+    // Check if already in queue (not done)
+    const already = queue.find(q => q.patientId === patientId && q.status !== 'done');
+    if (already) { toast(`${p.name} is already in the queue (#${already.token}).`, 'warning'); return; }
+
+    const maxToken = queue.reduce((m, q) => Math.max(m, parseInt(q.token) || 0), 0);
+    const token = String(maxToken + 1).padStart(3, '0');
+
+    queue.push({
+      id:        Store.nextId('hcms_queue'),
+      patientId: p.id,
+      name:      p.name,
+      matric:    p.matric,
+      dept:      p.dept,
+      time:      document.getElementById('q-time').value || nowTime(),
+      reason:    document.getElementById('q-reason').value,
+      status:    'waiting',
+      token,
+    });
+
+    Store.set('hcms_queue', queue);
+    closeModal('add-queue-modal');
+    document.getElementById('queue-form').reset();
+    document.getElementById('q-time').value = nowTime();
+    toast(`${p.name} added to queue as #${token}.`, 'success');
+    renderQueue();
+  }
+
+  init();
+</script>
+</body>
+</html>

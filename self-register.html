@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Student Health Centre Registration | EKSU</title>
+  <link rel="icon" href="assets/images/eksu_favicon.ico"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
+  <link rel="stylesheet" href="assets/css/style.css"/>
+  <style>
+    /* ── Multi-step wizard ── */
+    .wizard-steps {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 24px 0;
+      gap: 0;
+      margin-bottom: 4px;
+    }
+    .step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      flex: 1;
+      position: relative;
+    }
+    .step::after {
+      content: '';
+      position: absolute;
+      top: 16px;
+      left: calc(50% + 16px);
+      right: calc(-50% + 16px);
+      height: 2px;
+      background: #dee2e6;
+      z-index: 0;
+    }
+    .step:last-child::after { display: none; }
+    .step.done::after  { background: var(--eksu-teal); }
+    .step.active::after { background: #dee2e6; }
+    .step-circle {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: #dee2e6;
+      color: #999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      position: relative;
+      z-index: 1;
+      transition: background 0.2s, color 0.2s;
+    }
+    .step.active .step-circle { background: var(--eksu-red); color: #fff; }
+    .step.done   .step-circle { background: var(--eksu-teal); color: #fff; }
+    .step-label {
+      font-size: 10px;
+      color: #999;
+      text-align: center;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .step.active .step-label { color: var(--eksu-red); }
+    .step.done   .step-label { color: var(--eksu-teal); }
+
+    .wizard-panel { display: none; }
+    .wizard-panel.active { display: block; }
+
+    /* Card preview mini */
+    .card-preview-mini {
+      background: linear-gradient(135deg, #F04B46 0%, #c0392b 100%);
+      border-radius: 10px;
+      padding: 16px 18px;
+      color: #fff;
+      font-size: 12px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(240,75,70,0.35);
+    }
+    .card-preview-mini::before {
+      content: '';
+      position: absolute;
+      top: -20px; right: -20px;
+      width: 100px; height: 100px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.08);
+    }
+    .card-preview-mini::after {
+      content: '';
+      position: absolute;
+      bottom: -30px; left: -30px;
+      width: 120px; height: 120px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.05);
+    }
+  </style>
+</head>
+<body>
+  <div class="login-page">
+    <div class="login-bg"></div>
+    <div class="login-bg-overlay"></div>
+
+    <div class="login-card" style="max-width:560px">
+      <!-- Brand header -->
+      <div class="login-brand">
+        <a href="index.html"><img src="assets/images/eksu_logo.png" alt="EKSU Logo"/></a>
+        <div class="login-brand-title">
+          <i class="fa fa-id-card-o"></i> STUDENT HEALTH REGISTRATION
+        </div>
+      </div>
+
+      <!-- Wizard steps -->
+      <div class="wizard-steps" id="wizard-steps">
+        <div class="step active" id="step-dot-1">
+          <div class="step-circle">1</div>
+          <div class="step-label">Payment</div>
+        </div>
+        <div class="step" id="step-dot-2">
+          <div class="step-circle">2</div>
+          <div class="step-label">Personal</div>
+        </div>
+        <div class="step" id="step-dot-3">
+          <div class="step-circle">3</div>
+          <div class="step-label">Medical</div>
+        </div>
+        <div class="step" id="step-dot-4">
+          <div class="step-circle">4</div>
+          <div class="step-label">Appointment</div>
+        </div>
+        <div class="step" id="step-dot-5">
+          <div class="step-circle"><i class="fa fa-id-card-o"></i></div>
+          <div class="step-label">Your Card</div>
+        </div>
+      </div>
+
+      <div class="login-body">
+
+        <!-- STEP 1: Payment Verification -->
+        <div class="wizard-panel active" id="panel-1">
+          <div class="notice-box" style="margin-bottom:16px">
+            <div class="notice-icon" style="font-size:28px"><i class="fa fa-info-circle"></i></div>
+            <div class="notice-content">
+              <h5>Before you begin</h5>
+              <p>You must have paid your <strong>Health Centre Fee</strong> on the EKSU payment portal. Enter your Matric Number and the <strong>RRR / Payment Reference</strong> you received after payment.</p>
+            </div>
+          </div>
+
+          <div id="step1-alert" style="display:none;margin-bottom:12px"></div>
+
+          <div class="field-group">
+            <div class="field-label"><i class="fa fa-id-badge"></i> MATRIC NO.</div>
+            <input type="text" id="s1-matric" placeholder="e.g. EKS/2023/0001" autocomplete="off"/>
+          </div>
+          <div class="field-group">
+            <div class="field-label"><i class="fa fa-credit-card"></i> PAYMENT REF</div>
+            <input type="text" id="s1-ref" placeholder="RRR / EKSU Reference Number"/>
+          </div>
+
+          <p style="font-size:11px;color:var(--eksu-muted);margin:8px 0 14px">
+            <i class="fa fa-lock"></i> Your payment reference is verified against the EKSU Remita payment system.
+            <strong>Demo:</strong> use any reference starting with <code>EKSU</code> or <code>RRR</code>.
+          </p>
+
+          <button class="btn btn-red btn-block" onclick="step1Next()">
+            Verify Payment &amp; Continue <i class="fa fa-arrow-right"></i>
+          </button>
+          <div style="text-align:center;margin-top:12px;font-size:12px">
+            Already registered? <a href="student-portal.html" style="color:var(--eksu-red);font-weight:600">Sign In</a>
+            &nbsp;|&nbsp;
+            <a href="index.html" style="color:var(--eksu-muted)">Staff Login</a>
+          </div>
+        </div>
+
+        <!-- STEP 2: Personal Details -->
+        <div class="wizard-panel" id="panel-2">
+          <div id="step2-alert" style="display:none;margin-bottom:12px"></div>
+          <div class="form-section-title" style="margin-bottom:14px"><i class="fa fa-user"></i> Personal Details</div>
+
+          <div class="form-grid" style="gap:10px;margin-bottom:10px">
+            <div class="form-group">
+              <label>Full Name <span class="req">*</span></label>
+              <input class="form-control" id="s2-name" placeholder="Surname, Firstname Othername" required/>
+            </div>
+            <div class="form-group">
+              <label>Gender <span class="req">*</span></label>
+              <select class="form-control" id="s2-gender">
+                <option value="">-- Select --</option>
+                <option>Male</option><option>Female</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Date of Birth</label>
+              <input type="date" class="form-control" id="s2-dob"/>
+            </div>
+            <div class="form-group">
+              <label>Phone Number</label>
+              <input class="form-control" id="s2-phone" placeholder="080XXXXXXXX"/>
+            </div>
+            <div class="form-group">
+              <label>Faculty</label>
+              <select class="form-control" id="s2-faculty">
+                <option value="">-- Select --</option>
+                <option>Arts</option><option>Education</option>
+                <option>Engineering and Technology</option>
+                <option>Environmental Sciences</option>
+                <option>Law</option><option>Management Sciences</option>
+                <option>Medical Sciences</option><option>Physical Sciences</option>
+                <option>Social Sciences</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Department <span class="req">*</span></label>
+              <input class="form-control" id="s2-dept" placeholder="e.g. Computer Science"/>
+            </div>
+            <div class="form-group">
+              <label>Level</label>
+              <select class="form-control" id="s2-level">
+                <option value="">--</option>
+                <option>100</option><option>200</option><option>300</option>
+                <option>400</option><option>500</option><option>600</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Hostel / Address</label>
+              <input class="form-control" id="s2-address" placeholder="e.g. Hall 3, Room 12"/>
+            </div>
+            <div class="form-group">
+              <label>Create Portal Password <span class="req">*</span></label>
+              <input type="password" class="form-control" id="s2-password" placeholder="Set a password for your student portal"/>
+            </div>
+            <div class="form-group">
+              <label>Email Address</label>
+              <input type="email" class="form-control" id="s2-email" placeholder="student@eksu.edu.ng"/>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-gray" onclick="goToStep(1)"><i class="fa fa-arrow-left"></i> Back</button>
+            <button class="btn btn-red" style="flex:1" onclick="step2Next()">Continue <i class="fa fa-arrow-right"></i></button>
+          </div>
+        </div>
+
+        <!-- STEP 3: Medical Info -->
+        <div class="wizard-panel" id="panel-3">
+          <div class="form-section-title" style="margin-bottom:14px"><i class="fa fa-heartbeat"></i> Medical Information</div>
+          <div class="form-grid" style="gap:10px;margin-bottom:10px">
+            <div class="form-group">
+              <label>Blood Group</label>
+              <select class="form-control" id="s3-blood">
+                <option value="">-- Select --</option>
+                <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
+                <option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Genotype</label>
+              <select class="form-control" id="s3-genotype">
+                <option value="">-- Select --</option>
+                <option>AA</option><option>AS</option><option>SS</option><option>AC</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Known Allergies</label>
+              <input class="form-control" id="s3-allergies" placeholder="e.g. Penicillin, None"/>
+            </div>
+            <div class="form-group">
+              <label>Chronic Conditions</label>
+              <input class="form-control" id="s3-conditions" placeholder="e.g. Asthma, None"/>
+            </div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label>Emergency Contact <span class="req">*</span></label>
+              <input class="form-control" id="s3-emergency" placeholder="Full name: Phone  e.g. Mrs A. Adeyemi: 08011223344"/>
+            </div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label>Any additional medical history?</label>
+              <textarea class="form-control" id="s3-notes" rows="3" placeholder="Previous surgeries, ongoing medications, disabilities..."></textarea>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-gray" onclick="goToStep(2)"><i class="fa fa-arrow-left"></i> Back</button>
+            <button class="btn btn-red" style="flex:1" onclick="goToStep(4)">Continue <i class="fa fa-arrow-right"></i></button>
+          </div>
+        </div>
+
+        <!-- STEP 4: Appointment Booking -->
+        <div class="wizard-panel" id="panel-4">
+          <div class="form-section-title" style="margin-bottom:14px"><i class="fa fa-calendar"></i> Book Your Appointment</div>
+
+          <div class="alert alert-info" style="margin-bottom:14px">
+            <i class="fa fa-info-circle"></i>
+            <div>Choose a date and time to visit the health centre to <strong>collect your health centre card</strong> and complete your physical registration. Bring your school ID.</div>
+          </div>
+
+          <div id="step4-alert" style="display:none;margin-bottom:12px"></div>
+
+          <div class="form-grid" style="gap:10px;margin-bottom:10px">
+            <div class="form-group">
+              <label>Preferred Date <span class="req">*</span></label>
+              <input type="date" class="form-control" id="s4-date" min=""/>
+            </div>
+            <div class="form-group">
+              <label>Preferred Time Slot <span class="req">*</span></label>
+              <select class="form-control" id="s4-time">
+                <option value="">-- Select time --</option>
+                <option value="08:00">8:00 AM</option>
+                <option value="08:30">8:30 AM</option>
+                <option value="09:00">9:00 AM</option>
+                <option value="09:30">9:30 AM</option>
+                <option value="10:00">10:00 AM</option>
+                <option value="10:30">10:30 AM</option>
+                <option value="11:00">11:00 AM</option>
+                <option value="11:30">11:30 AM</option>
+                <option value="12:00">12:00 PM</option>
+                <option value="14:00">2:00 PM</option>
+                <option value="14:30">2:30 PM</option>
+                <option value="15:00">3:00 PM</option>
+                <option value="15:30">3:30 PM</option>
+              </select>
+            </div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label>Reason for Visit</label>
+              <select class="form-control" id="s4-reason">
+                <option>Health Centre Card Collection &amp; General Check-up</option>
+                <option>Blood Test</option>
+                <option>Eye Test</option>
+                <option>Dental Check</option>
+                <option>General Consultation</option>
+                <option>Routine Medical Examination</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-gray" onclick="goToStep(3)"><i class="fa fa-arrow-left"></i> Back</button>
+            <button class="btn btn-red" style="flex:1" onclick="submitRegistration()">
+              <i class="fa fa-check"></i> Complete Registration
+            </button>
+          </div>
+        </div>
+
+        <!-- STEP 5: Success + Card Preview -->
+        <div class="wizard-panel" id="panel-5">
+          <div style="text-align:center;margin-bottom:18px">
+            <div style="width:60px;height:60px;background:rgba(0,137,123,0.12);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:28px;color:var(--eksu-teal)">
+              <i class="fa fa-check-circle"></i>
+            </div>
+            <h3 style="font-size:17px;font-weight:700;color:var(--eksu-teal)">Registration Successful!</h3>
+            <p style="font-size:13px;color:var(--eksu-muted);margin-top:5px">Your health centre record has been created. Your appointment is confirmed.</p>
+          </div>
+
+          <!-- Appointment confirmation box -->
+          <div class="alert alert-success" style="margin-bottom:16px" id="appt-confirmation"></div>
+
+          <!-- Digital Health Centre Card -->
+          <div style="margin-bottom:16px">
+            <div class="form-section-title" style="margin-bottom:10px"><i class="fa fa-id-card-o"></i> Your Health Centre Card</div>
+            <div class="card-preview-mini" id="hc-card-preview">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div>
+                  <div style="font-size:9px;opacity:0.75;letter-spacing:1px;text-transform:uppercase">Ekiti State University</div>
+                  <div style="font-size:12px;font-weight:700;letter-spacing:0.5px">University Health Centre</div>
+                </div>
+                <img src="assets/images/eksu_logo.png" style="height:34px;filter:brightness(10)"/>
+              </div>
+              <div style="margin-bottom:10px">
+                <div style="font-size:18px;font-weight:700;letter-spacing:1px" id="card-name-preview">—</div>
+                <div style="font-size:11px;opacity:0.85" id="card-matric-preview">—</div>
+                <div style="font-size:11px;opacity:0.75" id="card-dept-preview">—</div>
+              </div>
+              <div style="display:flex;gap:16px;font-size:11px">
+                <div><span style="opacity:0.7">Blood</span><br><strong id="card-blood-preview">—</strong></div>
+                <div><span style="opacity:0.7">Genotype</span><br><strong id="card-geno-preview">—</strong></div>
+                <div style="margin-left:auto;text-align:right">
+                  <span style="opacity:0.7;font-size:10px">Card No.</span><br>
+                  <strong style="font-size:11px;letter-spacing:0.5px" id="card-no-preview">—</strong>
+                </div>
+              </div>
+              <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.2);font-size:10px;opacity:0.7;display:flex;justify-content:space-between">
+                <span>Session: 2025/2026</span>
+                <span id="card-appt-preview">—</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <a href="health-card.html" id="view-card-link" class="btn btn-red" style="flex:1">
+              <i class="fa fa-id-card-o"></i> View &amp; Print Card
+            </a>
+            <a href="student-portal.html" class="btn btn-teal" style="flex:1">
+              <i class="fa fa-sign-in"></i> Go to My Portal
+            </a>
+          </div>
+
+          <div style="text-align:center;margin-top:14px;font-size:12px;color:var(--eksu-muted)">
+            A reminder of your appointment has been saved to your student portal.
+          </div>
+        </div>
+
+      </div><!-- end login-body -->
+      <div class="login-footer">Smart Health Centre Management System &mdash; EKSU &copy; 2026</div>
+    </div>
+  </div>
+
+<script src="assets/js/app.js"></script>
+<script>
+  seedData();
+
+  // Minimum appointment date = tomorrow
+  const minDate = new Date(); minDate.setDate(minDate.getDate()+1);
+  document.getElementById('s4-date').min = minDate.toISOString().split('T')[0];
+  document.getElementById('s4-date').value = minDate.toISOString().split('T')[0];
+
+  let regData = {};
+
+  /* ── Step navigation ── */
+  function goToStep(n) {
+    document.querySelectorAll('.wizard-panel').forEach((p,i) => p.classList.toggle('active', i===n-1));
+    document.querySelectorAll('.step').forEach((s,i) => {
+      s.classList.remove('active','done');
+      if (i+1 < n) s.classList.add('done');
+      if (i+1 === n) s.classList.add('active');
+    });
+    document.querySelector('.login-card').scrollIntoView({behavior:'smooth',block:'start'});
+  }
+
+  /* ── Step 1: Verify payment ── */
+  function step1Next() {
+    const matric = document.getElementById('s1-matric').value.trim();
+    const ref    = document.getElementById('s1-ref').value.trim();
+    const alert  = document.getElementById('step1-alert');
+
+    if (!matric) { showAlert(alert,'danger','Please enter your Matric Number.'); return; }
+    if (!ref)    { showAlert(alert,'danger','Please enter your Payment Reference Number.'); return; }
+
+    // Check duplicate registration
+    const existing = Store.get('hcms_patients',[]);
+    if (existing.find(p => p.matric.toLowerCase()===matric.toLowerCase())) {
+      showAlert(alert,'warning',`Matric number <strong>${matric}</strong> is already registered. <a href="student-portal.html" style="color:inherit;text-decoration:underline">Sign in to your portal →</a>`);
+      return;
+    }
+
+    if (!validatePaymentRef(ref)) {
+      showAlert(alert,'danger','Invalid payment reference. Please check your receipt from the EKSU payment portal.');
+      return;
+    }
+
+    alert.style.display='none';
+    regData.matric = matric.toUpperCase();
+    regData.paymentRef = ref;
+    goToStep(2);
+  }
+
+  /* ── Step 2: Personal details ── */
+  function step2Next() {
+    const name   = document.getElementById('s2-name').value.trim();
+    const gender = document.getElementById('s2-gender').value;
+    const dept   = document.getElementById('s2-dept').value.trim();
+    const pass   = document.getElementById('s2-password').value;
+    const alert  = document.getElementById('step2-alert');
+
+    if (!name)   { showAlert(alert,'danger','Please enter your full name.'); return; }
+    if (!gender) { showAlert(alert,'danger','Please select your gender.'); return; }
+    if (!dept)   { showAlert(alert,'danger','Please enter your department.'); return; }
+    if (pass.length < 6) { showAlert(alert,'danger','Password must be at least 6 characters.'); return; }
+
+    alert.style.display='none';
+    regData.name     = name;
+    regData.gender   = gender;
+    regData.dob      = document.getElementById('s2-dob').value;
+    regData.phone    = document.getElementById('s2-phone').value;
+    regData.email    = document.getElementById('s2-email').value;
+    regData.faculty  = document.getElementById('s2-faculty').value;
+    regData.dept     = dept;
+    regData.level    = document.getElementById('s2-level').value;
+    regData.address  = document.getElementById('s2-address').value;
+    regData.password = pass;
+    goToStep(3);
+  }
+
+  /* ── Submit full registration ── */
+  function submitRegistration() {
+    const date   = document.getElementById('s4-date').value;
+    const time   = document.getElementById('s4-time').value;
+    const alert  = document.getElementById('step4-alert');
+
+    if (!date) { showAlert(alert,'danger','Please select an appointment date.'); return; }
+    if (!time) { showAlert(alert,'danger','Please select a preferred time slot.'); return; }
+
+    regData.apptDate   = date;
+    regData.apptTime   = time;
+    regData.apptReason = document.getElementById('s4-reason').value;
+    regData.blood      = document.getElementById('s3-blood').value || 'Unknown';
+    regData.genotype   = document.getElementById('s3-genotype').value;
+    regData.allergies  = document.getElementById('s3-allergies').value || 'None';
+    regData.conditions = document.getElementById('s3-conditions').value;
+    regData.emergency  = document.getElementById('s3-emergency').value;
+    regData.notes      = document.getElementById('s3-notes').value;
+
+    // Create patient record
+    const patients = Store.get('hcms_patients',[]);
+    const newId    = Store.nextId('hcms_patients');
+    const cardNo   = `HC-${regData.matric.replace(/[^0-9]/g,'').slice(-8) || newId}`;
+
+    const patient = {
+      id: newId,
+      matric:     regData.matric,
+      name:       regData.name,
+      gender:     regData.gender,
+      dob:        regData.dob,
+      dept:       regData.dept,
+      faculty:    regData.faculty,
+      level:      regData.level,
+      phone:      regData.phone,
+      email:      regData.email,
+      address:    regData.address,
+      blood:      regData.blood,
+      genotype:   regData.genotype,
+      allergies:  regData.allergies,
+      conditions: regData.conditions,
+      emergency:  regData.emergency,
+      notes:      regData.notes,
+      cardNo:     cardNo,
+      registeredOn: today(),
+      selfRegistered: true,
+    };
+    patients.push(patient);
+    Store.set('hcms_patients', patients);
+
+    // Create appointment
+    const appointments = Store.get('hcms_appointments',[]);
+    appointments.push({
+      id:         Store.nextId('hcms_appointments'),
+      patientId:  newId,
+      matric:     regData.matric,
+      name:       regData.name,
+      dept:       regData.dept,
+      date:       regData.apptDate,
+      time:       regData.apptTime,
+      reason:     regData.apptReason,
+      status:     'confirmed',
+      paymentRef: regData.paymentRef,
+      cardNo:     cardNo,
+    });
+    Store.set('hcms_appointments', appointments);
+
+    // Register student portal credentials
+    StudentAuth.register(regData.matric, regData.password, newId);
+
+    // Store last card data for health-card page
+    sessionStorage.setItem('hcms_new_card', JSON.stringify({ ...regData, cardNo, patientId: newId }));
+
+    // Show card preview
+    document.getElementById('card-name-preview').textContent   = regData.name;
+    document.getElementById('card-matric-preview').textContent = regData.matric;
+    document.getElementById('card-dept-preview').textContent   = `${regData.dept}${regData.level?' | Level '+regData.level:''}`;
+    document.getElementById('card-blood-preview').textContent  = regData.blood;
+    document.getElementById('card-geno-preview').textContent   = regData.genotype || '—';
+    document.getElementById('card-no-preview').textContent     = cardNo;
+    document.getElementById('card-appt-preview').textContent   = `Appt: ${formatDate(regData.apptDate)} ${regData.apptTime}`;
+
+    // Set view-card link with matric
+    document.getElementById('view-card-link').href = `health-card.html?matric=${encodeURIComponent(regData.matric)}`;
+
+    // Appointment confirmation
+    const apptEl = document.getElementById('appt-confirmation');
+    apptEl.innerHTML = `<i class="fa fa-calendar-check-o"></i>
+      <div>
+        <strong>Appointment Confirmed!</strong><br>
+        <span style="font-size:12px">
+          <i class="fa fa-calendar"></i> ${formatDate(regData.apptDate)} &nbsp;
+          <i class="fa fa-clock-o"></i> ${regData.apptTime} &nbsp;
+          <i class="fa fa-map-marker"></i> EKSU University Health Centre, Ado-Ekiti<br>
+          <strong>Please bring your school ID and a copy of your payment receipt.</strong>
+        </span>
+      </div>`;
+
+    goToStep(5);
+  }
+
+  /* ── Alert helper ── */
+  function showAlert(el, type, msg) {
+    el.style.display = 'flex';
+    el.className = `alert alert-${type}`;
+    const icons = { danger:'fa-times-circle', warning:'fa-exclamation-triangle', success:'fa-check-circle', info:'fa-info-circle' };
+    el.innerHTML = `<i class="fa ${icons[type]||icons.info}"></i> <div>${msg}</div>`;
+  }
+</script>
+</body>
+</html>

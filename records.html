@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Health Records | EKSU Health Centre</title>
+  <link rel="icon" href="assets/images/eksu_favicon.ico"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
+  <link rel="stylesheet" href="assets/css/style.css"/>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="topnav-brand">
+    <button id="sidebar-toggle" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 8px 0 0"><i class="fa fa-bars"></i></button>
+    <img src="assets/images/eksu_logo.png" alt="EKSU"/>
+    <div class="topnav-brand-text">EKSU<br>Health Centre</div>
+  </div>
+  <div class="topnav-title">Health Records</div>
+  <div class="topnav-right">
+    <span style="font-size:13px;color:rgba(255,255,255,0.9)"><i class="fa fa-user-circle"></i> <span id="topnav-user"></span></span>
+    <button onclick="Auth.logout()" title="Logout" style="background:none;border:none;color:rgba(255,255,255,0.85);font-size:18px;cursor:pointer"><i class="fa fa-sign-out"></i></button>
+  </div>
+</nav>
+
+<aside class="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Main</div>
+    <div class="sidebar-item"><a href="dashboard.html"><i class="fa fa-tachometer"></i> Dashboard</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Patients</div>
+    <div class="sidebar-item"><a href="patients.html"><i class="fa fa-users"></i> Patient Records</a></div>
+    <div class="sidebar-item"><a href="register.html"><i class="fa fa-user-plus"></i> Register Patient</a></div>
+    <div class="sidebar-item"><a href="records.html"><i class="fa fa-file-text"></i> Health Records</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Operations</div>
+    <div class="sidebar-item"><a href="appointment.html"><i class="fa fa-calendar"></i> Appointments</a></div>
+    <div class="sidebar-item"><a href="queue.html"><i class="fa fa-list-ol"></i> Queue Management</a></div>
+    <div class="sidebar-item"><a href="billing.html"><i class="fa fa-money"></i> Billing</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-item"><a href="index.html" onclick="Auth.logout();return false"><i class="fa fa-sign-out"></i> Logout</a></div>
+  </div>
+</aside>
+
+<main class="page-wrapper">
+  <div class="page-header">
+    <h1><i class="fa fa-file-text"></i> Health Records</h1>
+    <div class="breadcrumb"><a href="dashboard.html">Home</a><span>Health Records</span></div>
+  </div>
+
+  <!-- Patient selector -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-body" style="padding:14px 18px">
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <label style="font-weight:600;font-size:13px;white-space:nowrap"><i class="fa fa-user text-red"></i> Select Patient:</label>
+        <select class="form-control" id="patient-select" onchange="loadPatient()" style="max-width:360px;flex:1">
+          <option value="">-- Choose a patient --</option>
+        </select>
+        <button class="btn btn-red btn-sm" onclick="openModal('add-record-modal')">
+          <i class="fa fa-plus"></i> Add Consultation
+        </button>
+        <button class="btn btn-outline-teal btn-sm" onclick="printRecords()">
+          <i class="fa fa-print"></i> Print
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Patient info banner -->
+  <div id="patient-banner" style="display:none" class="alert alert-info" style="margin-bottom:16px"></div>
+
+  <!-- Records table -->
+  <div class="card" id="records-card">
+    <div class="card-header">
+      <h3><i class="fa fa-heartbeat"></i> Consultation History</h3>
+      <span id="records-count" class="badge badge-secondary">0 records</span>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Date</th>
+            <th>Complaint</th>
+            <th>Diagnosis</th>
+            <th>Treatment / Medication</th>
+            <th>Doctor</th>
+            <th>Notes</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="records-tbody">
+          <tr><td colspan="8" class="text-center text-muted" style="padding:30px">Select a patient above to view their health records.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- All records view (when no patient selected) -->
+  <div class="card" id="all-records-card" style="display:none;margin-top:16px">
+    <div class="card-header">
+      <h3><i class="fa fa-list"></i> All Consultations</h3>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr><th>#</th><th>Date</th><th>Patient</th><th>Matric</th><th>Diagnosis</th><th>Doctor</th></tr>
+        </thead>
+        <tbody id="all-records-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- Add Consultation Modal -->
+<div class="modal-backdrop" id="add-record-modal">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-header">
+      <h4><i class="fa fa-plus-circle"></i> Add Consultation Record</h4>
+      <button class="modal-close" onclick="closeModal('add-record-modal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="add-record-form" onsubmit="saveRecord(event)">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Patient <span class="req">*</span></label>
+            <select class="form-control" id="rec-patient" required>
+              <option value="">-- Select patient --</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Date <span class="req">*</span></label>
+            <input type="date" class="form-control" id="rec-date" required/>
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label>Chief Complaint <span class="req">*</span></label>
+            <input class="form-control" id="rec-complaint" placeholder="Patient's presenting complaint" required/>
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label>Diagnosis <span class="req">*</span></label>
+            <input class="form-control" id="rec-diagnosis" placeholder="Clinical diagnosis" required/>
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label>Treatment / Medication Prescribed <span class="req">*</span></label>
+            <textarea class="form-control" id="rec-treatment" placeholder="Medications, dosages, procedures..." required></textarea>
+          </div>
+          <div class="form-group">
+            <label>Attending Doctor</label>
+            <input class="form-control" id="rec-doctor" placeholder="Dr. Name"/>
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label>Clinical Notes</label>
+            <textarea class="form-control" id="rec-notes" placeholder="Follow-up instructions, observations..."></textarea>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-red" onclick="document.getElementById('add-record-form').requestSubmit()"><i class="fa fa-save"></i> Save Record</button>
+      <button class="btn btn-gray" onclick="closeModal('add-record-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- View Record Modal -->
+<div class="modal-backdrop" id="view-record-modal">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header">
+      <h4><i class="fa fa-file-text"></i> Consultation Record</h4>
+      <button class="modal-close" onclick="closeModal('view-record-modal')">&times;</button>
+    </div>
+    <div class="modal-body" id="view-record-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-gray" onclick="closeModal('view-record-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="assets/js/app.js"></script>
+<script>
+  initPage();
+  let currentPatientId = null;
+
+  function init() {
+    const patients = Store.get('hcms_patients', []);
+
+    // Populate selects
+    ['patient-select', 'rec-patient'].forEach(id => {
+      const sel = document.getElementById(id);
+      if (!sel) return;
+      // Keep first option
+      while (sel.options.length > 1) sel.remove(1);
+      patients.forEach(p => {
+        const o = document.createElement('option');
+        o.value = p.id;
+        o.textContent = `${p.matric} — ${p.name}`;
+        sel.appendChild(o);
+      });
+    });
+
+    // Set default date
+    const rd = document.getElementById('rec-date');
+    if (rd) rd.value = today();
+
+    // Check URL param
+    const params = new URLSearchParams(window.location.search);
+    const pid = params.get('id');
+    if (pid) {
+      document.getElementById('patient-select').value = pid;
+      loadPatient();
+    } else {
+      renderAllRecords();
+    }
+  }
+
+  function loadPatient() {
+    const sel = document.getElementById('patient-select');
+    currentPatientId = sel.value ? parseInt(sel.value) : null;
+
+    const allRecCard = document.getElementById('all-records-card');
+    const banner = document.getElementById('patient-banner');
+
+    if (!currentPatientId) {
+      banner.style.display = 'none';
+      allRecCard.style.display = 'none';
+      document.getElementById('records-tbody').innerHTML =
+        '<tr><td colspan="8" class="text-center text-muted" style="padding:30px">Select a patient above to view their health records.</td></tr>';
+      document.getElementById('records-count').textContent = '0 records';
+      renderAllRecords();
+      return;
+    }
+
+    const patients = Store.get('hcms_patients', []);
+    const p = patients.find(x => x.id === currentPatientId);
+    if (!p) return;
+
+    allRecCard.style.display = 'none';
+    banner.style.display = 'flex';
+    banner.innerHTML = `<i class="fa fa-user-circle fa-2x"></i>
+      <div>
+        <strong>${p.name}</strong> &mdash; ${p.matric}<br>
+        <span class="text-muted">${p.dept} &nbsp;|&nbsp; Blood: <strong>${p.blood}</strong> &nbsp;|&nbsp; Allergies: <strong>${p.allergies||'None'}</strong></span>
+      </div>`;
+
+    renderPatientRecords(currentPatientId);
+  }
+
+  function renderPatientRecords(pid) {
+    const records = Store.get('hcms_records', []).filter(r => r.patientId === pid);
+    const tbody = document.getElementById('records-tbody');
+    document.getElementById('records-count').textContent = `${records.length} record(s)`;
+
+    if (!records.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted" style="padding:30px"><i class="fa fa-folder-open-o fa-2x"></i><br>No consultation records for this patient yet.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = '';
+    [...records].reverse().forEach((r, i) => {
+      tbody.innerHTML += `<tr>
+        <td>${records.length - i}</td>
+        <td>${formatDate(r.date)}</td>
+        <td>${r.complaint}</td>
+        <td><strong>${r.diagnosis}</strong></td>
+        <td style="max-width:200px;white-space:normal">${r.treatment}</td>
+        <td>${r.doctor}</td>
+        <td style="max-width:160px;white-space:normal;font-size:12px;color:var(--eksu-muted)">${r.notes||'—'}</td>
+        <td>
+          <button class="btn btn-sm btn-teal" onclick="viewRecord(${r.id})"><i class="fa fa-eye"></i></button>
+          <button class="btn btn-sm btn-gray" style="margin-left:4px" onclick="deleteRecord(${r.id})"><i class="fa fa-trash"></i></button>
+        </td>
+      </tr>`;
+    });
+  }
+
+  function renderAllRecords() {
+    const allRecCard = document.getElementById('all-records-card');
+    const records  = Store.get('hcms_records', []);
+    const patients = Store.get('hcms_patients', []);
+    allRecCard.style.display = 'block';
+    const tbody = document.getElementById('all-records-tbody');
+    tbody.innerHTML = '';
+    [...records].reverse().forEach((r, i) => {
+      const p = patients.find(x => x.id === r.patientId);
+      tbody.innerHTML += `<tr>
+        <td>${records.length - i}</td>
+        <td>${formatDate(r.date)}</td>
+        <td>${p ? p.name : '—'}</td>
+        <td>${p ? p.matric : '—'}</td>
+        <td><strong>${r.diagnosis}</strong></td>
+        <td>${r.doctor}</td>
+      </tr>`;
+    });
+  }
+
+  function saveRecord(e) {
+    e.preventDefault();
+    const pid = parseInt(document.getElementById('rec-patient').value);
+    if (!pid) { toast('Please select a patient.', 'error'); return; }
+
+    const records = Store.get('hcms_records', []);
+    records.push({
+      id:        Store.nextId('hcms_records'),
+      patientId: pid,
+      date:      document.getElementById('rec-date').value,
+      complaint: document.getElementById('rec-complaint').value,
+      diagnosis: document.getElementById('rec-diagnosis').value,
+      treatment: document.getElementById('rec-treatment').value,
+      doctor:    document.getElementById('rec-doctor').value || Auth.current().name,
+      notes:     document.getElementById('rec-notes').value,
+    });
+    Store.set('hcms_records', records);
+    closeModal('add-record-modal');
+    document.getElementById('add-record-form').reset();
+    document.getElementById('rec-date').value = today();
+    toast('Consultation record saved successfully.', 'success');
+
+    if (currentPatientId) renderPatientRecords(currentPatientId);
+    else renderAllRecords();
+  }
+
+  function viewRecord(id) {
+    const r = Store.get('hcms_records', []).find(x => x.id === id);
+    if (!r) return;
+    const p = Store.get('hcms_patients', []).find(x => x.id === r.patientId);
+    document.getElementById('view-record-body').innerHTML = `
+      <div style="background:var(--eksu-label-bg);border-radius:4px;padding:12px;margin-bottom:14px;font-size:13px">
+        <strong>Patient:</strong> ${p ? p.name : '—'} &nbsp;|&nbsp;
+        <strong>Matric:</strong> ${p ? p.matric : '—'} &nbsp;|&nbsp;
+        <strong>Date:</strong> ${formatDate(r.date)}
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">Complaint</div>
+        <p style="font-size:13.5px">${r.complaint}</p>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">Diagnosis</div>
+        <p style="font-size:14px;font-weight:700;color:var(--eksu-red)">${r.diagnosis}</p>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">Treatment / Medication</div>
+        <p style="font-size:13.5px">${r.treatment}</p>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">Attending Doctor</div>
+        <p style="font-size:13.5px">${r.doctor}</p>
+      </div>
+      ${r.notes ? `<div class="form-section">
+        <div class="form-section-title">Clinical Notes</div>
+        <p style="font-size:13px;color:var(--eksu-muted)">${r.notes}</p>
+      </div>` : ''}`;
+    openModal('view-record-modal');
+  }
+
+  function deleteRecord(id) {
+    confirmAction('Delete this consultation record? This cannot be undone.', () => {
+      const records = Store.get('hcms_records', []).filter(r => r.id !== id);
+      Store.set('hcms_records', records);
+      toast('Record deleted.', 'error');
+      if (currentPatientId) renderPatientRecords(currentPatientId);
+      else renderAllRecords();
+    });
+  }
+
+  function printRecords() { window.print(); }
+
+  init();
+</script>
+</body>
+</html>

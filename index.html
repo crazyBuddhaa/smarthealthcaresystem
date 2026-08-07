@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sign In | EKSU Smart Health Centre Management System</title>
+  <link rel="icon" href="assets/images/eksu_favicon.ico"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
+  <link rel="stylesheet" href="assets/css/style.css"/>
+</head>
+<body>
+  <div class="login-page">
+    <div class="login-bg"></div>
+    <div class="login-bg-overlay"></div>
+
+    <div class="login-card">
+      <!-- Brand header -->
+      <div class="login-brand">
+        <a href="index.html">
+          <img src="assets/images/eksu_logo.png" alt="EKSU Logo"/>
+        </a>
+        <div class="login-brand-title">
+          <i class="fa fa-lock"></i> SIGN-IN
+        </div>
+      </div>
+
+      <div class="login-body">
+        <!-- Notice box -->
+        <div class="notice-box">
+          <div class="notice-icon">
+            <i class="fa fa-info-circle"></i>
+          </div>
+          <div class="notice-content">
+            <h5>Notice:</h5>
+            <p>
+              <span class="badge-pill badge-student">STUDENT</span>
+              Enter your Matric Number as Username and <strong>password1</strong> as default password.
+            </p>
+            <p style="margin-top:6px">
+              <span class="badge-pill badge-staff">STAFF</span>
+              Enter your Staff ID as Username and your assigned password.
+            </p>
+            <p style="margin-top:6px">
+              <span class="badge-pill badge-new">DEMO</span>
+              Use <strong>admin</strong> / <strong>admin123</strong> to explore the system.
+            </p>
+          </div>
+        </div>
+
+        <!-- Alert placeholder -->
+        <div id="login-alert" style="display:none"></div>
+
+        <!-- Form -->
+        <form id="login-form" onsubmit="doLogin(event)">
+          <div class="field-group">
+            <div class="field-label">
+              <i class="fa fa-user"></i> USERNAME
+            </div>
+            <input type="text" id="username" placeholder="Enter your username" autocomplete="username" required/>
+          </div>
+
+          <div class="field-group">
+            <div class="field-label">
+              <i class="fa fa-lock"></i> PASSWORD
+            </div>
+            <input type="password" id="password" placeholder="password" autocomplete="current-password" required/>
+            <div class="field-group-icon" onclick="togglePwd()">
+              <i class="fa fa-eye" id="pwd-eye"></i>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-red btn-block" style="margin-top:6px">
+            LOGIN &nbsp;<i class="fa fa-sign-in"></i>
+          </button>
+        </form>
+
+        <div class="login-actions" style="margin-top:12px">
+          <button class="btn btn-gray" onclick="toast('Password reset is not available in demo mode.','warning')">
+            <i class="fa fa-key"></i> Reset Password
+          </button>
+          <a href="https://eksuportal.eksu.edu.ng/index" target="_blank" class="btn btn-teal">
+            Homepage <i class="fa fa-home"></i>
+          </a>
+        </div>
+
+        <!-- Student self-registration entry point -->
+        <div style="margin-top:14px;padding:12px 14px;background:#f8f9fa;border-radius:5px;border:1px solid var(--eksu-border);text-align:center">
+          <div style="font-size:12px;font-weight:700;color:#555;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">
+            <i class="fa fa-graduation-cap text-red"></i> &nbsp;Are you a student?
+          </div>
+          <div style="display:flex;gap:8px">
+            <a href="self-register.html" class="btn btn-red btn-sm" style="flex:1;font-size:12px">
+              <i class="fa fa-id-card-o"></i> Register &amp; Book Appointment
+            </a>
+            <a href="student-portal.html" class="btn btn-teal btn-sm" style="flex:1;font-size:12px">
+              <i class="fa fa-user-circle"></i> Student Portal
+            </a>
+          </div>
+          <div style="font-size:11px;color:var(--eksu-muted);margin-top:7px">
+            Register from home after paying your health centre fee on the EKSU payment portal.
+          </div>
+        </div>
+
+        <div class="login-footer">
+          Smart Health Centre Management System &mdash; EKSU &copy; 2026
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/app.js"></script>
+  <script>
+    // Redirect if already logged in
+    if (Auth.current()) window.location.href = 'dashboard.html';
+
+    function doLogin(e) {
+      e.preventDefault();
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const alert    = document.getElementById('login-alert');
+
+      const user = Auth.login(username, password);
+      if (user) {
+        seedData();
+        alert.style.display = 'none';
+        window.location.href = 'dashboard.html';
+      } else {
+        alert.style.display = 'flex';
+        alert.className = 'alert alert-danger';
+        alert.innerHTML = '<i class="fa fa-times-circle"></i> Invalid username or password. Please try again.';
+      }
+    }
+
+    function togglePwd() {
+      const inp = document.getElementById('password');
+      const eye = document.getElementById('pwd-eye');
+      if (inp.type === 'password') { inp.type='text'; eye.className='fa fa-eye-slash'; }
+      else { inp.type='password'; eye.className='fa fa-eye'; }
+    }
+  </script>
+</body>
+</html>

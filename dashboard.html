@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard | EKSU Health Centre</title>
+  <link rel="icon" href="assets/images/eksu_favicon.ico"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
+  <link rel="stylesheet" href="assets/css/style.css"/>
+</head>
+<body>
+
+<!-- Top Navigation -->
+<nav class="topnav">
+  <div class="topnav-brand">
+    <button id="sidebar-toggle" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 8px 0 0">
+      <i class="fa fa-bars"></i>
+    </button>
+    <img src="assets/images/eksu_logo.png" alt="EKSU"/>
+    <div class="topnav-brand-text">EKSU<br>Health Centre</div>
+  </div>
+  <div class="topnav-title">Smart Health Centre Management System</div>
+  <div class="topnav-right">
+    <span class="topnav-user" style="font-size:13px;color:rgba(255,255,255,0.9);padding-right:4px">
+      <i class="fa fa-user-circle"></i>
+      <span id="topnav-user"></span>
+      &nbsp;<small id="topnav-role" style="opacity:0.75"></small>
+    </span>
+    <button onclick="Auth.logout()" title="Logout" style="background:none;border:none;color:rgba(255,255,255,0.85);font-size:18px;cursor:pointer">
+      <i class="fa fa-sign-out"></i>
+    </button>
+  </div>
+</nav>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Main</div>
+    <div class="sidebar-item"><a href="dashboard.html"><i class="fa fa-tachometer"></i> Dashboard</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Patients</div>
+    <div class="sidebar-item"><a href="patients.html"><i class="fa fa-users"></i> Patient Records</a></div>
+    <div class="sidebar-item"><a href="register.html"><i class="fa fa-user-plus"></i> Register Patient</a></div>
+    <div class="sidebar-item"><a href="records.html"><i class="fa fa-file-medical-alt fa-file-text"></i> Health Records</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Operations</div>
+    <div class="sidebar-item"><a href="appointment.html"><i class="fa fa-calendar"></i> Appointments</a></div>
+    <div class="sidebar-item"><a href="queue.html"><i class="fa fa-list-ol"></i> Queue Management</a></div>
+    <div class="sidebar-item"><a href="billing.html"><i class="fa fa-money"></i> Billing</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-item"><a href="index.html" onclick="Auth.logout();return false"><i class="fa fa-sign-out"></i> Logout</a></div>
+  </div>
+</aside>
+
+<!-- Page Content -->
+<main class="page-wrapper">
+  <div class="page-header">
+    <h1><i class="fa fa-tachometer"></i> Dashboard</h1>
+    <div class="breadcrumb">
+      <a href="dashboard.html">Home</a><span>Dashboard</span>
+    </div>
+  </div>
+
+  <!-- Welcome alert -->
+  <div class="alert alert-info" id="welcome-msg">
+    <i class="fa fa-info-circle"></i>
+    <div>
+      Welcome back, <strong id="welcome-name"></strong>! Today is <strong id="today-date"></strong>.
+      The health centre portal is active and ready.
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid" id="stats-grid"></div>
+
+  <!-- Two-column lower section -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;flex-wrap:wrap">
+
+    <!-- Recent Patients -->
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fa fa-users"></i> Recent Patients</h3>
+        <a href="patients.html" class="btn btn-sm btn-teal">View All</a>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Matric No.</th>
+              <th>Name</th>
+              <th>Dept</th>
+              <th>Blood</th>
+            </tr>
+          </thead>
+          <tbody id="recent-patients"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Queue Status -->
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fa fa-list-ol"></i> Today's Queue</h3>
+        <a href="queue.html" class="btn btn-sm btn-teal">Manage</a>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Patient</th>
+              <th>Time</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="queue-preview"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Recent Bills -->
+  <div class="card mt-3">
+    <div class="card-header">
+      <h3><i class="fa fa-money"></i> Recent Bills</h3>
+      <a href="billing.html" class="btn btn-sm btn-teal">View All</a>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Matric No.</th>
+            <th>Patient</th>
+            <th>Amount</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="recent-bills"></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<script src="assets/js/app.js"></script>
+<script>
+  initPage();
+
+  const user = Auth.current();
+  document.getElementById('welcome-name').textContent = user.name;
+  document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-GB', {weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+  // Stats
+  const patients = Store.get('hcms_patients', []);
+  const queue    = Store.get('hcms_queue', []);
+  const bills    = Store.get('hcms_bills', []);
+  const records  = Store.get('hcms_records', []);
+
+  const statsData = [
+    { label:'Total Patients', value: patients.length, icon:'fa-users',      color:'red',   change:'+2 this week', dir:'up' },
+    { label:'Queue Today',    value: queue.filter(q=>q.status!=='done').length, icon:'fa-list-ol', color:'amber', change: queue.filter(q=>q.status==='waiting').length+' waiting', dir:'down' },
+    { label:'Pending Bills',  value: bills.filter(b=>b.status==='pending').length, icon:'fa-money', color:'teal', change:'₦'+bills.filter(b=>b.status==='pending').reduce((s,b)=>s+b.total,0).toLocaleString()+' outstanding', dir:'down' },
+    { label:'Health Records', value: records.length, icon:'fa-file-text',   color:'green',  change:'+1 today', dir:'up' },
+  ];
+
+  const sg = document.getElementById('stats-grid');
+  statsData.forEach(s => {
+    sg.innerHTML += `
+      <div class="stat-card ${s.color}">
+        <div class="stat-icon"><i class="fa ${s.icon}"></i></div>
+        <div class="stat-info">
+          <div class="stat-value">${s.value}</div>
+          <div class="stat-label">${s.label}</div>
+          <div class="stat-change ${s.dir}">${s.dir==='up'?'▲':'▼'} ${s.change}</div>
+        </div>
+      </div>`;
+  });
+
+  // Recent patients
+  const rp = document.getElementById('recent-patients');
+  patients.slice(-5).reverse().forEach(p => {
+    rp.innerHTML += `<tr>
+      <td><span class="text-red text-bold">${p.matric}</span></td>
+      <td>${p.name}</td>
+      <td>${p.dept}</td>
+      <td><span class="badge badge-info">${p.blood}</span></td>
+    </tr>`;
+  });
+
+  // Queue preview
+  const qp = document.getElementById('queue-preview');
+  queue.forEach(q => {
+    const statusMap = { waiting:'badge-pending', active:'badge-info', done:'badge-success' };
+    qp.innerHTML += `<tr>
+      <td class="text-bold text-red">${q.token}</td>
+      <td>${q.name}</td>
+      <td>${q.time}</td>
+      <td><span class="badge ${statusMap[q.status]||'badge-secondary'}">${q.status}</span></td>
+    </tr>`;
+  });
+
+  // Recent bills
+  const rb = document.getElementById('recent-bills');
+  bills.slice(-4).reverse().forEach(b => {
+    rb.innerHTML += `<tr>
+      <td>${formatDate(b.date)}</td>
+      <td>${b.matric}</td>
+      <td>${b.name}</td>
+      <td class="text-bold">${formatNaira(b.total)}</td>
+      <td><span class="badge ${b.status==='paid'?'badge-success':'badge-warning'}">${b.status}</span></td>
+    </tr>`;
+  });
+</script>
+</body>
+</html>

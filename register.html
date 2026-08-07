@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Register Patient | EKSU Health Centre</title>
+  <link rel="icon" href="assets/images/eksu_favicon.ico"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
+  <link rel="stylesheet" href="assets/css/style.css"/>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="topnav-brand">
+    <button id="sidebar-toggle" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 8px 0 0"><i class="fa fa-bars"></i></button>
+    <img src="assets/images/eksu_logo.png" alt="EKSU"/>
+    <div class="topnav-brand-text">EKSU<br>Health Centre</div>
+  </div>
+  <div class="topnav-title">Register Patient</div>
+  <div class="topnav-right">
+    <span style="font-size:13px;color:rgba(255,255,255,0.9)"><i class="fa fa-user-circle"></i> <span id="topnav-user"></span></span>
+    <button onclick="Auth.logout()" title="Logout" style="background:none;border:none;color:rgba(255,255,255,0.85);font-size:18px;cursor:pointer"><i class="fa fa-sign-out"></i></button>
+  </div>
+</nav>
+
+<aside class="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Main</div>
+    <div class="sidebar-item"><a href="dashboard.html"><i class="fa fa-tachometer"></i> Dashboard</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Patients</div>
+    <div class="sidebar-item"><a href="patients.html"><i class="fa fa-users"></i> Patient Records</a></div>
+    <div class="sidebar-item"><a href="register.html"><i class="fa fa-user-plus"></i> Register Patient</a></div>
+    <div class="sidebar-item"><a href="records.html"><i class="fa fa-file-text"></i> Health Records</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Operations</div>
+    <div class="sidebar-item"><a href="appointment.html"><i class="fa fa-calendar"></i> Appointments</a></div>
+    <div class="sidebar-item"><a href="queue.html"><i class="fa fa-list-ol"></i> Queue Management</a></div>
+    <div class="sidebar-item"><a href="billing.html"><i class="fa fa-money"></i> Billing</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-item"><a href="index.html" onclick="Auth.logout();return false"><i class="fa fa-sign-out"></i> Logout</a></div>
+  </div>
+</aside>
+
+<main class="page-wrapper">
+  <div class="page-header">
+    <h1><i class="fa fa-user-plus"></i> Register New Patient</h1>
+    <div class="breadcrumb"><a href="dashboard.html">Home</a><span><a href="patients.html">Patients</a></span><span>Register</span></div>
+  </div>
+
+  <div id="success-msg" style="display:none"></div>
+
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fa fa-clipboard"></i> Patient Registration Form</h3>
+      <span class="badge badge-info">EKSU Health Centre</span>
+    </div>
+    <div class="card-body">
+      <form id="reg-form" onsubmit="registerPatient(event)" novalidate>
+
+        <!-- Personal Info -->
+        <div class="form-section">
+          <div class="form-section-title"><i class="fa fa-user"></i> Personal Information</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Matric Number / JAMB Reg No. <span class="req">*</span></label>
+              <input class="form-control" id="reg-matric" placeholder="e.g. EKS/2023/0001" required/>
+            </div>
+            <div class="form-group">
+              <label>Full Name <span class="req">*</span></label>
+              <input class="form-control" id="reg-name" placeholder="Surname, First, Middle" required/>
+            </div>
+            <div class="form-group">
+              <label>Gender <span class="req">*</span></label>
+              <select class="form-control" id="reg-gender" required>
+                <option value="">-- Select --</option>
+                <option>Male</option>
+                <option>Female</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Date of Birth</label>
+              <input type="date" class="form-control" id="reg-dob"/>
+            </div>
+            <div class="form-group">
+              <label>Phone Number</label>
+              <input class="form-control" id="reg-phone" placeholder="080XXXXXXXX"/>
+            </div>
+            <div class="form-group">
+              <label>Email Address</label>
+              <input type="email" class="form-control" id="reg-email" placeholder="student@student.eksu.edu.ng"/>
+            </div>
+          </div>
+        </div>
+
+        <!-- Academic Info -->
+        <div class="form-section">
+          <div class="form-section-title"><i class="fa fa-graduation-cap"></i> Academic Information</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Faculty</label>
+              <select class="form-control" id="reg-faculty">
+                <option value="">-- Select Faculty --</option>
+                <option>Arts</option>
+                <option>Education</option>
+                <option>Engineering and Technology</option>
+                <option>Environmental Sciences</option>
+                <option>Law</option>
+                <option>Management Sciences</option>
+                <option>Medical Sciences</option>
+                <option>Physical Sciences</option>
+                <option>Social Sciences</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Department <span class="req">*</span></label>
+              <input class="form-control" id="reg-dept" placeholder="e.g. Computer Science" required/>
+            </div>
+            <div class="form-group">
+              <label>Level</label>
+              <select class="form-control" id="reg-level">
+                <option value="">-- Select --</option>
+                <option>100</option><option>200</option><option>300</option>
+                <option>400</option><option>500</option><option>600</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Hostel / Address</label>
+              <input class="form-control" id="reg-address" placeholder="e.g. Hall 3, Room 12, EKSU"/>
+            </div>
+          </div>
+        </div>
+
+        <!-- Medical Info -->
+        <div class="form-section">
+          <div class="form-section-title"><i class="fa fa-heartbeat"></i> Medical Information</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Blood Group</label>
+              <select class="form-control" id="reg-blood">
+                <option value="">-- Select --</option>
+                <option>A+</option><option>A-</option>
+                <option>B+</option><option>B-</option>
+                <option>AB+</option><option>AB-</option>
+                <option>O+</option><option>O-</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Genotype</label>
+              <select class="form-control" id="reg-genotype">
+                <option value="">-- Select --</option>
+                <option>AA</option><option>AS</option><option>SS</option><option>AC</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Known Allergies</label>
+              <input class="form-control" id="reg-allergies" placeholder="e.g. Penicillin, Pollen, None"/>
+            </div>
+            <div class="form-group">
+              <label>Chronic Conditions</label>
+              <input class="form-control" id="reg-conditions" placeholder="e.g. Hypertension, Diabetes, None"/>
+            </div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label>Emergency Contact</label>
+              <input class="form-control" id="reg-emergency" placeholder="Name: Phone — e.g. Mrs A. Adeyemi: 08011223344"/>
+            </div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label>Additional Medical Notes</label>
+              <textarea class="form-control" id="reg-notes" placeholder="Any other relevant medical history..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Declaration -->
+        <div class="form-section">
+          <div style="background:#f8f9fa;border:1px solid var(--eksu-border);border-radius:4px;padding:14px">
+            <label style="display:flex;gap:10px;align-items:flex-start;font-size:13px;cursor:pointer;font-weight:normal;text-transform:none">
+              <input type="checkbox" id="reg-consent" style="margin-top:3px;accent-color:var(--eksu-red)" required/>
+              I confirm that the information provided above is accurate and I consent to having my health records managed by the EKSU Health Centre Management System.
+            </label>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <button type="submit" class="btn btn-red">
+            <i class="fa fa-save"></i> Register Patient
+          </button>
+          <button type="reset" class="btn btn-gray">
+            <i class="fa fa-refresh"></i> Clear Form
+          </button>
+          <a href="patients.html" class="btn btn-outline-teal">
+            <i class="fa fa-arrow-left"></i> Back to List
+          </a>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</main>
+
+<script src="assets/js/app.js"></script>
+<script>
+  initPage();
+
+  function registerPatient(e) {
+    e.preventDefault();
+    const matric = document.getElementById('reg-matric').value.trim();
+    const name   = document.getElementById('reg-name').value.trim();
+    const gender = document.getElementById('reg-gender').value;
+    const dept   = document.getElementById('reg-dept').value.trim();
+
+    if (!matric || !name || !gender || !dept) {
+      toast('Please fill in all required fields (marked with *).', 'error');
+      return;
+    }
+
+    // Check duplicate matric
+    const existing = Store.get('hcms_patients', []);
+    if (existing.find(p => p.matric.toLowerCase() === matric.toLowerCase())) {
+      toast('A patient with this Matric Number already exists.', 'error');
+      return;
+    }
+
+    const patient = {
+      id:         Store.nextId('hcms_patients'),
+      matric:     matric,
+      name:       name,
+      gender:     gender,
+      dob:        document.getElementById('reg-dob').value,
+      dept:       dept,
+      faculty:    document.getElementById('reg-faculty').value,
+      level:      document.getElementById('reg-level').value,
+      phone:      document.getElementById('reg-phone').value,
+      email:      document.getElementById('reg-email').value,
+      address:    document.getElementById('reg-address').value,
+      blood:      document.getElementById('reg-blood').value || 'Unknown',
+      genotype:   document.getElementById('reg-genotype').value,
+      allergies:  document.getElementById('reg-allergies').value || 'None',
+      conditions: document.getElementById('reg-conditions').value,
+      emergency:  document.getElementById('reg-emergency').value,
+      notes:      document.getElementById('reg-notes').value,
+      registeredOn: today(),
+    };
+
+    existing.push(patient);
+    Store.set('hcms_patients', existing);
+
+    const msg = document.getElementById('success-msg');
+    msg.style.display = 'flex';
+    msg.className = 'alert alert-success';
+    msg.innerHTML = `<i class="fa fa-check-circle"></i>
+      <div>Patient <strong>${name}</strong> (${matric}) has been registered successfully.
+      &nbsp;<a href="patients.html" style="color:inherit;text-decoration:underline">View all patients →</a></div>`;
+
+    document.getElementById('reg-form').reset();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    toast(`${name} registered successfully!`, 'success');
+  }
+</script>
+</body>
+</html>
