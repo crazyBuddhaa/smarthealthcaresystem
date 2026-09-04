@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Billing | CarePoint Health Centre</title>
+  <link rel="icon" href="assets/images/healthcare_favicon.svg"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
+  <link rel="stylesheet" href="assets/css/style.css"/>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="topnav-brand">
+    <button id="sidebar-toggle" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 8px 0 0"><i class="fa fa-bars"></i></button>
+    <img src="assets/images/healthcare_logo.svg" alt="CarePoint Health Centre"/>
+    <div class="topnav-brand-text">CarePoint<br>Health Centre</div>
+  </div>
+  <div class="topnav-title">Billing Management</div>
+  <div class="topnav-right">
+    <span style="font-size:13px;color:rgba(255,255,255,0.9)"><i class="fa fa-user-circle"></i> <span id="topnav-user"></span></span>
+    <button onclick="Auth.logout()" title="Logout" style="background:none;border:none;color:rgba(255,255,255,0.85);font-size:18px;cursor:pointer"><i class="fa fa-sign-out"></i></button>
+  </div>
+</nav>
+
+<aside class="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Main</div>
+    <div class="sidebar-item"><a href="dashboard.html"><i class="fa fa-tachometer"></i> Dashboard</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Patients</div>
+    <div class="sidebar-item"><a href="patients.html"><i class="fa fa-users"></i> Patient Records</a></div>
+    <div class="sidebar-item"><a href="register.html"><i class="fa fa-user-plus"></i> Register Patient</a></div>
+    <div class="sidebar-item"><a href="records.html"><i class="fa fa-file-text"></i> Health Records</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Operations</div>
+    <div class="sidebar-item"><a href="appointment.html"><i class="fa fa-calendar"></i> Appointments</a></div>
+    <div class="sidebar-item"><a href="queue.html"><i class="fa fa-list-ol"></i> Queue Management</a></div>
+    <div class="sidebar-item"><a href="billing.html"><i class="fa fa-money"></i> Billing</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-item"><a href="index.html" onclick="Auth.logout();return false"><i class="fa fa-sign-out"></i> Logout</a></div>
+  </div>
+</aside>
+
+<main class="page-wrapper">
+  <div class="page-header">
+    <h1><i class="fa fa-money"></i> Billing Management</h1>
+    <div class="breadcrumb"><a href="dashboard.html">Home</a><span>Billing</span></div>
+  </div>
+
+  <!-- Billing stats -->
+  <div class="stats-grid" id="billing-stats" style="margin-bottom:20px"></div>
+
+  <!-- Controls -->
+  <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+    <button class="btn btn-red" onclick="openModal('create-bill-modal')">
+      <i class="fa fa-plus"></i> Generate Bill
+    </button>
+    <div class="search-box" style="margin-left:auto">
+      <i class="fa fa-search"></i>
+      <input type="text" id="bill-search" placeholder="Search patient or matric..." oninput="filterBills()"/>
+    </div>
+    <select class="form-control" id="bill-status-filter" onchange="filterBills()" style="max-width:150px">
+      <option value="">All Status</option>
+      <option value="pending">Pending</option>
+      <option value="paid">Paid</option>
+    </select>
+  </div>
+
+  <!-- Bills table -->
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fa fa-list"></i> Invoice List</h3>
+      <span id="bills-count" class="badge badge-secondary"></span>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Invoice #</th>
+            <th>Date</th>
+            <th>Matric No.</th>
+            <th>Patient Name</th>
+            <th>Items</th>
+            <th>Total Amount</th>
+            <th>Status</th>
+            <th>Receipt Ref.</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="bills-tbody"></tbody>
+        <tfoot>
+          <tr class="tfoot-row">
+            <td colspan="5">Total Outstanding (Pending)</td>
+            <td id="total-pending" colspan="4"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- Create Bill Modal -->
+<div class="modal-backdrop" id="create-bill-modal">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <h4><i class="fa fa-file-text-o"></i> Generate Bill / Invoice</h4>
+      <button class="modal-close" onclick="closeModal('create-bill-modal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="bill-form" onsubmit="saveBill(event)">
+        <div class="form-grid" style="margin-bottom:16px">
+          <div class="form-group">
+            <label>Patient <span class="req">*</span></label>
+            <select class="form-control" id="bill-patient" required>
+              <option value="">-- Select patient --</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Date <span class="req">*</span></label>
+            <input type="date" class="form-control" id="bill-date" required/>
+          </div>
+        </div>
+
+        <!-- Line items -->
+        <div class="form-section-title" style="margin-bottom:10px"><i class="fa fa-list"></i> Bill Items</div>
+        <div id="bill-items">
+          <!-- Items added dynamically -->
+        </div>
+        <button type="button" class="btn btn-outline-teal btn-sm" onclick="addBillItem()" style="margin-bottom:16px">
+          <i class="fa fa-plus"></i> Add Item
+        </button>
+
+        <div style="background:var(--eksu-label-bg);border-radius:4px;padding:12px;display:flex;justify-content:space-between;align-items:center">
+          <strong>Total:</strong>
+          <strong id="bill-total-preview" style="font-size:18px;color:var(--eksu-red)">₦0.00</strong>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-red" onclick="document.getElementById('bill-form').requestSubmit()"><i class="fa fa-save"></i> Generate Invoice</button>
+      <button class="btn btn-gray" onclick="closeModal('create-bill-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- View/Receipt Modal -->
+<div class="modal-backdrop" id="receipt-modal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <h4><i class="fa fa-receipt fa-file-text-o"></i> Invoice / Receipt</h4>
+      <button class="modal-close" onclick="closeModal('receipt-modal')">&times;</button>
+    </div>
+    <div class="modal-body" id="receipt-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-red" onclick="window.print()"><i class="fa fa-print"></i> Print</button>
+      <button class="btn btn-gray" onclick="closeModal('receipt-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pay Modal -->
+<div class="modal-backdrop" id="pay-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h4><i class="fa fa-check-circle"></i> Record Payment</h4>
+      <button class="modal-close" onclick="closeModal('pay-modal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="pay-info" style="margin-bottom:16px"></div>
+      <form id="pay-form" onsubmit="recordPayment(event)">
+        <input type="hidden" id="pay-bill-id"/>
+        <div class="form-group" style="margin-bottom:14px">
+          <label>Payment Method <span class="req">*</span></label>
+          <select class="form-control" id="pay-method" required>
+            <option value="">-- Select --</option>
+            <option>Cash</option>
+            <option>Bank Transfer</option>
+            <option>POS / Card</option>
+            <option>School Bursary</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Receipt / Reference Number <span class="req">*</span></label>
+          <input class="form-control" id="pay-ref" placeholder="e.g. RCP2026001" required/>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-red" onclick="document.getElementById('pay-form').requestSubmit()"><i class="fa fa-check"></i> Confirm Payment</button>
+      <button class="btn btn-gray" onclick="closeModal('pay-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="assets/js/app.js"></script>
+<script>
+  initPage();
+
+  const DEFAULT_ITEMS = [
+    { desc:'Consultation Fee', amount:500 },
+    { desc:'', amount:0 },
+  ];
+
+  function init() {
+    const patients = Store.get('hcms_patients', []);
+    const sel = document.getElementById('bill-patient');
+    while (sel.options.length > 1) sel.remove(1);
+    patients.forEach(p => {
+      const o = document.createElement('option');
+      o.value = p.id;
+      o.textContent = `${p.matric} — ${p.name}`;
+      sel.appendChild(o);
+    });
+    document.getElementById('bill-date').value = today();
+    resetBillItems();
+    renderBills();
+  }
+
+  function resetBillItems() {
+    const container = document.getElementById('bill-items');
+    container.innerHTML = '';
+    DEFAULT_ITEMS.forEach(item => addBillItem(item.desc, item.amount));
+  }
+
+  function addBillItem(desc='', amount=0) {
+    const container = document.getElementById('bill-items');
+    const div = document.createElement('div');
+    div.className = 'bill-item-row';
+    div.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;align-items:center';
+    div.innerHTML = `
+      <input class="form-control bill-desc" placeholder="Description (e.g. Lab Test)" value="${desc}" style="flex:2" oninput="calcTotal()"/>
+      <input type="number" class="form-control bill-amt" placeholder="Amount (₦)" value="${amount||''}" min="0" step="50" style="flex:1" oninput="calcTotal()"/>
+      <button type="button" class="btn btn-sm btn-gray" onclick="this.parentElement.remove();calcTotal()" title="Remove"><i class="fa fa-times"></i></button>`;
+    container.appendChild(div);
+    calcTotal();
+  }
+
+  function calcTotal() {
+    const amounts = [...document.querySelectorAll('.bill-amt')].map(i => parseFloat(i.value)||0);
+    const total = amounts.reduce((s,a) => s+a, 0);
+    document.getElementById('bill-total-preview').textContent = formatNaira(total);
+  }
+
+  function saveBill(e) {
+    e.preventDefault();
+    const patientId = parseInt(document.getElementById('bill-patient').value);
+    if (!patientId) { toast('Please select a patient.', 'error'); return; }
+
+    const descs   = [...document.querySelectorAll('.bill-desc')].map(i => i.value.trim());
+    const amounts = [...document.querySelectorAll('.bill-amt')].map(i => parseFloat(i.value)||0);
+    const items   = descs.map((d, i) => ({ desc: d||'Service', amount: amounts[i] })).filter(it => it.amount > 0);
+
+    if (!items.length) { toast('Please add at least one billing item with an amount.', 'error'); return; }
+
+    const total = items.reduce((s, it) => s + it.amount, 0);
+    const patients = Store.get('hcms_patients', []);
+    const p = patients.find(x => x.id === patientId);
+
+    const bills = Store.get('hcms_bills', []);
+    bills.push({
+      id:        Store.nextId('hcms_bills'),
+      patientId,
+      matric:    p.matric,
+      name:      p.name,
+      date:      document.getElementById('bill-date').value,
+      items,
+      total,
+      status:    'pending',
+      ref:       '',
+    });
+    Store.set('hcms_bills', bills);
+    closeModal('create-bill-modal');
+    resetBillItems();
+    toast(`Invoice of ${formatNaira(total)} generated for ${p.name}.`, 'success');
+    renderBills();
+  }
+
+  function renderBills() {
+    const allBills = Store.get('hcms_bills', []);
+    const q = document.getElementById('bill-search').value.toLowerCase();
+    const status = document.getElementById('bill-status-filter').value;
+
+    const filtered = allBills.filter(b =>
+      (!q || b.name.toLowerCase().includes(q) || b.matric.toLowerCase().includes(q)) &&
+      (!status || b.status === status)
+    );
+
+    document.getElementById('bills-count').textContent = `${filtered.length} invoice(s)`;
+
+    // Stats
+    const paid    = allBills.filter(b => b.status === 'paid');
+    const pending = allBills.filter(b => b.status === 'pending');
+    const totalPaid    = paid.reduce((s,b)=>s+b.total,0);
+    const totalPending = pending.reduce((s,b)=>s+b.total,0);
+
+    document.getElementById('billing-stats').innerHTML = `
+      <div class="stat-card red"><div class="stat-icon"><i class="fa fa-file-text-o"></i></div><div class="stat-info"><div class="stat-value">${allBills.length}</div><div class="stat-label">Total Invoices</div></div></div>
+      <div class="stat-card amber"><div class="stat-icon"><i class="fa fa-clock-o"></i></div><div class="stat-info"><div class="stat-value">${pending.length}</div><div class="stat-label">Pending Bills</div><div class="stat-change down">▼ ${formatNaira(totalPending)}</div></div></div>
+      <div class="stat-card green"><div class="stat-icon"><i class="fa fa-check-circle"></i></div><div class="stat-info"><div class="stat-value">${paid.length}</div><div class="stat-label">Paid Bills</div><div class="stat-change up">▲ ${formatNaira(totalPaid)}</div></div></div>
+      <div class="stat-card teal"><div class="stat-icon"><i class="fa fa-money"></i></div><div class="stat-info"><div class="stat-value">${formatNaira(totalPaid + totalPending)}</div><div class="stat-label">Total Revenue</div></div></div>`;
+
+    document.getElementById('total-pending').textContent = formatNaira(totalPending) + ' outstanding';
+
+    const tbody = document.getElementById('bills-tbody');
+    tbody.innerHTML = '';
+    [...filtered].reverse().forEach(b => {
+      const invNo = `INV-${String(b.id).padStart(4, '0')}`;
+      tbody.innerHTML += `<tr>
+        <td><strong class="text-red">${invNo}</strong></td>
+        <td>${formatDate(b.date)}</td>
+        <td>${b.matric}</td>
+        <td>${b.name}</td>
+        <td style="font-size:12px">${b.items.map(i=>`${i.desc}`).join(', ')}</td>
+        <td class="text-bold">${formatNaira(b.total)}</td>
+        <td><span class="badge ${b.status==='paid'?'badge-success':'badge-warning'}">${b.status}</span></td>
+        <td style="font-size:12px;color:var(--eksu-muted)">${b.ref||'—'}</td>
+        <td>
+          <button class="btn btn-sm btn-teal" onclick="viewReceipt(${b.id})" title="View Invoice"><i class="fa fa-eye"></i></button>
+          ${b.status==='pending' ? `<button class="btn btn-sm btn-red" style="margin-left:4px" onclick="openPayModal(${b.id})" title="Record Payment"><i class="fa fa-check"></i></button>` : ''}
+          <button class="btn btn-sm btn-gray" style="margin-left:4px" onclick="deleteBill(${b.id})" title="Delete"><i class="fa fa-trash"></i></button>
+        </td>
+      </tr>`;
+    });
+  }
+
+  function viewReceipt(id) {
+    const b = Store.get('hcms_bills', []).find(x => x.id === id);
+    if (!b) return;
+    const invNo = `INV-${String(b.id).padStart(4,'0')}`;
+    document.getElementById('receipt-body').innerHTML = `
+      <div style="text-align:center;margin-bottom:16px">
+        <img src="assets/images/healthcare_logo.svg" style="height:48px;margin-bottom:6px"/><br>
+        <strong style="font-size:16px">EKITI STATE UNIVERSITY</strong><br>
+        <span style="font-size:12px;color:var(--eksu-muted)">University Health Centre &mdash; Ado-Ekiti</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:14px">
+        <div><strong>Invoice No:</strong> ${invNo}</div>
+        <div><strong>Date:</strong> ${formatDate(b.date)}</div>
+      </div>
+      <div style="background:var(--eksu-label-bg);border-radius:4px;padding:10px 14px;margin-bottom:14px;font-size:13px">
+        <strong>Patient:</strong> ${b.name}<br>
+        <strong>Matric No.:</strong> ${b.matric}
+      </div>
+      <table style="width:100%;font-size:13px;border-collapse:collapse;margin-bottom:14px">
+        <thead><tr style="background:var(--eksu-red);color:#fff"><th style="padding:8px 12px;text-align:left">Description</th><th style="padding:8px 12px;text-align:right">Amount</th></tr></thead>
+        <tbody>
+          ${b.items.map(i=>`<tr style="border-bottom:1px solid #eee"><td style="padding:8px 12px">${i.desc}</td><td style="padding:8px 12px;text-align:right">${formatNaira(i.amount)}</td></tr>`).join('')}
+        </tbody>
+        <tfoot><tr style="background:var(--eksu-label-bg);font-weight:700"><td style="padding:10px 12px">TOTAL</td><td style="padding:10px 12px;text-align:right;color:var(--eksu-red)">${formatNaira(b.total)}</td></tr></tfoot>
+      </table>
+      <div style="display:flex;justify-content:space-between;font-size:13px">
+        <div><strong>Status:</strong> <span class="badge ${b.status==='paid'?'badge-success':'badge-warning'}">${b.status.toUpperCase()}</span></div>
+        ${b.ref ? `<div><strong>Receipt Ref:</strong> ${b.ref}</div>` : ''}
+      </div>
+      <div style="margin-top:16px;font-size:11px;color:var(--eksu-muted);text-align:center;border-top:1px solid var(--eksu-border);padding-top:10px">
+        This invoice was generated by the CarePoint Smart Health Centre Management System.<br>
+        Retain for your records. For queries, contact CarePoint Health Centre, Ado-Ekiti.
+      </div>`;
+    openModal('receipt-modal');
+  }
+
+  function openPayModal(id) {
+    const b = Store.get('hcms_bills', []).find(x => x.id === id);
+    if (!b) return;
+    document.getElementById('pay-bill-id').value = id;
+    document.getElementById('pay-info').innerHTML = `
+      <div class="alert alert-info" style="margin:0">
+        <i class="fa fa-info-circle"></i>
+        <div>Recording payment for <strong>${b.name}</strong> — Invoice Amount: <strong>${formatNaira(b.total)}</strong></div>
+      </div>`;
+    document.getElementById('pay-ref').value = '';
+    document.getElementById('pay-method').value = '';
+    openModal('pay-modal');
+  }
+
+  function recordPayment(e) {
+    e.preventDefault();
+    const id  = parseInt(document.getElementById('pay-bill-id').value);
+    const ref = document.getElementById('pay-ref').value.trim();
+    if (!ref) { toast('Please enter a receipt/reference number.', 'error'); return; }
+    const bills = Store.get('hcms_bills', []);
+    const b = bills.find(x => x.id === id);
+    if (!b) return;
+    b.status = 'paid';
+    b.ref    = ref;
+    Store.set('hcms_bills', bills);
+    closeModal('pay-modal');
+    toast(`Payment recorded for ${b.name}. Receipt: ${ref}`, 'success');
+    renderBills();
+  }
+
+  function deleteBill(id) {
+    confirmAction('Delete this invoice? This cannot be undone.', () => {
+      Store.set('hcms_bills', Store.get('hcms_bills',[]).filter(b=>b.id!==id));
+      toast('Invoice deleted.', 'error');
+      renderBills();
+    });
+  }
+
+  function filterBills() { renderBills(); }
+
+  init();
+</script>
+</body>
+</html>

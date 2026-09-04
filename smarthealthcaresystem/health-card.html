@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Health Centre Card | CarePoint</title>
+  <link rel="icon" href="assets/images/healthcare_favicon.svg"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
+  <link rel="stylesheet" href="assets/css/style.css"/>
+  <style>
+    /* ── Card print layout ── */
+    .card-page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #f0f2f5;
+      padding: 30px 20px;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    /* The actual ID card */
+    .hc-card {
+      width: 340px;
+      height: 215px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #0B5C56 0%, #2563EB 100%);
+      color: #fff;
+      padding: 18px 20px 14px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(15,118,110,0.35);
+      font-family: 'Open Sans', sans-serif;
+      margin-bottom: 14px;
+    }
+
+    /* Decorative circles */
+    .hc-card::before {
+      content:'';
+      position:absolute;
+      top:-40px; right:-40px;
+      width:160px; height:160px;
+      border-radius:50%;
+      background:rgba(255,255,255,0.07);
+    }
+    .hc-card::after {
+      content:'';
+      position:absolute;
+      bottom:-50px; left:-50px;
+      width:200px; height:200px;
+      border-radius:50%;
+      background:rgba(255,255,255,0.05);
+    }
+
+    /* Healthcare blue stripe at bottom */
+    .hc-card-stripe {
+      position:absolute;
+      bottom:0; left:0; right:0;
+      height:6px;
+      background: linear-gradient(90deg, #14B8A6, #60A5FA);
+    }
+
+    .hc-card-header {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:10px;
+      position:relative; z-index:1;
+    }
+
+    .hc-card-institution { font-size:9px; opacity:0.75; letter-spacing:1.2px; text-transform:uppercase; }
+    .hc-card-title       { font-size:13px; font-weight:700; letter-spacing:0.4px; }
+
+    .hc-card-name   { font-size:17px; font-weight:700; letter-spacing:0.3px; position:relative; z-index:1; line-height:1.2; }
+    .hc-card-matric { font-size:11px; opacity:0.85; margin:2px 0 8px; position:relative; z-index:1; }
+    .hc-card-dept   { font-size:11px; opacity:0.75; margin-bottom:10px; position:relative; z-index:1; }
+
+    .hc-card-fields {
+      display:flex;
+      gap:16px;
+      position:relative; z-index:1;
+      font-size:11px;
+    }
+
+    .hc-card-field { display:flex; flex-direction:column; gap:1px; }
+    .hc-card-field-label  { opacity:0.65; font-size:9px; text-transform:uppercase; letter-spacing:0.5px; }
+    .hc-card-field-value  { font-weight:700; font-size:12px; }
+
+    .hc-card-footer {
+      position:absolute;
+      bottom:10px; right:18px;
+      z-index:1;
+      text-align:right;
+      font-size:10px;
+      opacity:0.7;
+    }
+
+    /* Back of card */
+    .hc-card-back {
+      width: 340px;
+      height: 215px;
+      border-radius: 14px;
+      background: #2c2c2c;
+      color: #fff;
+      padding: 0;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+      font-family: 'Open Sans', sans-serif;
+    }
+
+    .hc-card-back-stripe {
+      height: 44px;
+      background: #111;
+      margin-top: 24px;
+    }
+
+    .hc-card-back-body {
+      padding: 12px 20px;
+      font-size: 11px;
+    }
+
+    .hc-card-back-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      font-size: 11px;
+    }
+
+    .hc-card-back-row span:first-child { opacity: 0.65; }
+    .hc-card-back-row span:last-child  { font-weight: 600; }
+
+    /* Print styles */
+    @media print {
+      body { background: #fff !important; }
+      .card-actions, .card-page > h2, .card-page > p,
+      .topnav, .sidebar, .no-print { display: none !important; }
+      .card-page {
+        background: #fff;
+        padding: 0;
+        min-height: unset;
+        justify-content: flex-start;
+        margin: 0;
+      }
+      .cards-wrapper {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        padding: 10mm;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="card-page">
+
+  <div style="text-align:center;margin-bottom:6px">
+    <img src="assets/images/healthcare_logo.svg" style="height:44px;margin-bottom:6px"/>
+    <h2 style="font-size:17px;font-weight:700;color:#333">CarePoint Health Centre Card</h2>
+    <p style="font-size:13px;color:var(--eksu-muted)" id="card-subtitle">Loading card details…</p>
+  </div>
+
+  <div class="card-actions no-print">
+    <button class="btn btn-red" onclick="window.print()"><i class="fa fa-print"></i> Print Card</button>
+    <a href="student-portal.html" class="btn btn-teal"><i class="fa fa-user-circle"></i> My Portal</a>
+    <a href="index.html" class="btn btn-gray"><i class="fa fa-home"></i> Home</a>
+  </div>
+
+  <div class="cards-wrapper" style="display:flex;flex-direction:column;align-items:center;gap:16px">
+
+    <!-- FRONT -->
+    <div>
+      <p style="font-size:11px;color:var(--eksu-muted);text-align:center;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Front</p>
+      <div class="hc-card" id="card-front">
+        <div class="hc-card-header">
+          <div>
+            <div class="hc-card-institution">CarePoint Health Services</div>
+            <div class="hc-card-title">Smart Health Centre</div>
+          </div>
+          <img src="assets/images/healthcare_logo.svg" style="height:38px"/>
+        </div>
+
+        <div class="hc-card-name"  id="fc-name">— — —</div>
+        <div class="hc-card-matric" id="fc-matric">MATRIC: —</div>
+        <div class="hc-card-dept"   id="fc-dept">— | Level —</div>
+
+        <div class="hc-card-fields">
+          <div class="hc-card-field">
+            <span class="hc-card-field-label">Blood Group</span>
+            <span class="hc-card-field-value" id="fc-blood">—</span>
+          </div>
+          <div class="hc-card-field">
+            <span class="hc-card-field-label">Genotype</span>
+            <span class="hc-card-field-value" id="fc-geno">—</span>
+          </div>
+          <div class="hc-card-field">
+            <span class="hc-card-field-label">Allergies</span>
+            <span class="hc-card-field-value" id="fc-allergies" style="font-size:10px">—</span>
+          </div>
+          <div class="hc-card-field" style="margin-left:auto;text-align:right">
+            <span class="hc-card-field-label">Card No.</span>
+            <span class="hc-card-field-value" id="fc-card-no" style="letter-spacing:1px">—</span>
+          </div>
+        </div>
+
+        <div class="hc-card-footer">
+          <div>Session: 2025/2026</div>
+          <div id="fc-appt">Appt: —</div>
+        </div>
+        <div class="hc-card-stripe"></div>
+      </div>
+    </div>
+
+    <!-- BACK -->
+    <div>
+      <p style="font-size:11px;color:var(--eksu-muted);text-align:center;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Back</p>
+      <div class="hc-card-back">
+        <div class="hc-card-back-stripe"></div>
+        <div class="hc-card-back-body">
+          <div class="hc-card-back-row">
+            <span>Emergency Contact</span>
+            <span id="bc-emergency">—</span>
+          </div>
+          <div class="hc-card-back-row">
+            <span>Phone</span>
+            <span id="bc-phone">—</span>
+          </div>
+          <div class="hc-card-back-row">
+            <span>Department</span>
+            <span id="bc-dept">—</span>
+          </div>
+          <div class="hc-card-back-row">
+            <span>Registered On</span>
+            <span id="bc-registered">—</span>
+          </div>
+          <div style="margin-top:10px;font-size:9.5px;opacity:0.5;line-height:1.5">
+            If found, please return to CarePoint Health Centre, Ado-Ekiti.
+            This card is valid for the 2025/2026 academic session only.
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end cards-wrapper -->
+
+  <div class="alert alert-warning no-print" id="card-notice" style="max-width:380px;margin-top:18px;display:none">
+    <i class="fa fa-exclamation-triangle"></i>
+    <div id="card-notice-text"></div>
+  </div>
+
+</div>
+
+<script src="assets/js/app.js"></script>
+<script>
+  seedData();
+
+  function loadCard() {
+    // Check URL param first, then session storage
+    const params   = new URLSearchParams(window.location.search);
+    const matricP  = params.get('matric');
+    const newCard  = JSON.parse(sessionStorage.getItem('hcms_new_card') || 'null');
+
+    let p = null;
+
+    if (matricP) {
+      p = Store.get('hcms_patients',[]).find(x => x.matric.toLowerCase() === matricP.toLowerCase());
+    } else if (newCard) {
+      p = Store.get('hcms_patients',[]).find(x => x.id === newCard.patientId);
+    }
+
+    // Staff viewing a patient card
+    if (!p && Auth.current()) {
+      const pidParam = params.get('id');
+      if (pidParam) p = Store.get('hcms_patients',[]).find(x => x.id === parseInt(pidParam));
+    }
+
+    if (!p) {
+      document.getElementById('card-subtitle').textContent = 'Card not found. Please register first.';
+      const notice = document.getElementById('card-notice');
+      notice.style.display = 'flex';
+      document.getElementById('card-notice-text').innerHTML =
+        'No card data found. <a href="self-register.html" style="color:inherit;text-decoration:underline">Register here →</a>';
+      return;
+    }
+
+    const workflow = getRegistrationWorkflow(p.id);
+    const cardStep = workflow?.steps.find(step => step.key === 'card-collected');
+    const cardIssued = !workflow || p.cardIssued === true || cardStep?.status === 'complete';
+    const staffViewing = !!Auth.current();
+    if (workflow && !cardIssued && !staffViewing) {
+      document.getElementById('card-notice').style.display = 'flex';
+      document.getElementById('card-notice-text').innerHTML =
+        '<strong>Preview only:</strong> this card is not issued yet. Complete the Health Centre registration checklist and collect the physical card before treating this as your official card.';
+      document.querySelector('.card-actions button').innerHTML = '<i class="fa fa-eye"></i> Print Preview';
+    }
+
+    // Get appointment
+    const appt = Store.get('hcms_appointments',[]).find(a => a.patientId === p.id && a.status !== 'cancelled');
+
+    // Populate front
+    document.getElementById('fc-name').textContent    = p.name;
+    document.getElementById('fc-matric').textContent  = 'MATRIC: ' + p.matric;
+    document.getElementById('fc-dept').textContent    = p.dept + (p.level ? ' | Level ' + p.level : '');
+    document.getElementById('fc-blood').textContent   = p.blood || '—';
+    document.getElementById('fc-geno').textContent    = p.genotype || '—';
+    document.getElementById('fc-allergies').textContent = p.allergies || 'None';
+    document.getElementById('fc-card-no').textContent = p.cardNo || ('HC-' + String(p.id).padStart(6,'0'));
+    document.getElementById('fc-appt').textContent    = appt
+      ? 'Appt: ' + formatDate(appt.date) + ' ' + appt.time
+      : 'No appointment booked';
+
+    // Populate back
+    document.getElementById('bc-emergency').textContent  = p.emergency || '—';
+    document.getElementById('bc-phone').textContent      = p.phone || '—';
+    document.getElementById('bc-dept').textContent       = p.dept || '—';
+    document.getElementById('bc-registered').textContent = formatDate(p.registeredOn || today());
+
+    // Subtitle
+    document.getElementById('card-subtitle').textContent =
+      workflow && !cardIssued && !staffViewing
+        ? `Provisional card preview for ${p.name} (${p.matric})`
+        : `Health Centre Card for ${p.name} (${p.matric})`;
+  }
+
+  loadCard();
+</script>
+</body>
+</html>

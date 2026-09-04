@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Appointments | CarePoint Health Centre</title>
+  <link rel="icon" href="assets/images/healthcare_favicon.svg"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
+  <link rel="stylesheet" href="assets/css/style.css"/>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="topnav-brand">
+    <button id="sidebar-toggle" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 8px 0 0"><i class="fa fa-bars"></i></button>
+    <img src="assets/images/healthcare_logo.svg" alt="CarePoint Health Centre"/>
+    <div class="topnav-brand-text">CarePoint<br>Health Centre</div>
+  </div>
+  <div class="topnav-title">Appointment Management</div>
+  <div class="topnav-right">
+    <span style="font-size:13px;color:rgba(255,255,255,0.9)"><i class="fa fa-user-circle"></i> <span id="topnav-user"></span></span>
+    <button onclick="Auth.logout()" title="Logout" style="background:none;border:none;color:rgba(255,255,255,0.85);font-size:18px;cursor:pointer"><i class="fa fa-sign-out"></i></button>
+  </div>
+</nav>
+
+<aside class="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Main</div>
+    <div class="sidebar-item"><a href="dashboard.html"><i class="fa fa-tachometer"></i> Dashboard</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Patients</div>
+    <div class="sidebar-item"><a href="patients.html"><i class="fa fa-users"></i> Patient Records</a></div>
+    <div class="sidebar-item"><a href="register.html"><i class="fa fa-user-plus"></i> Register Patient</a></div>
+    <div class="sidebar-item"><a href="records.html"><i class="fa fa-file-text"></i> Health Records</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Operations</div>
+    <div class="sidebar-item"><a href="appointment.html"><i class="fa fa-calendar"></i> Appointments</a></div>
+    <div class="sidebar-item"><a href="queue.html"><i class="fa fa-list-ol"></i> Queue Management</a></div>
+    <div class="sidebar-item"><a href="billing.html"><i class="fa fa-money"></i> Billing</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-item"><a href="index.html" onclick="Auth.logout();return false"><i class="fa fa-sign-out"></i> Logout</a></div>
+  </div>
+</aside>
+
+<main class="page-wrapper">
+  <div class="page-header">
+    <h1><i class="fa fa-calendar"></i> Appointment Management</h1>
+    <div class="breadcrumb"><a href="dashboard.html">Home</a><span>Appointments</span></div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid" id="appt-stats" style="margin-bottom:20px"></div>
+
+  <!-- Date filter + controls -->
+  <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+    <div class="search-box">
+      <i class="fa fa-search"></i>
+      <input type="text" id="appt-search" placeholder="Search name or matric…" oninput="renderAppts()"/>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="font-size:12px;font-weight:600;color:#555">Filter Date:</label>
+      <input type="date" class="form-control" id="appt-date-filter" onchange="renderAppts()" style="max-width:160px"/>
+    </div>
+    <select class="form-control" id="appt-status-filter" onchange="renderAppts()" style="max-width:150px">
+      <option value="">All Status</option>
+      <option value="confirmed">Confirmed</option>
+      <option value="pending">Pending</option>
+      <option value="rescheduled">Rescheduled</option>
+      <option value="cancelled">Cancelled</option>
+      <option value="completed">Completed</option>
+    </select>
+    <button class="btn btn-teal btn-sm" onclick="document.getElementById('appt-date-filter').value='';renderAppts()">
+      <i class="fa fa-times"></i> Clear Filter
+    </button>
+  </div>
+
+  <!-- Appointments table -->
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fa fa-calendar-check-o"></i> Booked Appointments</h3>
+      <span id="appt-count" class="badge badge-secondary"></span>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Matric No.</th>
+            <th>Student Name</th>
+            <th>Department</th>
+            <th>Reason</th>
+            <th>Payment Ref.</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="appt-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Today's schedule card -->
+  <div class="card mt-3">
+    <div class="card-header">
+      <h3><i class="fa fa-clock-o"></i> Today's Schedule</h3>
+      <span class="badge badge-info" id="today-label"></span>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr><th>Time</th><th>Student</th><th>Matric No.</th><th>Dept.</th><th>Reason</th><th>Status</th><th>Action</th></tr>
+        </thead>
+        <tbody id="today-tbody">
+          <tr><td colspan="7" class="text-center text-muted" style="padding:20px">No appointments scheduled for today.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- Appointment Detail / Confirm Modal -->
+<div class="modal-backdrop" id="appt-modal">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header">
+      <h4><i class="fa fa-calendar-check-o"></i> Appointment Details</h4>
+      <button class="modal-close" onclick="closeModal('appt-modal')">&times;</button>
+    </div>
+    <div class="modal-body" id="appt-modal-body"></div>
+    <div class="modal-footer" id="appt-modal-footer"></div>
+  </div>
+</div>
+
+<script src="assets/js/app.js"></script>
+<script>
+  initPage();
+
+  function init() {
+    document.getElementById('today-label').textContent = new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+    renderAppts();
+    renderToday();
+  }
+
+  function renderAppts() {
+    const appts   = Store.get('hcms_appointments', []);
+    const q       = document.getElementById('appt-search').value.toLowerCase();
+    const dateF   = document.getElementById('appt-date-filter').value;
+    const statusF = document.getElementById('appt-status-filter').value;
+
+    const filtered = appts.filter(a =>
+      (!q       || a.name.toLowerCase().includes(q) || a.matric.toLowerCase().includes(q)) &&
+      (!dateF   || a.date === dateF) &&
+      (!statusF || a.status === statusF)
+    );
+
+    // Stats
+    const confirmed    = appts.filter(a => a.status === 'confirmed').length;
+    const pending      = appts.filter(a => a.status === 'pending').length;
+    const rescheduled  = appts.filter(a => a.status === 'rescheduled').length;
+    const completed    = appts.filter(a => a.status === 'completed').length;
+
+    document.getElementById('appt-stats').innerHTML = `
+      <div class="stat-card teal"><div class="stat-icon"><i class="fa fa-check-circle"></i></div>
+        <div class="stat-info"><div class="stat-value">${confirmed}</div><div class="stat-label">Confirmed</div></div></div>
+      <div class="stat-card amber"><div class="stat-icon"><i class="fa fa-clock-o"></i></div>
+        <div class="stat-info"><div class="stat-value">${pending}</div><div class="stat-label">Pending</div></div></div>
+      <div class="stat-card red"><div class="stat-icon"><i class="fa fa-refresh"></i></div>
+        <div class="stat-info"><div class="stat-value">${rescheduled}</div><div class="stat-label">Rescheduled</div></div></div>
+      <div class="stat-card green"><div class="stat-icon"><i class="fa fa-flag-checkered"></i></div>
+        <div class="stat-info"><div class="stat-value">${completed}</div><div class="stat-label">Completed</div></div></div>`;
+
+    document.getElementById('appt-count').textContent = `${filtered.length} result(s)`;
+
+    const statusCls = { confirmed:'badge-success', pending:'badge-pending', rescheduled:'badge-info', cancelled:'badge-danger', completed:'badge-secondary' };
+    const tbody = document.getElementById('appt-tbody');
+    tbody.innerHTML = '';
+
+    if (!filtered.length) {
+      tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted" style="padding:24px">No appointments match the current filter.</td></tr>';
+      return;
+    }
+
+    // Sort by date then time
+    [...filtered].sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time)).forEach((a, i) => {
+      tbody.innerHTML += `<tr>
+        <td>${i+1}</td>
+        <td>${formatDate(a.date)}</td>
+        <td><strong>${a.time}</strong></td>
+        <td><span class="text-red text-bold">${a.matric}</span></td>
+        <td>${a.name}</td>
+        <td>${a.dept}</td>
+        <td style="font-size:12px">${a.reason}</td>
+        <td style="font-size:12px;color:var(--eksu-muted)">${a.paymentRef}</td>
+        <td><span class="badge ${statusCls[a.status]||'badge-secondary'}">${a.status}</span></td>
+        <td>
+          <button class="btn btn-sm btn-teal" onclick="viewAppt(${a.id})" title="View"><i class="fa fa-eye"></i></button>
+          ${a.status==='pending'    ? `<button class="btn btn-sm btn-red" style="margin-left:4px" onclick="confirmAppt(${a.id})" title="Confirm"><i class="fa fa-check"></i></button>` : ''}
+          ${a.status==='rescheduled'? `<button class="btn btn-sm btn-amber" style="margin-left:4px;background:var(--eksu-amber);color:#fff" onclick="approveReschedule(${a.id})" title="Approve Reschedule"><i class="fa fa-calendar"></i></button>` : ''}
+          ${a.status!=='cancelled' && a.status!=='completed' ? `<button class="btn btn-sm btn-gray" style="margin-left:4px" onclick="cancelAppt(${a.id})" title="Cancel"><i class="fa fa-times"></i></button>` : ''}
+          ${a.status==='confirmed'  ? `<button class="btn btn-sm btn-outline-teal" style="margin-left:4px" onclick="markComplete(${a.id})" title="Mark Complete"><i class="fa fa-flag-checkered"></i></button>` : ''}
+          <a class="btn btn-sm btn-outline-red" style="margin-left:4px" href="health-card.html?matric=${encodeURIComponent(a.matric)}" title="View Card"><i class="fa fa-id-card-o"></i></a>
+        </td>
+      </tr>`;
+    });
+  }
+
+  function renderToday() {
+    const todayStr = today();
+    const appts = Store.get('hcms_appointments',[]).filter(a => a.date === todayStr);
+    const tbody = document.getElementById('today-tbody');
+    const statusCls = { confirmed:'badge-success', pending:'badge-pending', rescheduled:'badge-info', cancelled:'badge-danger', completed:'badge-secondary' };
+
+    if (!appts.length) return;
+    tbody.innerHTML = '';
+    [...appts].sort((a,b) => a.time.localeCompare(b.time)).forEach(a => {
+      tbody.innerHTML += `<tr>
+        <td><strong>${a.time}</strong></td>
+        <td>${a.name}</td>
+        <td>${a.matric}</td>
+        <td>${a.dept}</td>
+        <td style="font-size:12px">${a.reason}</td>
+        <td><span class="badge ${statusCls[a.status]||'badge-secondary'}">${a.status}</span></td>
+        <td>
+          <button class="btn btn-sm btn-teal" onclick="sendToQueue(${a.id})"><i class="fa fa-list-ol"></i> Queue</button>
+        </td>
+      </tr>`;
+    });
+  }
+
+  function viewAppt(id) {
+    const a = Store.get('hcms_appointments',[]).find(x => x.id === id);
+    if (!a) return;
+    const p = Store.get('hcms_patients',[]).find(x => x.id === a.patientId);
+    const statusCls = { confirmed:'badge-success', pending:'badge-pending', rescheduled:'badge-info', cancelled:'badge-danger', completed:'badge-secondary' };
+
+    document.getElementById('appt-modal-body').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">
+        <div class="card" style="margin:0;border-left:4px solid var(--eksu-teal)">
+          <div class="card-body" style="padding:12px">
+            <div style="font-size:10px;color:var(--eksu-muted);text-transform:uppercase;margin-bottom:2px">Date</div>
+            <div style="font-size:18px;font-weight:700;color:var(--eksu-teal)">${formatDate(a.date)}</div>
+          </div>
+        </div>
+        <div class="card" style="margin:0;border-left:4px solid var(--eksu-red)">
+          <div class="card-body" style="padding:12px">
+            <div style="font-size:10px;color:var(--eksu-muted);text-transform:uppercase;margin-bottom:2px">Time</div>
+            <div style="font-size:18px;font-weight:700;color:var(--eksu-red)">${a.time}</div>
+          </div>
+        </div>
+        <div style="grid-column:1/-1;background:var(--eksu-label-bg);border-radius:4px;padding:12px">
+          <strong>${a.name}</strong> — ${a.matric}<br>
+          <span style="color:var(--eksu-muted)">${a.dept}</span>
+        </div>
+        <div><strong>Reason:</strong><br>${a.reason}</div>
+        <div><strong>Status:</strong><br><span class="badge ${statusCls[a.status]}">${a.status}</span></div>
+        <div><strong>Payment Ref:</strong><br>${a.paymentRef}</div>
+        <div><strong>Card No.:</strong><br>${a.cardNo||p?.cardNo||'—'}</div>
+        ${a.rescheduleDate ? `<div style="grid-column:1/-1;background:#fff3e0;border-radius:4px;padding:10px;border-left:3px solid var(--eksu-amber)">
+          <strong>Reschedule Request:</strong> ${formatDate(a.rescheduleDate)} at ${a.rescheduleTime}<br>
+          <span style="font-size:12px">${a.rescheduleReason||''}</span>
+        </div>` : ''}
+      </div>`;
+
+    document.getElementById('appt-modal-footer').innerHTML = `
+      ${a.status==='pending'     ? `<button class="btn btn-teal btn-sm" onclick="confirmAppt(${a.id});closeModal('appt-modal')"><i class="fa fa-check"></i> Confirm</button>` : ''}
+      ${a.status==='rescheduled' ? `<button class="btn btn-amber btn-sm" style="background:var(--eksu-amber);color:#fff" onclick="approveReschedule(${a.id});closeModal('appt-modal')"><i class="fa fa-calendar"></i> Approve Reschedule</button>` : ''}
+      ${a.status==='confirmed'   ? `<button class="btn btn-teal btn-sm" onclick="sendToQueue(${a.id});closeModal('appt-modal')"><i class="fa fa-list-ol"></i> Add to Queue</button>` : ''}
+      <a href="health-card.html?matric=${encodeURIComponent(a.matric)}" class="btn btn-outline-red btn-sm"><i class="fa fa-id-card-o"></i> View Card</a>
+      <button class="btn btn-gray btn-sm" onclick="closeModal('appt-modal')">Close</button>`;
+
+    openModal('appt-modal');
+  }
+
+  function confirmAppt(id) {
+    updateApptStatus(id, 'confirmed');
+    toast('Appointment confirmed. Student will be notified.', 'success');
+  }
+
+  function approveReschedule(id) {
+    const appts = Store.get('hcms_appointments',[]);
+    const a = appts.find(x => x.id === id);
+    if (!a) return;
+    a.date   = a.rescheduleDate;
+    a.time   = a.rescheduleTime;
+    a.status = 'confirmed';
+    Store.set('hcms_appointments', appts);
+    toast('Reschedule approved. New date: ' + formatDate(a.date) + ' at ' + a.time, 'success');
+    renderAppts(); renderToday();
+  }
+
+  function cancelAppt(id) {
+    confirmAction('Cancel this appointment?', () => {
+      updateApptStatus(id, 'cancelled');
+      toast('Appointment cancelled.', 'error');
+    });
+  }
+
+  function markComplete(id) {
+    updateApptStatus(id, 'completed');
+    toast('Appointment marked as completed.', 'success');
+  }
+
+  function sendToQueue(id) {
+    const a = Store.get('hcms_appointments',[]).find(x => x.id === id);
+    if (!a) return;
+    const queue = Store.get('hcms_queue',[]);
+    const already = queue.find(q => q.patientId === a.patientId && q.status !== 'done');
+    if (already) { toast(`${a.name} is already in the queue (#${already.token}).`, 'warning'); return; }
+
+    const maxToken = queue.reduce((m,q) => Math.max(m, parseInt(q.token)||0), 0);
+    const token    = String(maxToken+1).padStart(3,'0');
+    queue.push({
+      id:        Store.nextId('hcms_queue'),
+      patientId: a.patientId,
+      name:      a.name,
+      matric:    a.matric,
+      dept:      a.dept,
+      time:      a.time,
+      reason:    a.reason,
+      status:    'waiting',
+      token,
+    });
+    Store.set('hcms_queue', queue);
+    updateApptStatus(id, 'completed');
+    toast(`${a.name} added to queue as #${token}. Redirecting to queue…`, 'info', 2000);
+    setTimeout(() => window.location.href = 'queue.html', 1800);
+  }
+
+  function updateApptStatus(id, status) {
+    const appts = Store.get('hcms_appointments',[]);
+    const a = appts.find(x => x.id === id);
+    if (a) { a.status = status; Store.set('hcms_appointments', appts); }
+    renderAppts(); renderToday();
+  }
+
+  init();
+</script>
+</body>
+</html>
