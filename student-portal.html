@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Student Portal | EKSU Health Centre</title>
-  <link rel="icon" href="assets/images/eksu_favicon.ico"/>
+  <title>Student Portal | CarePoint Health Centre</title>
+  <link rel="icon" href="assets/images/healthcare_favicon.svg"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
   <link rel="stylesheet" href="assets/css/style.css"/>
   <style>
@@ -26,7 +26,7 @@
     .portal-body { margin-top:56px; padding:24px; max-width:900px; margin-left:auto; margin-right:auto; }
 
     .student-card-banner {
-      background: linear-gradient(135deg, #F04B46 0%, #b03030 100%);
+      background: linear-gradient(135deg, #0B5C56 0%, #2563EB 100%);
       border-radius: 10px;
       padding: 20px 24px;
       color: #fff;
@@ -34,7 +34,7 @@
       align-items: center;
       gap: 20px;
       margin-bottom: 24px;
-      box-shadow: 0 4px 16px rgba(240,75,70,0.3);
+      box-shadow: 0 4px 16px rgba(15,118,110,0.3);
       flex-wrap: wrap;
     }
     .student-avatar {
@@ -91,10 +91,10 @@
 
 <!-- Login state (shown before auth) -->
 <div id="login-view">
-  <div style="min-height:100vh;background:linear-gradient(135deg,#F04B46 0%,#b03030 100%);display:flex;align-items:center;justify-content:center;padding:20px">
+  <div style="min-height:100vh;background:linear-gradient(135deg,#0B5C56 0%,#2563EB 100%);display:flex;align-items:center;justify-content:center;padding:20px">
     <div class="student-login-card">
       <div class="login-brand">
-        <a href="index.html"><img src="assets/images/eksu_logo.png" alt="EKSU"/></a>
+        <a href="index.html"><img src="assets/images/healthcare_logo.svg" alt="CarePoint Health Centre"/></a>
         <div class="login-brand-title"><i class="fa fa-user-circle"></i> STUDENT PORTAL</div>
       </div>
       <div class="login-body">
@@ -108,7 +108,7 @@
         <div id="s-login-alert" style="display:none;margin-bottom:12px"></div>
         <div class="field-group">
           <div class="field-label"><i class="fa fa-id-badge"></i> MATRIC NO.</div>
-          <input type="text" id="s-matric" placeholder="e.g. EKS/2023/0001"/>
+          <input type="text" id="s-matric" placeholder="e.g. STU/2023/0001"/>
         </div>
         <div class="field-group">
           <div class="field-label"><i class="fa fa-lock"></i> PASSWORD</div>
@@ -122,7 +122,7 @@
           <br><a href="index.html" style="color:var(--eksu-muted)">Staff Login</a>
         </div>
       </div>
-      <div class="login-footer">EKSU Health Centre &copy; 2026</div>
+       <div class="login-footer">CarePoint Health Centre &copy; 2026</div>
     </div>
   </div>
 </div>
@@ -132,7 +132,7 @@
 
   <nav class="portal-nav">
     <div class="portal-nav-brand">
-      <img src="assets/images/eksu_logo.png" alt="EKSU"/>
+      <img src="assets/images/healthcare_logo.svg" alt="CarePoint Health Centre"/>
       <span>Student Health Portal</span>
     </div>
     <div style="display:flex;align-items:center;gap:12px">
@@ -276,13 +276,13 @@
       </div>
       <!-- Mini card preview -->
       <div style="display:flex;justify-content:center">
-        <div style="background:linear-gradient(135deg,#F04B46,#b03030);border-radius:12px;padding:16px 20px;color:#fff;width:320px;box-shadow:0 6px 20px rgba(240,75,70,0.35)">
+        <div style="background:linear-gradient(135deg,#0B5C56,#2563EB);border-radius:12px;padding:16px 20px;color:#fff;width:320px;box-shadow:0 6px 20px rgba(15,118,110,0.3)">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
             <div>
-              <div style="font-size:9px;opacity:0.7;letter-spacing:1px;text-transform:uppercase">Ekiti State University</div>
-              <div style="font-size:12px;font-weight:700">University Health Centre</div>
+              <div style="font-size:9px;opacity:0.7;letter-spacing:1px;text-transform:uppercase">CarePoint Health Services</div>
+              <div style="font-size:12px;font-weight:700">Smart Health Centre</div>
             </div>
-            <img src="assets/images/eksu_logo.png" style="height:32px;filter:brightness(10)"/>
+            <img src="assets/images/healthcare_logo.svg" style="height:32px"/>
           </div>
           <div style="font-size:16px;font-weight:700" id="mini-card-name">—</div>
           <div style="font-size:11px;opacity:0.8;margin:2px 0 8px" id="mini-card-matric">—</div>
@@ -398,7 +398,7 @@
         </div>
         <div style="grid-column:1/-1">
           <strong>Reason:</strong> ${appt.reason}<br>
-          <strong>Location:</strong> University Health Centre, EKSU, Ado-Ekiti<br>
+          <strong>Location:</strong> CarePoint Health Centre, Ado-Ekiti<br>
           <strong>Payment Ref:</strong> ${appt.paymentRef}<br>
           <strong>Status:</strong> <span class="badge ${statusMap[appt.status]}">${appt.status}</span>
         </div>

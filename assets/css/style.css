@@ -1,6 +1,6 @@
 /* =============================================
-   EKSU SMART HEALTH CENTRE MANAGEMENT SYSTEM
-   Theme strictly matched to eksuportal.eksu.edu.ng
+   CAREPOINT SMART HEALTH CENTRE MANAGEMENT SYSTEM
+   Neutral healthcare branding
    ============================================= */
 
 /* ── Google Fonts ── */
@@ -8,21 +8,21 @@
 
 /* ── CSS Variables ── */
 :root {
-  --eksu-red:      #F04B46;
-  --eksu-red-dark: #d93d38;
-  --eksu-teal:     #00897B;
-  --eksu-teal-dark:#00695C;
-  --eksu-amber:    #FF9800;
-  --eksu-amber-bg: #FFF3E0;
-  --eksu-label-bg: #f5f5f5;
-  --eksu-border:   #dee2e6;
+  --eksu-red:      #0F766E;
+  --eksu-red-dark: #0B5C56;
+  --eksu-teal:     #2563EB;
+  --eksu-teal-dark:#1D4ED8;
+  --eksu-amber:    #F59E0B;
+  --eksu-amber-bg: #FEF3C7;
+  --eksu-label-bg: #F0FDFA;
+  --eksu-border:   #D6E4E3;
   --eksu-shadow:   0 4px 24px rgba(0,0,0,0.18);
-  --eksu-text:     #333333;
-  --eksu-muted:    #6c757d;
+  --eksu-text:     #17324D;
+  --eksu-muted:    #64748B;
   --eksu-white:    #ffffff;
-  --eksu-success:  #28a745;
-  --eksu-warning:  #ffc107;
-  --eksu-danger:   #dc3545;
+  --eksu-success:  #16A34A;
+  --eksu-warning:  #F59E0B;
+  --eksu-danger:   #DC2626;
   --sidebar-width: 250px;
 }
 
@@ -56,18 +56,17 @@ img { max-width: 100%; }
 .login-bg {
   position: fixed;
   inset: 0;
-  background-image: url('../images/campus_bg.jpeg');
-  background-size: cover;
-  background-position: center;
-  filter: blur(3px) brightness(0.7);
-  transform: scale(1.05);
+  background:
+    radial-gradient(circle at 15% 20%, rgba(37,99,235,0.26), transparent 32%),
+    radial-gradient(circle at 85% 75%, rgba(20,184,166,0.24), transparent 36%),
+    linear-gradient(135deg, #0b3b53 0%, #0f766e 48%, #2563eb 100%);
   z-index: 0;
 }
 
 .login-bg-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(240, 75, 70, 0.10);
+  background: rgba(8, 47, 73, 0.28);
   z-index: 1;
 }
 
@@ -357,7 +356,7 @@ img { max-width: 100%; }
 }
 
 .sidebar-item a.active {
-  background: rgba(240,75,70,0.18);
+  background: rgba(20,184,166,0.18);
   color: var(--eksu-red);
   border-left-color: var(--eksu-red);
   font-weight: 600;
@@ -487,9 +486,9 @@ img { max-width: 100%; }
   flex-shrink: 0;
 }
 
-.stat-card.red   .stat-icon { background: rgba(240,75,70,0.12);  color: var(--eksu-red); }
-.stat-card.teal  .stat-icon { background: rgba(0,137,123,0.12);  color: var(--eksu-teal); }
-.stat-card.amber .stat-icon { background: rgba(255,152,0,0.12);  color: var(--eksu-amber); }
+.stat-card.red   .stat-icon { background: rgba(15,118,110,0.12);  color: var(--eksu-red); }
+.stat-card.teal  .stat-icon { background: rgba(37,99,235,0.12);  color: var(--eksu-teal); }
+.stat-card.amber .stat-icon { background: rgba(245,158,11,0.15);  color: var(--eksu-amber); }
 .stat-card.green .stat-icon { background: rgba(40,167,69,0.12);  color: var(--eksu-success); }
 
 .stat-info { flex: 1; }
@@ -600,7 +599,7 @@ tbody tr:nth-child(even):hover { background: #f0f2f5; }
 
 .form-control:focus {
   border-color: var(--eksu-red);
-  box-shadow: 0 0 0 3px rgba(240,75,70,0.1);
+  box-shadow: 0 0 0 3px rgba(15,118,110,0.12);
 }
 
 select.form-control { appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 10px center; background-size: 16px; padding-right: 32px; }
@@ -662,10 +661,10 @@ textarea.form-control { resize: vertical; min-height: 90px; }
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.queue-card:hover { border-color: var(--eksu-red); box-shadow: 0 2px 12px rgba(240,75,70,0.1); }
+.queue-card:hover { border-color: var(--eksu-red); box-shadow: 0 2px 12px rgba(15,118,110,0.12); }
 
 .queue-card.status-waiting  { border-color: var(--eksu-amber); }
-.queue-card.status-active   { border-color: var(--eksu-teal); background: rgba(0,137,123,0.03); }
+.queue-card.status-active   { border-color: var(--eksu-teal); background: rgba(37,99,235,0.04); }
 .queue-card.status-done     { border-color: var(--eksu-success); opacity: 0.8; }
 
 .queue-number {

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Student Health Centre Registration | EKSU</title>
-  <link rel="icon" href="assets/images/eksu_favicon.ico"/>
+  <title>Student Health Centre Registration | CarePoint</title>
+  <link rel="icon" href="assets/images/healthcare_favicon.svg"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
   <link rel="stylesheet" href="assets/css/style.css"/>
   <style>
@@ -70,14 +70,14 @@
 
     /* Card preview mini */
     .card-preview-mini {
-      background: linear-gradient(135deg, #F04B46 0%, #c0392b 100%);
+      background: linear-gradient(135deg, #0B5C56 0%, #2563EB 100%);
       border-radius: 10px;
       padding: 16px 18px;
       color: #fff;
       font-size: 12px;
       position: relative;
       overflow: hidden;
-      box-shadow: 0 4px 16px rgba(240,75,70,0.35);
+      box-shadow: 0 4px 16px rgba(15,118,110,0.3);
     }
     .card-preview-mini::before {
       content: '';
@@ -105,7 +105,7 @@
     <div class="login-card" style="max-width:560px">
       <!-- Brand header -->
       <div class="login-brand">
-        <a href="index.html"><img src="assets/images/eksu_logo.png" alt="EKSU Logo"/></a>
+        <a href="index.html"><img src="assets/images/healthcare_logo.svg" alt="CarePoint Health Centre"/></a>
         <div class="login-brand-title">
           <i class="fa fa-id-card-o"></i> STUDENT HEALTH REGISTRATION
         </div>
@@ -143,7 +143,7 @@
             <div class="notice-icon" style="font-size:28px"><i class="fa fa-info-circle"></i></div>
             <div class="notice-content">
               <h5>Before you begin</h5>
-              <p>You must have paid your <strong>Health Centre Fee</strong> on the EKSU payment portal. Enter your Matric Number and the <strong>RRR / Payment Reference</strong> you received after payment.</p>
+              <p>You must have paid your <strong>Health Centre Fee</strong> through the payment portal. Enter your Matric Number and the <strong>RRR / Payment Reference</strong> you received after payment.</p>
             </div>
           </div>
 
@@ -151,16 +151,16 @@
 
           <div class="field-group">
             <div class="field-label"><i class="fa fa-id-badge"></i> MATRIC NO.</div>
-            <input type="text" id="s1-matric" placeholder="e.g. EKS/2023/0001" autocomplete="off"/>
+            <input type="text" id="s1-matric" placeholder="e.g. STU/2023/0001" autocomplete="off"/>
           </div>
           <div class="field-group">
             <div class="field-label"><i class="fa fa-credit-card"></i> PAYMENT REF</div>
-            <input type="text" id="s1-ref" placeholder="RRR / EKSU Reference Number"/>
+            <input type="text" id="s1-ref" placeholder="RRR / CarePoint Reference Number"/>
           </div>
 
           <p style="font-size:11px;color:var(--eksu-muted);margin:8px 0 14px">
-            <i class="fa fa-lock"></i> Your payment reference is verified against the EKSU Remita payment system.
-            <strong>Demo:</strong> use any reference starting with <code>EKSU</code> or <code>RRR</code>.
+            <i class="fa fa-lock"></i> Your payment reference is verified against the CarePoint payment system.
+            <strong>Demo:</strong> use any reference starting with <code>CARE</code>, <code>HCS</code>, or <code>RRR</code>.
           </p>
 
           <button class="btn btn-red btn-block" onclick="step1Next()">
@@ -232,7 +232,7 @@
             </div>
             <div class="form-group">
               <label>Email Address</label>
-              <input type="email" class="form-control" id="s2-email" placeholder="student@eksu.edu.ng"/>
+              <input type="email" class="form-control" id="s2-email" placeholder="student@carepoint.health"/>
             </div>
           </div>
 
@@ -343,7 +343,7 @@
         <!-- STEP 5: Success + Card Preview -->
         <div class="wizard-panel" id="panel-5">
           <div style="text-align:center;margin-bottom:18px">
-            <div style="width:60px;height:60px;background:rgba(0,137,123,0.12);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:28px;color:var(--eksu-teal)">
+            <div style="width:60px;height:60px;background:rgba(37,99,235,0.12);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:28px;color:var(--eksu-teal)">
               <i class="fa fa-check-circle"></i>
             </div>
             <h3 style="font-size:17px;font-weight:700;color:var(--eksu-teal)">Registration Successful!</h3>
@@ -359,10 +359,10 @@
             <div class="card-preview-mini" id="hc-card-preview">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
                 <div>
-                  <div style="font-size:9px;opacity:0.75;letter-spacing:1px;text-transform:uppercase">Ekiti State University</div>
-                  <div style="font-size:12px;font-weight:700;letter-spacing:0.5px">University Health Centre</div>
+                  <div style="font-size:9px;opacity:0.75;letter-spacing:1px;text-transform:uppercase">CarePoint Health Services</div>
+                  <div style="font-size:12px;font-weight:700;letter-spacing:0.5px">Smart Health Centre</div>
                 </div>
-                <img src="assets/images/eksu_logo.png" style="height:34px;filter:brightness(10)"/>
+                <img src="assets/images/healthcare_logo.svg" style="height:34px"/>
               </div>
               <div style="margin-bottom:10px">
                 <div style="font-size:18px;font-weight:700;letter-spacing:1px" id="card-name-preview">—</div>
@@ -399,7 +399,7 @@
         </div>
 
       </div><!-- end login-body -->
-      <div class="login-footer">Smart Health Centre Management System &mdash; EKSU &copy; 2026</div>
+      <div class="login-footer">CarePoint Smart Health Centre Management System &copy; 2026</div>
     </div>
   </div>
 
@@ -442,7 +442,7 @@
     }
 
     if (!validatePaymentRef(ref)) {
-      showAlert(alert,'danger','Invalid payment reference. Please check your receipt from the EKSU payment portal.');
+      showAlert(alert,'danger','Invalid payment reference. Please check your payment receipt and try again.');
       return;
     }
 
@@ -571,7 +571,7 @@
         <span style="font-size:12px">
           <i class="fa fa-calendar"></i> ${formatDate(regData.apptDate)} &nbsp;
           <i class="fa fa-clock-o"></i> ${regData.apptTime} &nbsp;
-          <i class="fa fa-map-marker"></i> EKSU University Health Centre, Ado-Ekiti<br>
+          <i class="fa fa-map-marker"></i> CarePoint Health Centre, Ado-Ekiti<br>
           <strong>Please bring your school ID and a copy of your payment receipt.</strong>
         </span>
       </div>`;
