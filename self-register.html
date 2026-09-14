@@ -151,7 +151,7 @@
 
       <div class="login-body">
         <div class="signup-heading">
-          <h1>SIGN-UP</h1>
+          <h1>SIGN UP</h1>
           <h2>Student Health Portal</h2>
         </div>
 
@@ -181,7 +181,7 @@
 
         <div class="signup-field">
           <label for="signup-matric">Matric No.</label>
-          <input id="signup-matric" type="text" autocomplete="username" placeholder="e.g. STU/2023/0001"/>
+          <input id="signup-matric" type="text" autocomplete="username" maxlength="20" placeholder="e.g. STU/2023/0001"/>
         </div>
 
         <div class="signup-field-row">
@@ -198,7 +198,7 @@
         <div class="signup-field-row">
           <div class="signup-field">
             <label for="signup-password">Password</label>
-            <input id="signup-password" type="password" autocomplete="new-password" placeholder="Create a password"/>
+            <input id="signup-password" type="password" autocomplete="new-password" maxlength="15" placeholder="Create a password"/>
           </div>
           <div class="signup-field">
             <label for="signup-password-confirm">Confirm Password</label>
@@ -211,10 +211,6 @@
           <span>I agree to the terms and conditions guiding the use of this site.</span>
         </label>
 
-        <label class="captcha-box">
-          <input id="signup-captcha" type="checkbox"/>
-          <span><strong>reCAPTCHA</strong><br/>Confirm you are not a robot to continue.</span>
-        </label>
 
         <button class="btn btn-red btn-block" onclick="createStudentAccount()">
           <i class="fa fa-user-plus"></i> Create
