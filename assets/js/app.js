@@ -62,7 +62,7 @@ const StudentAuth = {
   current() {
     try { return JSON.parse(sessionStorage.getItem('hcms_student')); } catch { return null; }
   },
-  logout() { sessionStorage.removeItem('hcms_student'); window.location.href = 'index.html'; },
+  logout() { sessionStorage.removeItem('hcms_student'); window.location.href = 'student-portal.html'; },
   register(matric, password, patientId) {
     const students = Store.get('hcms_students_auth', []);
     if (students.find(s => s.matric.toLowerCase() === matric.toLowerCase())) return false;

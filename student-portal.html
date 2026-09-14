@@ -117,6 +117,49 @@
       z-index: 1;
     }
 
+    .student-setup-card {
+      margin-bottom: 24px;
+      border: 2px solid var(--eksu-red);
+      box-shadow: 0 4px 18px rgba(15,118,110,0.12);
+    }
+    .student-setup-card .card-header {
+      background: var(--eksu-label-bg);
+    }
+    .setup-intro {
+      color: var(--eksu-muted);
+      font-size: 12px;
+      line-height: 1.55;
+      margin-bottom: 16px;
+    }
+    .setup-section-title {
+      color: var(--eksu-text);
+      font-size: 13px;
+      font-weight: 700;
+      border-bottom: 1px solid var(--eksu-border);
+      padding-bottom: 7px;
+      margin: 18px 0 12px;
+    }
+    .setup-requirements {
+      display: grid;
+      gap: 8px;
+      background: #fff8e7;
+      border: 1px solid #f2d28a;
+      border-radius: 5px;
+      padding: 11px 12px;
+      margin: 14px 0;
+      color: #6d520f;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .setup-requirements label {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+    .setup-requirements input {
+      margin-top: 2px;
+      accent-color: var(--eksu-red);
+    }
     .journey-card { margin-bottom: 24px; }
     .journey-progress {
       height: 8px;
@@ -210,6 +253,7 @@
     @media (max-width: 640px) {
       .journey-step { flex-wrap: wrap; }
       .journey-step-action { margin-left: 36px; }
+      .portal-body { padding: 16px 12px; }
     }
   </style>
 </head>
@@ -221,34 +265,24 @@
     <div class="student-login-card">
       <div class="login-brand">
         <a href="index.html"><img src="assets/images/healthcare_logo.svg" alt="CarePoint Health Centre"/></a>
-        <div class="login-brand-title"><i class="fa fa-user-circle"></i> STUDENT PORTAL</div>
+        <div class="login-brand-title"><i class="fa fa-lock"></i> SIGN-IN</div>
       </div>
       <div class="login-body">
         <div class="notice-box" style="margin-bottom:16px">
           <div class="notice-icon" style="font-size:26px"><i class="fa fa-info-circle"></i></div>
           <div class="notice-content">
-            <h5>Student Login</h5>
-            <p>Use your <strong>Matric Number</strong> and the password you set during online registration.</p>
+            <h5>Shared sign-in</h5>
+            <p>Students and staff use the same sign-in page. Student accounts use the matric number as the username.</p>
           </div>
         </div>
-        <div id="s-login-alert" style="display:none;margin-bottom:12px"></div>
-        <div class="field-group">
-          <div class="field-label"><i class="fa fa-id-badge"></i> MATRIC NO.</div>
-          <input type="text" id="s-matric" placeholder="e.g. STU/2023/0001"/>
-        </div>
-        <div class="field-group">
-          <div class="field-label"><i class="fa fa-lock"></i> PASSWORD</div>
-          <input type="password" id="s-password" placeholder="Your portal password"/>
-        </div>
-        <button class="btn btn-red btn-block" style="margin-top:8px" onclick="studentLogin()">
-          <i class="fa fa-sign-in"></i> Sign In
-        </button>
-        <div style="text-align:center;margin-top:14px;font-size:12px;color:var(--eksu-muted)">
-          Not yet registered? <a href="self-register.html" style="color:var(--eksu-red);font-weight:600">Register here →</a>
-          <br><a href="index.html" style="color:var(--eksu-muted)">Staff Login</a>
-        </div>
+        <p class="text-center text-muted" style="font-size:13px;padding:16px 0">
+          Redirecting you to the shared sign-in page…
+        </p>
+        <a href="index.html" class="btn btn-red btn-block">
+          <i class="fa fa-sign-in"></i> Go to Sign In
+        </a>
       </div>
-       <div class="login-footer">CarePoint Health Centre &copy; 2026</div>
+      <div class="login-footer">CarePoint Health Centre &copy; 2026</div>
     </div>
   </div>
 </div>
@@ -283,6 +317,146 @@
         <div style="font-size:10px;opacity:0.7;text-transform:uppercase;letter-spacing:1px">Card No.</div>
         <div style="font-size:16px;font-weight:700;letter-spacing:1px" id="banner-card-no">—</div>
         <div style="font-size:11px;opacity:0.7;margin-top:2px">Session 2025/2026</div>
+      </div>
+    </div>
+
+    <!-- Post-sign-up health-centre setup -->
+    <div class="card student-setup-card" id="student-setup-card" style="display:none">
+      <div class="card-header">
+        <h3><i class="fa fa-clipboard"></i> Complete Your Health Centre Registration</h3>
+        <span class="badge badge-pending">Required</span>
+      </div>
+      <div class="card-body">
+        <p class="setup-intro">
+          Your student account has been created. Complete the remaining information below to activate
+          your health-centre profile, verify your payment reference, and request your first appointment.
+        </p>
+        <div id="setup-alert" style="display:none;margin-bottom:12px"></div>
+
+        <div class="setup-section-title"><i class="fa fa-user"></i> Personal and academic details</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Gender <span class="req">*</span></label>
+            <select class="form-control" id="setup-gender">
+              <option value="">-- Select --</option>
+              <option>Male</option><option>Female</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Date of Birth</label>
+            <input type="date" class="form-control" id="setup-dob"/>
+          </div>
+          <div class="form-group">
+            <label>Phone Number <span class="req">*</span></label>
+            <input class="form-control" id="setup-phone" placeholder="080XXXXXXXX"/>
+          </div>
+          <div class="form-group">
+            <label>Faculty</label>
+            <select class="form-control" id="setup-faculty">
+              <option value="">-- Select --</option>
+              <option>Arts</option><option>Education</option>
+              <option>Engineering and Technology</option><option>Environmental Sciences</option>
+              <option>Law</option><option>Management Sciences</option>
+              <option>Medical Sciences</option><option>Physical Sciences</option>
+              <option>Social Sciences</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Department <span class="req">*</span></label>
+            <input class="form-control" id="setup-dept" placeholder="e.g. Computer Science"/>
+          </div>
+          <div class="form-group">
+            <label>Level</label>
+            <select class="form-control" id="setup-level">
+              <option value="">-- Select --</option>
+              <option>100</option><option>200</option><option>300</option>
+              <option>400</option><option>500</option><option>600</option>
+            </select>
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label>Hostel / Address</label>
+            <input class="form-control" id="setup-address" placeholder="e.g. Hall 3, Room 12"/>
+          </div>
+        </div>
+
+        <div class="setup-section-title"><i class="fa fa-heartbeat"></i> Medical information</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Blood Group</label>
+            <select class="form-control" id="setup-blood">
+              <option value="">-- Select --</option>
+              <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
+              <option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Genotype</label>
+            <select class="form-control" id="setup-genotype">
+              <option value="">-- Select --</option>
+              <option>AA</option><option>AS</option><option>SS</option><option>AC</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Known Allergies</label>
+            <input class="form-control" id="setup-allergies" placeholder="e.g. Penicillin, None"/>
+          </div>
+          <div class="form-group">
+            <label>Chronic Conditions</label>
+            <input class="form-control" id="setup-conditions" placeholder="e.g. Asthma, None"/>
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label>Emergency Contact <span class="req">*</span></label>
+            <input class="form-control" id="setup-emergency" placeholder="Full name: Phone"/>
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label>Additional Medical History</label>
+            <textarea class="form-control" id="setup-notes" rows="3" placeholder="Previous surgeries, ongoing medication, disabilities..."></textarea>
+          </div>
+        </div>
+
+        <div class="setup-section-title"><i class="fa fa-money"></i> Payment and appointment</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Health Centre Payment Reference <span class="req">*</span></label>
+            <input class="form-control" id="setup-payment" placeholder="RRR / payment reference"/>
+          </div>
+          <div class="form-group">
+            <label>Preferred Date <span class="req">*</span></label>
+            <input type="date" class="form-control" id="setup-date"/>
+          </div>
+          <div class="form-group">
+            <label>Preferred Time <span class="req">*</span></label>
+            <select class="form-control" id="setup-time">
+              <option value="">-- Select time --</option>
+              <option value="08:00">8:00 AM</option><option value="08:30">8:30 AM</option>
+              <option value="09:00">9:00 AM</option><option value="09:30">9:30 AM</option>
+              <option value="10:00">10:00 AM</option><option value="10:30">10:30 AM</option>
+              <option value="11:00">11:00 AM</option><option value="11:30">11:30 AM</option>
+              <option value="12:00">12:00 PM</option><option value="14:00">2:00 PM</option>
+              <option value="14:30">2:30 PM</option><option value="15:00">3:00 PM</option>
+            </select>
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label>Reason for Visit</label>
+            <select class="form-control" id="setup-reason">
+              <option>Health Centre Card Collection &amp; General Check-up</option>
+              <option>Blood Test</option><option>Eye Test</option>
+              <option>Dental Check</option><option>General Consultation</option>
+              <option>Routine Medical Examination</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="setup-requirements">
+          <strong><i class="fa fa-briefcase"></i> Confirm what you will bring</strong>
+          <label><input type="checkbox" id="setup-health-receipt"/> Health Centre fee receipt</label>
+          <label><input type="checkbox" id="setup-school-receipt"/> Current school fees receipt</label>
+          <label><input type="checkbox" id="setup-passports"/> Two passport photographs</label>
+        </div>
+
+        <button class="btn btn-red btn-block" onclick="completeStudentSetup()">
+          <i class="fa fa-check"></i> Complete Health Centre Registration
+        </button>
       </div>
     </div>
 
@@ -356,7 +530,7 @@
           <div class="text-center text-muted" style="padding:30px">
             <i class="fa fa-calendar-o fa-3x" style="margin-bottom:12px;opacity:0.4"></i>
             <p>No appointment found.</p>
-            <a href="self-register.html" class="btn btn-red" style="margin-top:10px">Book Appointment</a>
+            <button class="btn btn-red" style="margin-top:10px" onclick="document.getElementById('student-setup-card').scrollIntoView({behavior:'smooth'})">Complete Registration</button>
           </div>
         </div>
       </div>
@@ -466,25 +640,6 @@
 
   let currentStudent = null;
 
-  function studentLogin() {
-    const matric = document.getElementById('s-matric').value.trim();
-    const pass   = document.getElementById('s-password').value;
-    const alert  = document.getElementById('s-login-alert');
-
-    if (!matric || !pass) {
-      showAlert(alert, 'danger', 'Please enter your matric number and password.');
-      return;
-    }
-
-    const u = StudentAuth.login(matric, pass);
-    if (!u) {
-      showAlert(alert, 'danger', 'Invalid matric number or password. <a href="self-register.html" style="color:inherit;text-decoration:underline">Not registered yet?</a>');
-      return;
-    }
-
-    loadPortal(u);
-  }
-
   function loadPortal(u) {
     currentStudent = u;
     document.getElementById('login-view').style.display  = 'none';
@@ -496,7 +651,9 @@
     document.getElementById('portal-username').textContent = p.name;
     document.getElementById('banner-name').textContent     = p.name;
     document.getElementById('banner-matric').textContent   = p.matric;
-    document.getElementById('banner-dept').textContent     = `${p.dept}${p.level?' | Level '+p.level:''}`;
+    document.getElementById('banner-dept').textContent     = p.dept
+      ? `${p.dept}${p.level?' | Level '+p.level:''}`
+      : 'Complete your Health Centre profile';
     document.getElementById('banner-card-no').textContent  = p.cardNo || '—';
 
     // Mini card
@@ -515,6 +672,133 @@
     loadStats(p);
     loadRegistrationJourney(p);
     updateCardAccess(p);
+    toggleStudentSetup(p);
+  }
+
+  function toggleStudentSetup(p) {
+    const setup = document.getElementById('student-setup-card');
+    if (!setup) return;
+
+    const incomplete = p.profileComplete === false;
+    setup.style.display = incomplete ? 'block' : 'none';
+
+    if (incomplete) {
+      const minDate = new Date();
+      minDate.setDate(minDate.getDate() + 1);
+      const minDateValue = minDate.toISOString().split('T')[0];
+      document.getElementById('setup-date').min = minDateValue;
+      if (!document.getElementById('setup-date').value) {
+        document.getElementById('setup-date').value = minDateValue;
+      }
+    }
+  }
+
+  function completeStudentSetup() {
+    if (!currentStudent) return;
+
+    const patients = Store.get('hcms_patients', []);
+    const patientIndex = patients.findIndex(item => item.id === currentStudent.patientId);
+    const p = patients[patientIndex];
+    const alert = document.getElementById('setup-alert');
+
+    if (!p) {
+      showAlert(alert, 'danger', 'We could not find your student profile. Please sign out and try again.');
+      return;
+    }
+
+    const gender = document.getElementById('setup-gender').value;
+    const phone = document.getElementById('setup-phone').value.trim();
+    const dept = document.getElementById('setup-dept').value.trim();
+    const emergency = document.getElementById('setup-emergency').value.trim();
+    const paymentRef = document.getElementById('setup-payment').value.trim();
+    const date = document.getElementById('setup-date').value;
+    const time = document.getElementById('setup-time').value;
+
+    if (!gender || !phone || !dept || !emergency || !paymentRef || !date || !time) {
+      showAlert(alert, 'danger', 'Please complete all required fields before continuing.');
+      return;
+    }
+    if (!validatePaymentRef(paymentRef)) {
+      showAlert(alert, 'danger', 'Invalid payment reference. Please check your receipt and try again.');
+      return;
+    }
+    if (!document.getElementById('setup-health-receipt').checked ||
+        !document.getElementById('setup-school-receipt').checked ||
+        !document.getElementById('setup-passports').checked) {
+      showAlert(alert, 'warning', 'Please confirm that you will bring your fee receipts and two passport photographs.');
+      return;
+    }
+
+    const fullName = p.name;
+    const faculty = document.getElementById('setup-faculty').value;
+    const level = document.getElementById('setup-level').value;
+    const address = document.getElementById('setup-address').value.trim();
+    const blood = document.getElementById('setup-blood').value || 'Unknown';
+    const genotype = document.getElementById('setup-genotype').value;
+    const allergies = document.getElementById('setup-allergies').value.trim() || 'None';
+    const conditions = document.getElementById('setup-conditions').value.trim();
+    const notes = document.getElementById('setup-notes').value.trim();
+    const cardNo = p.cardNo || `HC-${p.matric.replace(/[^0-9]/g, '').slice(-8) || p.id}`;
+
+    patients[patientIndex] = {
+      ...p,
+      gender,
+      dob: document.getElementById('setup-dob').value,
+      phone,
+      faculty,
+      dept,
+      level,
+      address,
+      blood,
+      genotype,
+      allergies,
+      conditions,
+      emergency,
+      notes,
+      cardNo,
+      profileComplete: true,
+      cardIssued: false
+    };
+    Store.set('hcms_patients', patients);
+
+    const appointments = Store.get('hcms_appointments', []);
+    const appointment = {
+      id: Store.nextId('hcms_appointments'),
+      patientId: p.id,
+      matric: p.matric,
+      name: fullName,
+      dept,
+      date,
+      time,
+      reason: document.getElementById('setup-reason').value,
+      status: 'confirmed',
+      paymentRef,
+      cardNo
+    };
+    appointments.push(appointment);
+    Store.set('hcms_appointments', appointments);
+
+    const workflows = Store.get('hcms_registration_workflows', []);
+    workflows.push(createRegistrationWorkflow(p.id, {
+      paymentRef,
+      appointmentDate: date,
+      appointmentTime: time
+    }));
+    Store.set('hcms_registration_workflows', workflows);
+
+    const updatedPatient = patients[patientIndex];
+    toggleStudentSetup(updatedPatient);
+    loadAppointment(updatedPatient);
+    loadProfile(updatedPatient);
+    loadStats(updatedPatient);
+    loadRegistrationJourney(updatedPatient);
+    updateCardAccess(updatedPatient);
+    document.getElementById('banner-dept').textContent = `${dept}${level ? ' | Level ' + level : ''}`;
+    document.getElementById('banner-card-no').textContent = cardNo;
+    document.getElementById('mini-card-blood').textContent = blood;
+    document.getElementById('mini-card-geno').textContent = genotype || '—';
+    document.getElementById('mini-card-no').textContent = cardNo;
+    toast('Your Health Centre registration and appointment have been submitted.', 'success', 5000);
   }
 
   function loadRegistrationJourney(p) {
@@ -626,7 +910,7 @@
       body.innerHTML = `<div class="text-center text-muted" style="padding:30px">
         <i class="fa fa-calendar-o fa-2x" style="margin-bottom:10px;opacity:0.4"></i>
         <p>No appointment found.</p>
-        <a href="self-register.html" class="btn btn-red btn-sm" style="margin-top:8px">Book Appointment</a>
+        <button class="btn btn-red btn-sm" style="margin-top:8px" onclick="document.getElementById('student-setup-card').scrollIntoView({behavior:'smooth'})">Complete Registration</button>
       </div>`;
       return;
     }
@@ -774,16 +1058,13 @@
     currentStudent = null;
   }
 
-  function showAlert(el, type, msg) {
-    el.style.display = 'flex';
-    el.className = `alert alert-${type}`;
-    const icons = { danger:'fa-times-circle', warning:'fa-exclamation-triangle', success:'fa-check-circle', info:'fa-info-circle' };
-    el.innerHTML = `<i class="fa ${icons[type]||icons.info}"></i> <div>${msg}</div>`;
-  }
-
-  // Auto-login if session active
+  // The shared login page owns authentication for both students and staff.
   const s = StudentAuth.current();
-  if (s) loadPortal(s);
+  if (s) {
+    loadPortal(s);
+  } else {
+    window.location.href = 'index.html';
+  }
 </script>
 </body>
 </html>
