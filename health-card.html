@@ -293,13 +293,12 @@
     }
 
     const workflow = getRegistrationWorkflow(p.id);
-    const cardStep = workflow?.steps.find(step => step.key === 'card-collected');
-    const cardIssued = !workflow || p.cardIssued === true || cardStep?.status === 'complete';
+    const cardIssued = !workflow || (p.cardIssued === true && workflow.reviewStatus === 'approved');
     const staffViewing = !!Auth.current();
     if (workflow && !cardIssued && !staffViewing) {
       document.getElementById('card-notice').style.display = 'flex';
       document.getElementById('card-notice-text').innerHTML =
-        '<strong>Preview only:</strong> this card is not issued yet. Complete the Health Centre registration checklist and collect the physical card before treating this as your official card.';
+        '<strong>Preview only:</strong> this card is not activated yet. Check your student portal after the appointment for the approval result.';
       document.querySelector('.card-actions button').innerHTML = '<i class="fa fa-eye"></i> Print Preview';
     }
 

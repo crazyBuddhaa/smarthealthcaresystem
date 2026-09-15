@@ -247,8 +247,30 @@
       ${workflow ? `<div class="alert ${progress.complete === progress.total ? 'alert-success' : 'alert-warning'}" style="margin-bottom:16px">
         <i class="fa ${progress.complete === progress.total ? 'fa-check-circle' : 'fa-list-ol'}"></i>
         <div><strong>Registration journey:</strong> ${progress.complete}/${progress.total} steps complete.
-        ${nextStep ? `<br><span style="font-size:12px">Next: ${REGISTRATION_STEP_DEFINITIONS.find(step => step.key === nextStep.key)?.label || 'Continue registration'}</span>` : '<br><span style="font-size:12px">Health Centre Card collection is complete.</span>'}</div>
-      </div>` : ''}
+        <br><span style="font-size:12px">Online status: <strong>${workflow.reviewStatus || 'Awaiting appointment'}</strong></span>
+        ${nextStep ? `<br><span style="font-size:12px">Next: ${REGISTRATION_STEP_DEFINITIONS.find(step => step.key === nextStep.key)?.label || 'Continue registration'}</span>` : '<br><span style="font-size:12px">Health Centre Card is activated.</span>'}
+        ${workflow.reviewStatus === 'awaiting-appointment' && workflow.steps.find(step => step.key === 'appointment-booked')?.status === 'complete'
+          ? `<div style="margin-top:10px"><button class="btn btn-sm btn-teal" onclick="markOnlineReview(${id}, 'appointment-completed')"><i class="fa fa-check"></i> Mark appointment completed</button></div>`
+          : ''}
+        ${workflow.reviewStatus === 'awaiting-review'
+          ? `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-sm btn-teal" onclick="markOnlineReview(${id}, 'approve')"><i class="fa fa-check-circle"></i> Approve &amp; activate card</button>
+              <button class="btn btn-sm btn-outline-red" onclick="markOnlineReview(${id}, 'reject')"><i class="fa fa-times-circle"></i> Mark not approved</button>
+            </div>`
+          : ''}
+        ${workflow.reviewStatus === 'rejected'
+          ? `<div style="margin-top:10px"><button class="btn btn-sm btn-teal" onclick="markOnlineReview(${id}, 'approve')"><i class="fa fa-check-circle"></i> Approve &amp; activate card</button></div>`
+          : ''}
+        </div>
+      </div>
+      ${workflow.documents && Object.keys(workflow.documents).length ? `<div class="alert alert-info" style="margin-bottom:16px">
+        <i class="fa fa-cloud-upload"></i>
+        <div><strong>Online documents submitted:</strong><br>
+          Health Centre receipt: ${workflow.documents.healthReceipt || '—'}<br>
+          School fees receipt: ${workflow.documents.schoolReceipt || '—'}<br>
+          Passport photographs: ${(workflow.documents.passportPhotos || []).join(', ') || '—'}
+        </div>
+      </div>` : ''}` : ''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">
         <div><strong>Gender:</strong> ${p.gender}</div>
         <div><strong>DOB:</strong> ${formatDate(p.dob)}</div>
@@ -259,6 +281,23 @@
         <div style="grid-column:1/-1"><strong>Health Records:</strong> ${recs.length} visit(s) on file</div>
       </div>`;
     openModal('view-modal');
+  }
+
+  function markOnlineReview(id, decision) {
+    const result = reviewRegistrationWorkflow(id, decision);
+    if (!result) {
+      toast('The online registration cannot move to that status yet.', 'warning');
+      return;
+    }
+    toast(decision === 'approve'
+      ? 'Registration approved and Health Centre Card activated.'
+      : decision === 'reject'
+        ? 'Registration marked as not approved.'
+        : 'Appointment marked as completed. The student can now check the portal for results.',
+      decision === 'reject' ? 'warning' : 'success',
+      5000);
+    render();
+    viewPatient(id);
   }
 
   function editPatient(id) {

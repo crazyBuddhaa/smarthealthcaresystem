@@ -72,94 +72,65 @@ const StudentAuth = {
   }
 };
 
-// ── Student health-centre registration journey ─────────────────────────────────
-// This is a browser-only prototype, so the checklist records confirmations
-// locally. A production version should replace these updates with staff/API
-// verification and secure document storage.
+// ── Student health-centre registration journey ───────────────────────────────
+// The prototype stores online submissions locally. A production version should
+// replace these updates with staff/API verification and secure document storage.
 const REGISTRATION_STEP_DEFINITIONS = [
   {
     key: 'fee-paid',
-    label: 'Pay Health Centre fee',
-    icon: 'fa-money',
-    description: 'Pay the approved Health Centre fee before starting your clinic registration.',
-    action: 'Confirm fee paid'
+    label: 'Pay Health Centre fee online',
+    icon: 'fa-credit-card',
+    description: 'Submit the approved online payment reference to start your registration.',
+    action: 'Payment recorded'
   },
   {
-    key: 'receipt-obtained',
-    label: 'Get Health Centre fee receipt',
-    icon: 'fa-file-text-o',
-    description: 'Keep the receipt or payment confirmation with you for your clinic visit.',
-    action: 'Confirm receipt received'
+    key: 'documents-uploaded',
+    label: 'Upload receipts online',
+    icon: 'fa-upload',
+    description: 'Upload your Health Centre fee receipt and current school fees receipt in the portal.',
+    action: 'Receipts uploaded'
   },
   {
-    key: 'clinic-visit',
-    label: 'Go to the Health Centre',
-    icon: 'fa-hospital-o',
-    description: 'Attend your booked appointment and bring your school ID and all required documents.',
-    action: 'Confirm clinic visit'
-  },
-  {
-    key: 'health-receipt-submitted',
-    label: 'Submit Health Centre receipt',
-    icon: 'fa-ticket',
-    description: 'Present your Health Centre fee receipt at the registration desk.',
-    action: 'Confirm receipt submitted'
-  },
-  {
-    key: 'school-fees-receipt-submitted',
-    label: 'Submit school fees receipt',
-    icon: 'fa-file-text',
-    description: 'Present your current school fees receipt for verification.',
-    action: 'Confirm receipt submitted'
-  },
-  {
-    key: 'passports-submitted',
-    label: 'Submit 2 passport photographs',
+    key: 'passport-photos-uploaded',
+    label: 'Upload passport photographs',
     icon: 'fa-picture-o',
-    description: 'Submit two recent passport photographs in the format requested by the Health Centre.',
-    action: 'Confirm passports submitted'
-  },
-  {
-    key: 'form-collected',
-    label: 'Collect and fill registration form',
-    icon: 'fa-pencil-square-o',
-    description: 'Collect the Health Centre registration form, complete every required field, and sign it.',
-    action: 'Confirm form collected'
+    description: 'Upload two recent passport photographs for online verification.',
+    action: 'Photos uploaded'
   },
   {
     key: 'form-submitted',
-    label: 'Submit completed form',
-    icon: 'fa-check-square-o',
-    description: 'Return the completed and signed form to the registration desk.',
-    action: 'Confirm form submitted'
+    label: 'Submit online health-centre form',
+    icon: 'fa-pencil-square-o',
+    description: 'Complete your personal, academic, emergency, and medical information online.',
+    action: 'Form submitted'
   },
   {
-    key: 'urine-test',
-    label: 'Complete urine test',
-    icon: 'fa-flask',
-    description: 'Follow the clinic staff instructions for the urine sample and test.',
-    action: 'Confirm urine test completed'
+    key: 'appointment-booked',
+    label: 'Book your appointment online',
+    icon: 'fa-calendar-check-o',
+    description: 'Choose an available date and time for your Health Centre appointment.',
+    action: 'Appointment booked'
   },
   {
-    key: 'screening',
-    label: 'Complete screening',
+    key: 'appointment-completed',
+    label: 'Appointment completed',
     icon: 'fa-stethoscope',
-    description: 'Male students complete the required screening. Female students complete breast screening as directed by clinic staff.',
-    action: 'Confirm screening completed'
+    description: 'After your appointment, the Health Centre team updates your result in the portal.',
+    action: 'Awaiting appointment'
   },
   {
-    key: 'remaining-procedures',
-    label: 'Complete remaining procedures',
-    icon: 'fa-medkit',
-    description: 'Finish any remaining checks or procedures assigned by the Health Centre team.',
-    action: 'Confirm procedures completed'
+    key: 'results-reviewed',
+    label: 'Check your registration result',
+    icon: 'fa-file-text-o',
+    description: 'Check the portal after your appointment to see whether your registration was approved.',
+    action: 'Awaiting result'
   },
   {
-    key: 'card-collected',
-    label: 'Collect Health Centre Card',
+    key: 'card-activated',
+    label: 'Health Centre Card activated',
     icon: 'fa-id-card-o',
-    description: 'Collect your Health Centre Card after all registration requirements have been completed.',
-    action: 'Confirm card collected'
+    description: 'Your digital Health Centre Card becomes available automatically after approval.',
+    action: 'Card activation pending'
   }
 ];
 
@@ -170,8 +141,16 @@ function createRegistrationWorkflow(patientId, details = {}) {
     completedOn: null
   }));
 
-  // Online payment verification establishes the first two prerequisites.
-  ['fee-paid', 'receipt-obtained'].forEach(key => {
+  const documents = details.documents || {};
+  const completeKeys = [
+    details.paymentRef ? 'fee-paid' : null,
+    documents.healthReceipt && documents.schoolReceipt ? 'documents-uploaded' : null,
+    documents.passportPhotos?.length ? 'passport-photos-uploaded' : null,
+    details.formSubmitted ? 'form-submitted' : null,
+    details.appointmentDate && details.appointmentTime ? 'appointment-booked' : null
+  ].filter(Boolean);
+
+  completeKeys.forEach(key => {
     const step = steps.find(item => item.key === key);
     step.status = 'complete';
     step.completedOn = today();
@@ -182,6 +161,9 @@ function createRegistrationWorkflow(patientId, details = {}) {
     paymentRef: details.paymentRef || '',
     appointmentDate: details.appointmentDate || '',
     appointmentTime: details.appointmentTime || '',
+    documents,
+    reviewStatus: 'awaiting-appointment',
+    resultStatus: 'scheduled',
     createdOn: today(),
     updatedOn: today(),
     steps
@@ -192,13 +174,30 @@ function getRegistrationWorkflow(patientId) {
   const workflows = Store.get('hcms_registration_workflows', []);
   let workflow = workflows.find(item => item.patientId === patientId);
   if (workflow) {
-    // Keep older locally stored workflows compatible if new steps are added.
-    const existingKeys = new Set((workflow.steps || []).map(step => step.key));
-    REGISTRATION_STEP_DEFINITIONS.forEach(definition => {
-      if (!existingKeys.has(definition.key)) {
-        workflow.steps.push({ key: definition.key, status: 'pending', completedOn: null });
-      }
-    });
+    // Migrate an older locally stored checklist to the online journey.
+    const oldSteps = new Map((workflow.steps || []).map(step => [step.key, step]));
+    const appointment = Store.get('hcms_appointments', [])
+      .find(item => item.patientId === patientId && item.status !== 'cancelled');
+    const legacyComplete = key => oldSteps.get(key)?.status === 'complete';
+    const migratedComplete = {
+      'fee-paid': legacyComplete('fee-paid') || Boolean(workflow.paymentRef),
+      'appointment-booked': legacyComplete('appointment-booked') ||
+        Boolean(workflow.appointmentDate && workflow.appointmentTime) ||
+        Boolean(appointment?.date && appointment?.time)
+    };
+
+    workflow.steps = REGISTRATION_STEP_DEFINITIONS.map(definition => ({
+      key: definition.key,
+      status: migratedComplete[definition.key] ? 'complete' : (oldSteps.get(definition.key)?.status || 'pending'),
+      completedOn: migratedComplete[definition.key]
+        ? (oldSteps.get(definition.key)?.completedOn || today())
+        : (oldSteps.get(definition.key)?.completedOn || null)
+    }));
+    workflow.documents = workflow.documents || {};
+    workflow.reviewStatus = workflow.reviewStatus || 'awaiting-appointment';
+    workflow.resultStatus = workflow.resultStatus || 'scheduled';
+    if (!workflow.appointmentDate && appointment?.date) workflow.appointmentDate = appointment.date;
+    if (!workflow.appointmentTime && appointment?.time) workflow.appointmentTime = appointment.time;
     workflow.steps = REGISTRATION_STEP_DEFINITIONS.map(definition =>
       workflow.steps.find(step => step.key === definition.key) ||
       { key: definition.key, status: 'pending', completedOn: null }
@@ -212,7 +211,9 @@ function getRegistrationWorkflow(patientId) {
   workflow = createRegistrationWorkflow(patientId, {
     paymentRef: appointment?.paymentRef || '',
     appointmentDate: appointment?.date || '',
-    appointmentTime: appointment?.time || ''
+    appointmentTime: appointment?.time || '',
+    formSubmitted: Boolean(patient?.profileComplete),
+    documents: patient?.onlineDocuments || {}
   });
 
   // Existing non-self-registered records are not part of this journey.
@@ -245,7 +246,7 @@ function updateRegistrationStep(patientId, stepKey, status = 'complete') {
   else workflows.push(workflow);
   Store.set('hcms_registration_workflows', workflows);
 
-  if (stepKey === 'card-collected' && status === 'complete') {
+  if (stepKey === 'card-activated' && status === 'complete') {
     const patients = Store.get('hcms_patients', []);
     const patientIndex = patients.findIndex(item => item.id === patientId);
     if (patientIndex >= 0) {
@@ -255,6 +256,58 @@ function updateRegistrationStep(patientId, stepKey, status = 'complete') {
     }
   }
 
+  return workflow;
+}
+
+function reviewRegistrationWorkflow(patientId, decision) {
+  const workflow = getRegistrationWorkflow(patientId);
+  if (!workflow) return null;
+
+  const complete = key => {
+    const step = workflow.steps.find(item => item.key === key);
+    if (step) {
+      step.status = 'complete';
+      step.completedOn = today();
+    }
+  };
+
+  if (decision === 'appointment-completed') {
+    if (workflow.steps.find(step => step.key === 'appointment-booked')?.status !== 'complete') return null;
+    complete('appointment-completed');
+    workflow.reviewStatus = 'awaiting-review';
+    workflow.resultStatus = 'awaiting-review';
+  } else if (decision === 'approve') {
+    if (workflow.steps.find(step => step.key === 'appointment-completed')?.status !== 'complete') return null;
+    complete('results-reviewed');
+    complete('card-activated');
+    workflow.reviewStatus = 'approved';
+    workflow.resultStatus = 'approved';
+
+    const patients = Store.get('hcms_patients', []);
+    const patientIndex = patients.findIndex(item => item.id === patientId);
+    if (patientIndex >= 0) {
+      patients[patientIndex].cardIssued = true;
+      patients[patientIndex].cardIssuedOn = today();
+      Store.set('hcms_patients', patients);
+    }
+  } else if (decision === 'reject') {
+    const resultStep = workflow.steps.find(step => step.key === 'results-reviewed');
+    if (resultStep) {
+      resultStep.status = 'rejected';
+      resultStep.completedOn = null;
+    }
+    workflow.reviewStatus = 'rejected';
+    workflow.resultStatus = 'rejected';
+  } else {
+    return null;
+  }
+
+  workflow.updatedOn = today();
+  const workflows = Store.get('hcms_registration_workflows', []);
+  const index = workflows.findIndex(item => item.patientId === patientId);
+  if (index >= 0) workflows[index] = workflow;
+  else workflows.push(workflow);
+  Store.set('hcms_registration_workflows', workflows);
   return workflow;
 }
 
@@ -274,6 +327,7 @@ window.REGISTRATION_STEP_DEFINITIONS = REGISTRATION_STEP_DEFINITIONS;
 window.createRegistrationWorkflow = createRegistrationWorkflow;
 window.getRegistrationWorkflow = getRegistrationWorkflow;
 window.updateRegistrationStep = updateRegistrationStep;
+window.reviewRegistrationWorkflow = reviewRegistrationWorkflow;
 window.registrationProgress = registrationProgress;
 
 // ── Seed data ─────────────────────────────────────────────────────────────────

@@ -160,6 +160,35 @@
       margin-top: 2px;
       accent-color: var(--eksu-red);
     }
+    .online-upload {
+      display: grid;
+      gap: 5px;
+      padding: 8px 0;
+    }
+    .online-upload label {
+      font-weight: 600;
+      color: #59460f;
+    }
+    .online-upload input[type="file"] {
+      width: 100%;
+      margin: 0;
+      accent-color: var(--eksu-red);
+      font-size: 11px;
+    }
+    .online-upload small {
+      color: #806a2c;
+      font-size: 10px;
+    }
+    .result-status-card {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+    .result-status-card i {
+      font-size: 18px;
+      margin-top: 2px;
+    }
     .journey-card { margin-bottom: 24px; }
     .journey-progress {
       height: 8px;
@@ -328,8 +357,9 @@
       </div>
       <div class="card-body">
         <p class="setup-intro">
-          Your student account has been created. Complete the remaining information below to activate
-          your health-centre profile, verify your payment reference, and request your first appointment.
+          Your student account has been created. Complete your health-centre registration online,
+          upload the required documents, and request your first appointment. After the appointment,
+          return here to check your result and card activation status.
         </p>
         <div id="setup-alert" style="display:none;margin-bottom:12px"></div>
 
@@ -448,14 +478,26 @@
         </div>
 
         <div class="setup-requirements">
-          <strong><i class="fa fa-briefcase"></i> Confirm what you will bring</strong>
-          <label><input type="checkbox" id="setup-health-receipt"/> Health Centre fee receipt</label>
-          <label><input type="checkbox" id="setup-school-receipt"/> Current school fees receipt</label>
-          <label><input type="checkbox" id="setup-passports"/> Two passport photographs</label>
+          <strong><i class="fa fa-cloud-upload"></i> Upload your requirements online</strong>
+          <div class="online-upload">
+            <label for="setup-health-receipt">Health Centre fee receipt <span class="req">*</span></label>
+            <input type="file" id="setup-health-receipt" accept=".pdf,.jpg,.jpeg,.png" required/>
+            <small>PDF or image file</small>
+          </div>
+          <div class="online-upload">
+            <label for="setup-school-receipt">Current school fees receipt <span class="req">*</span></label>
+            <input type="file" id="setup-school-receipt" accept=".pdf,.jpg,.jpeg,.png" required/>
+            <small>PDF or image file</small>
+          </div>
+          <div class="online-upload">
+            <label for="setup-passports">Two passport photographs <span class="req">*</span></label>
+            <input type="file" id="setup-passports" accept=".jpg,.jpeg,.png" multiple required/>
+            <small>Select two recent passport photographs</small>
+          </div>
         </div>
 
         <button class="btn btn-red btn-block" onclick="completeStudentSetup()">
-          <i class="fa fa-check"></i> Complete Health Centre Registration
+          <i class="fa fa-cloud-upload"></i> Submit Online Registration
         </button>
       </div>
     </div>
@@ -467,6 +509,7 @@
         <span class="badge badge-pending" id="registration-progress-badge">Loading…</span>
       </div>
       <div class="card-body">
+        <div id="registration-result-status" style="display:none"></div>
         <div class="journey-summary">
           <span id="registration-progress-summary">Your progress will appear here.</span>
           <strong id="registration-progress-percent">0%</strong>
@@ -477,7 +520,8 @@
         <div class="journey-list" id="registration-journey-list"></div>
         <p class="journey-note">
           <i class="fa fa-info-circle"></i>
-          This prototype records your confirmations in this browser. At the clinic, follow staff instructions for document verification, testing, screening, and any remaining procedures.
+          Your forms and documents are submitted online. After your appointment, check this page
+          for the Health Centre result. Your digital card is activated only after approval.
         </p>
       </div>
     </div>
@@ -509,7 +553,7 @@
         <div class="card-body">
           <div class="alert alert-info">
             <i class="fa fa-info-circle"></i>
-            <div>Health centre services are available <strong>Monday – Friday, 8:00 AM – 4:00 PM</strong>. Walk-in patients are attended after appointment holders.</div>
+            <div>Health centre services are available <strong>Monday – Friday, 8:00 AM – 4:00 PM</strong>. Your appointment is booked online; check the portal after your visit for the result.</div>
           </div>
           <div class="alert alert-warning" id="appt-reminder" style="display:none">
             <i class="fa fa-calendar"></i>
@@ -713,6 +757,9 @@
     const paymentRef = document.getElementById('setup-payment').value.trim();
     const date = document.getElementById('setup-date').value;
     const time = document.getElementById('setup-time').value;
+    const healthReceipt = document.getElementById('setup-health-receipt').files[0];
+    const schoolReceipt = document.getElementById('setup-school-receipt').files[0];
+    const passportPhotos = [...document.getElementById('setup-passports').files];
 
     if (!gender || !phone || !dept || !emergency || !paymentRef || !date || !time) {
       showAlert(alert, 'danger', 'Please complete all required fields before continuing.');
@@ -722,10 +769,8 @@
       showAlert(alert, 'danger', 'Invalid payment reference. Please check your receipt and try again.');
       return;
     }
-    if (!document.getElementById('setup-health-receipt').checked ||
-        !document.getElementById('setup-school-receipt').checked ||
-        !document.getElementById('setup-passports').checked) {
-      showAlert(alert, 'warning', 'Please confirm that you will bring your fee receipts and two passport photographs.');
+    if (!healthReceipt || !schoolReceipt || passportPhotos.length < 2) {
+      showAlert(alert, 'warning', 'Upload both receipts and two passport photographs before submitting online.');
       return;
     }
 
@@ -756,6 +801,11 @@
       emergency,
       notes,
       cardNo,
+      onlineDocuments: {
+        healthReceipt: healthReceipt.name,
+        schoolReceipt: schoolReceipt.name,
+        passportPhotos: passportPhotos.map(file => file.name)
+      },
       profileComplete: true,
       cardIssued: false
     };
@@ -779,11 +829,16 @@
     Store.set('hcms_appointments', appointments);
 
     const workflows = Store.get('hcms_registration_workflows', []);
-    workflows.push(createRegistrationWorkflow(p.id, {
+    const workflow = createRegistrationWorkflow(p.id, {
       paymentRef,
       appointmentDate: date,
-      appointmentTime: time
-    }));
+      appointmentTime: time,
+      formSubmitted: true,
+      documents: patients[patientIndex].onlineDocuments
+    });
+    const workflowIndex = workflows.findIndex(item => item.patientId === p.id);
+    if (workflowIndex >= 0) workflows[workflowIndex] = workflow;
+    else workflows.push(workflow);
     Store.set('hcms_registration_workflows', workflows);
 
     const updatedPatient = patients[patientIndex];
@@ -799,6 +854,48 @@
     document.getElementById('mini-card-geno').textContent = genotype || '—';
     document.getElementById('mini-card-no').textContent = cardNo;
     toast('Your Health Centre registration and appointment have been submitted.', 'success', 5000);
+  }
+
+  function renderRegistrationResult(workflow) {
+    const panel = document.getElementById('registration-result-status');
+    if (!panel || !workflow) return;
+
+    const states = {
+      'awaiting-appointment': {
+        type: 'info',
+        icon: 'fa-calendar-check-o',
+        title: 'Online registration submitted',
+        message: 'Your form and documents are on file. Complete your scheduled appointment, then check this portal for the result.'
+      },
+      'awaiting-review': {
+        type: 'warning',
+        icon: 'fa-clock-o',
+        title: 'Result pending',
+        message: 'Your appointment has been recorded. The Health Centre team is reviewing your result online. Check back here for an update.',
+        action: '<button class="btn btn-sm btn-teal" onclick="checkRegistrationResult()"><i class="fa fa-refresh"></i> Check result</button>'
+      },
+      approved: {
+        type: 'success',
+        icon: 'fa-check-circle',
+        title: 'Registration approved — card activated',
+        message: 'Your Health Centre registration was approved. Your digital Health Centre Card is now available.',
+        action: '<button class="btn btn-sm btn-teal" onclick="showTab(\'tab-card\', document.querySelectorAll(\'.portal-tab\')[3])"><i class="fa fa-id-card-o"></i> View card</button>'
+      },
+      rejected: {
+        type: 'danger',
+        icon: 'fa-exclamation-circle',
+        title: 'Registration needs attention',
+        message: 'Your registration was not approved. Please contact the Health Centre team for the next steps.',
+        action: '<button class="btn btn-sm btn-teal" onclick="checkRegistrationResult()"><i class="fa fa-refresh"></i> Check result</button>'
+      }
+    };
+    const state = states[workflow.reviewStatus] || states['awaiting-appointment'];
+    panel.style.display = 'block';
+    panel.innerHTML = `<div class="alert alert-${state.type} result-status-card" style="margin:0">
+      <i class="fa ${state.icon}"></i>
+      <div style="flex:1"><strong>${state.title}</strong><br><span>${state.message}</span>
+      ${state.action ? `<div style="margin-top:10px">${state.action}</div>` : ''}</div>
+    </div>`;
   }
 
   function loadRegistrationJourney(p) {
@@ -817,11 +914,12 @@
       bar.style.width = '0%';
       list.innerHTML = `<div class="alert alert-info" style="margin:0">
         <i class="fa fa-info-circle"></i>
-        <div>Physical registration steps are tracked by the Health Centre team for this record.</div>
+        <div>Online registration tracking is not available for this staff-created record.</div>
       </div>`;
       return;
     }
 
+    renderRegistrationResult(workflow);
     const progress = registrationProgress(workflow);
     const currentIndex = workflow.steps.findIndex(step => step.status !== 'complete');
     badge.textContent = progress.complete === progress.total ? 'Complete' : 'In progress';
@@ -835,16 +933,25 @@
       if (!definition) return '';
       const complete = step.status === 'complete';
       const current = !complete && index === currentIndex;
+      const rejected = step.status === 'rejected';
       const action = complete
         ? `<span class="badge badge-success journey-step-action"><i class="fa fa-check"></i> Done</span>`
+        : rejected
+          ? `<span class="badge badge-danger journey-step-action"><i class="fa fa-exclamation-circle"></i> Needs attention</span>`
+        : definition.key === 'appointment-completed'
+          ? `<span class="badge badge-info journey-step-action"><i class="fa fa-clock-o"></i> Awaiting appointment</span>`
+        : definition.key === 'results-reviewed'
+          ? `<button class="btn btn-sm btn-teal journey-step-action" onclick="checkRegistrationResult()"><i class="fa fa-refresh"></i> Check result</button>`
+        : definition.key === 'card-activated'
+          ? `<span class="badge badge-pending journey-step-action"><i class="fa fa-lock"></i> Awaiting approval</span>`
         : current
-          ? `<button class="btn btn-sm btn-teal journey-step-action" onclick="completeRegistrationStep('${step.key}')">${definition.action} <i class="fa fa-check"></i></button>`
+          ? `<span class="badge badge-secondary journey-step-action">Complete online form above</span>`
           : `<span class="badge badge-secondary journey-step-action">Complete previous step</span>`;
 
-      return `<div class="journey-step ${complete ? 'complete' : ''} ${current ? 'current' : ''}">
+      return `<div class="journey-step ${complete ? 'complete' : ''} ${current ? 'current' : ''} ${rejected ? 'rejected' : ''}">
         <div class="journey-step-number">${complete ? '<i class="fa fa-check"></i>' : index + 1}</div>
         <div class="journey-step-content">
-          <div class="journey-step-title"><i class="fa ${definition.icon}" style="width:18px;color:${complete ? '#16A34A' : '#0F766E'}"></i> ${definition.label}</div>
+          <div class="journey-step-title"><i class="fa ${definition.icon}" style="width:18px;color:${complete ? '#16A34A' : rejected ? '#DC2626' : '#0F766E'}"></i> ${definition.label}</div>
           <div class="journey-step-description">${definition.description}</div>
         </div>
         ${action}
@@ -873,14 +980,23 @@
     toast(`${definition.label} recorded.`, 'success');
   }
 
+  function checkRegistrationResult() {
+    if (!currentStudent) return;
+    const p = Store.get('hcms_patients', []).find(x => x.id === currentStudent.patientId);
+    if (!p) return;
+    loadRegistrationJourney(p);
+    updateCardAccess(p);
+    loadStats(p);
+    toast('Registration result checked.', 'info');
+  }
+
   function updateCardAccess(p) {
     const link = document.getElementById('view-print-card');
     const notice = document.getElementById('card-access-notice');
     if (!link || !notice) return;
 
     const workflow = getRegistrationWorkflow(p.id);
-    const cardStep = workflow?.steps.find(step => step.key === 'card-collected');
-    const issued = !workflow || p.cardIssued === true || cardStep?.status === 'complete';
+    const issued = !workflow || (p.cardIssued === true && workflow.reviewStatus === 'approved');
     link.href = `health-card.html?matric=${encodeURIComponent(p.matric)}`;
 
     if (issued) {
@@ -895,7 +1011,7 @@
       link.innerHTML = '<i class="fa fa-lock"></i> Card Pending Clinic Completion';
       notice.style.display = 'flex';
       document.getElementById('card-access-notice-text').textContent =
-        'Your Health Centre Card becomes available after the urine test, required screening, remaining procedures, and card collection are completed.';
+        'Your Health Centre Card becomes available online after your appointment result is approved by the Health Centre team.';
     }
   }
 
@@ -939,8 +1055,8 @@
           <strong>Status:</strong> <span class="badge ${statusMap[appt.status]}">${appt.status}</span>
         </div>
            <div style="grid-column:1/-1" class="alert alert-info">
-          <i class="fa fa-info-circle"></i>
-           <div>Please arrive <strong>10 minutes early</strong> with your school ID, Health Centre receipt, school fees receipt, and two passport photographs. Your registration checklist will be updated as you complete each clinic step.</div>
+           <i class="fa fa-info-circle"></i>
+            <div>Your registration documents were submitted online. After your appointment, check the portal for your result and card activation status.</div>
         </div>
       </div>`;
 
@@ -957,7 +1073,7 @@
     reminder.style.display = 'flex';
     document.getElementById('appt-reminder-text').innerHTML =
       `<strong>Upcoming Appointment:</strong> ${formatDate(appt.date)} at ${appt.time} — ${appt.reason}. 
-       Bring your school ID, both receipts, and two passport photographs.`;
+       Your forms and documents are already submitted online. Check the portal after the appointment for your result.`;
   }
 
   function loadRecords(p) {
@@ -1007,8 +1123,7 @@
     const bills    = Store.get('hcms_bills',[]).filter(b => b.patientId === p.id);
     const pending  = bills.filter(b => b.status==='pending');
     const workflow = getRegistrationWorkflow(p.id);
-    const cardStep = workflow?.steps.find(step => step.key === 'card-collected');
-    const cardIssued = !workflow || p.cardIssued === true || cardStep?.status === 'complete';
+    const cardIssued = !workflow || (p.cardIssued === true && workflow.reviewStatus === 'approved');
 
     document.getElementById('student-stats').innerHTML = `
       <div class="stat-card teal"><div class="stat-icon"><i class="fa fa-calendar-check-o"></i></div>
@@ -1021,7 +1136,7 @@
         </div></div>
       <div class="stat-card green"><div class="stat-icon"><i class="fa fa-id-card-o"></i></div>
         <div class="stat-info"><div class="stat-value">${cardIssued ? '✓' : '—'}</div><div class="stat-label">Card Status</div>
-        <div class="stat-change up">${cardIssued ? '▲ Issued' : 'Pending clinic steps'}</div></div></div>`;
+         <div class="stat-change up">${cardIssued ? '▲ Activated' : 'Awaiting approval'}</div></div></div>`;
   }
 
   function requestReschedule() {
