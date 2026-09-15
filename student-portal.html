@@ -139,44 +139,17 @@
       padding-bottom: 7px;
       margin: 18px 0 12px;
     }
-    .setup-requirements {
-      display: grid;
-      gap: 8px;
-      background: #fff8e7;
-      border: 1px solid #f2d28a;
-      border-radius: 5px;
-      padding: 11px 12px;
-      margin: 14px 0;
-      color: #6d520f;
-      font-size: 11px;
-      line-height: 1.4;
-    }
-    .setup-requirements label {
-      display: flex;
-      gap: 8px;
-      align-items: flex-start;
-    }
-    .setup-requirements input {
-      margin-top: 2px;
-      accent-color: var(--eksu-red);
-    }
     .online-upload {
       display: grid;
       gap: 5px;
-      padding: 8px 0;
+      min-width: 0;
     }
     .online-upload label {
       font-weight: 600;
-      color: #59460f;
-    }
-    .online-upload input[type="file"] {
-      width: 100%;
-      margin: 0;
-      accent-color: var(--eksu-red);
-      font-size: 11px;
+      color: var(--eksu-text);
     }
     .online-upload small {
-      color: #806a2c;
+      color: var(--eksu-muted);
       font-size: 10px;
     }
     .result-status-card {
@@ -477,21 +450,21 @@
           </div>
         </div>
 
-        <div class="setup-requirements">
-          <strong><i class="fa fa-cloud-upload"></i> Upload your requirements online</strong>
+        <div class="setup-section-title"><i class="fa fa-cloud-upload"></i> Upload your requirements online</div>
+        <div class="form-grid">
           <div class="online-upload">
             <label for="setup-health-receipt">Health Centre fee receipt <span class="req">*</span></label>
-            <input type="file" id="setup-health-receipt" accept=".pdf,.jpg,.jpeg,.png" required/>
+            <input class="form-control" type="file" id="setup-health-receipt" accept=".pdf,.jpg,.jpeg,.png" required/>
             <small>PDF or image file</small>
           </div>
           <div class="online-upload">
             <label for="setup-school-receipt">Current school fees receipt <span class="req">*</span></label>
-            <input type="file" id="setup-school-receipt" accept=".pdf,.jpg,.jpeg,.png" required/>
+            <input class="form-control" type="file" id="setup-school-receipt" accept=".pdf,.jpg,.jpeg,.png" required/>
             <small>PDF or image file</small>
           </div>
           <div class="online-upload">
             <label for="setup-passports">Two passport photographs <span class="req">*</span></label>
-            <input type="file" id="setup-passports" accept=".jpg,.jpeg,.png" multiple required/>
+            <input class="form-control" type="file" id="setup-passports" accept=".jpg,.jpeg,.png" multiple required/>
             <small>Select two recent passport photographs</small>
           </div>
         </div>
