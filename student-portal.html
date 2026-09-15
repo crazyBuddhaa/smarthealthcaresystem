@@ -255,7 +255,9 @@
     @media (max-width: 640px) {
       .journey-step { flex-wrap: wrap; }
       .journey-step-action { margin-left: 36px; }
-      .portal-body { padding: 16px 12px; }
+      .portal-body { padding: 16px 8px; }
+      .student-setup-card .card-body,
+      .journey-card .card-body { padding-left: 16px; padding-right: 16px; }
     }
   </style>
 </head>
@@ -463,9 +465,9 @@
             <small>PDF or image file</small>
           </div>
           <div class="online-upload">
-            <label for="setup-passports">Two passport photographs <span class="req">*</span></label>
-            <input class="form-control" type="file" id="setup-passports" accept=".jpg,.jpeg,.png" multiple required/>
-            <small>Select two recent passport photographs</small>
+            <label for="setup-passports">One passport photograph <span class="req">*</span></label>
+            <input class="form-control" type="file" id="setup-passports" accept=".jpg,.jpeg,.png" required/>
+            <small>Select one recent passport photograph</small>
           </div>
         </div>
 
@@ -732,7 +734,7 @@
     const time = document.getElementById('setup-time').value;
     const healthReceipt = document.getElementById('setup-health-receipt').files[0];
     const schoolReceipt = document.getElementById('setup-school-receipt').files[0];
-    const passportPhotos = [...document.getElementById('setup-passports').files];
+    const passportPhoto = document.getElementById('setup-passports').files[0];
 
     if (!gender || !phone || !dept || !emergency || !paymentRef || !date || !time) {
       showAlert(alert, 'danger', 'Please complete all required fields before continuing.');
@@ -742,8 +744,8 @@
       showAlert(alert, 'danger', 'Invalid payment reference. Please check your receipt and try again.');
       return;
     }
-    if (!healthReceipt || !schoolReceipt || passportPhotos.length < 2) {
-      showAlert(alert, 'warning', 'Upload both receipts and two passport photographs before submitting online.');
+    if (!healthReceipt || !schoolReceipt || !passportPhoto) {
+      showAlert(alert, 'warning', 'Upload both receipts and one passport photograph before submitting online.');
       return;
     }
 
@@ -777,7 +779,7 @@
       onlineDocuments: {
         healthReceipt: healthReceipt.name,
         schoolReceipt: schoolReceipt.name,
-        passportPhotos: passportPhotos.map(file => file.name)
+        passportPhotos: [passportPhoto.name]
       },
       profileComplete: true,
       cardIssued: false

@@ -92,10 +92,10 @@ const REGISTRATION_STEP_DEFINITIONS = [
   },
   {
     key: 'passport-photos-uploaded',
-    label: 'Upload passport photographs',
+    label: 'Upload one passport photograph',
     icon: 'fa-picture-o',
-    description: 'Upload two recent passport photographs for online verification.',
-    action: 'Photos uploaded'
+    description: 'Upload one recent passport photograph for online verification.',
+    action: 'Photo uploaded'
   },
   {
     key: 'form-submitted',
