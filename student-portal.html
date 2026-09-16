@@ -253,8 +253,17 @@
       margin-top: 12px;
     }
     @media (max-width: 640px) {
-      .journey-step { flex-wrap: wrap; }
-      .journey-step-action { margin-left: 36px; }
+      .journey-step {
+        display: grid;
+        grid-template-columns: 26px minmax(0, 1fr);
+        align-items: start;
+      }
+      .journey-step-action {
+        grid-column: 2;
+        justify-self: start;
+        margin-left: 0;
+        white-space: normal;
+      }
       .portal-body { padding: 16px 8px; }
       .student-setup-card .card-body,
       .journey-card .card-body { padding-left: 16px; padding-right: 16px; }
@@ -282,7 +291,7 @@
         <p class="text-center text-muted" style="font-size:13px;padding:16px 0">
           Redirecting you to the shared sign-in page…
         </p>
-        <a href="index.html" class="btn btn-red btn-block">
+        <a href="login.html" class="btn btn-red btn-block">
           <i class="fa fa-sign-in"></i> Go to Sign In
         </a>
       </div>

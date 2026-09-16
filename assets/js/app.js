@@ -36,7 +36,7 @@ const Auth = {
   },
   logout() { sessionStorage.removeItem('hcms_user'); window.location.href = 'index.html'; },
   require() {
-    if (!this.current()) { window.location.href = 'index.html'; return null; }
+    if (!this.current()) { window.location.href = 'login.html'; return null; }
     return this.current();
   }
 };
