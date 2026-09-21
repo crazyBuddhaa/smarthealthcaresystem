@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
   <link rel="stylesheet" href="assets/css/style.css"/>
 </head>
-<body>
+<body class="dashboard-page">
 
 <!-- Top Navigation -->
 <nav class="topnav">
@@ -19,7 +19,7 @@
     <img src="assets/images/healthcare_logo.svg" alt="CarePoint Health Centre"/>
     <div class="topnav-brand-text">CarePoint<br>Health Centre</div>
   </div>
-  <div class="topnav-title">Smart Health Centre Management System</div>
+  <div class="topnav-title">CarePoint operations</div>
   <div class="topnav-right">
     <span class="topnav-user" style="font-size:13px;color:rgba(255,255,255,0.9);padding-right:4px">
       <i class="fa fa-user-circle"></i>
@@ -68,11 +68,18 @@
   </div>
 
   <!-- Welcome alert -->
-  <div class="alert alert-info" id="welcome-msg">
-    <i class="fa fa-info-circle"></i>
-    <div>
-      Welcome back, <strong id="welcome-name"></strong>! Today is <strong id="today-date"></strong>.
-      The health centre portal is active and ready.
+  <div class="dashboard-hero" id="welcome-msg">
+    <div class="dashboard-hero-copy">
+      <div class="dashboard-kicker"><i class="fa fa-heartbeat"></i> CarePoint operations</div>
+      <h2>Good morning, <span id="welcome-name"></span>.</h2>
+      <p>Keep today’s patient flow, appointments, records, and payments moving from one calm workspace.</p>
+      <div class="dashboard-date"><i class="fa fa-calendar-o"></i> <span>Today is <strong id="today-date"></strong></span></div>
+    </div>
+    <div class="dashboard-hero-status">
+      <span class="dashboard-status-dot"></span>
+      <small>Centre status</small>
+      <strong>Open today</strong>
+      <span>Appointments and walk-in support</span>
     </div>
   </div>
 
@@ -80,7 +87,7 @@
   <div class="stats-grid" id="stats-grid"></div>
 
   <!-- Two-column lower section -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;flex-wrap:wrap">
+  <div class="dashboard-content-grid">
 
     <!-- Recent Patients -->
     <div class="card">
