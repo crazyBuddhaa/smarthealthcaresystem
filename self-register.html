@@ -137,33 +137,66 @@
     }
   </style>
 </head>
-<body>
-  <div class="login-page">
-    <div class="login-bg"></div>
-    <div class="login-bg-overlay"></div>
+<body class="auth-page">
+  <header class="auth-header">
+    <nav class="auth-nav" aria-label="Main navigation">
+      <a class="auth-brand" href="index.html">
+        <img src="assets/images/healthcare_logo.svg" alt="CarePoint Health Centre"/>
+        <span>
+          <strong>CarePoint Health Centre</strong>
+          <span>Student &amp; community care</span>
+        </span>
+      </a>
+      <div class="auth-nav-links">
+        <a href="index.html#services">Services</a>
+        <a href="index.html#how-it-works">How it works</a>
+        <a href="index.html#visit">Plan your visit</a>
+      </div>
+      <div class="auth-nav-actions">
+        <a href="login.html" class="btn btn-outline-red">Sign in</a>
+        <a href="index.html" class="btn btn-red"><i class="fa fa-home"></i> Home</a>
+      </div>
+    </nav>
+  </header>
 
-    <div class="login-card signup-card">
-      <div class="login-brand">
-        <a href="index.html">
-          <img src="assets/images/healthcare_logo.svg" alt="CarePoint Health Centre"/>
-        </a>
+  <main class="auth-main">
+    <section class="auth-intro">
+      <div class="auth-kicker">Start your CarePoint journey</div>
+      <h1>Your care, ready <em>when you are.</em></h1>
+      <p class="auth-intro-copy">
+        Create your student account once, then complete your health-centre registration
+        online before you visit.
+      </p>
+      <div class="auth-benefits">
+        <div class="auth-benefit"><i class="fa fa-check-circle"></i><span>Use your matric number to access your student portal.</span></div>
+        <div class="auth-benefit"><i class="fa fa-check-circle"></i><span>Submit your details, receipts, and appointment request online.</span></div>
+        <div class="auth-benefit"><i class="fa fa-check-circle"></i><span>Track approval and access your digital Health Centre Card.</span></div>
+      </div>
+      <div class="auth-availability">
+        <i class="fa fa-clock-o"></i>
+        <span><strong>Open Monday–Friday</strong><br/>8:00 AM – 4:00 PM for appointments and walk-in support</span>
+      </div>
+    </section>
+
+    <section class="auth-card" aria-labelledby="signup-heading">
+      <div class="auth-card-header">
+        <h2 id="signup-heading">Create your account</h2>
+        <p>Set up your student portal with the same details used by your school.</p>
       </div>
 
-      <div class="login-body">
-        <div class="signup-heading">
-          <h1>SIGN UP</h1>
-          <h2>Student Health Portal</h2>
-        </div>
-
-        <div class="signup-notice">
-          <strong><i class="fa fa-info-circle"></i> Notice:</strong>
-          Sign up with your information exactly as shown on your school record.
-          Your health-centre details and appointment are completed after you sign in.
+      <div class="auth-card-body">
+        <div class="auth-notice">
+          <i class="fa fa-info-circle"></i>
+          <div>
+            <strong>Have your school details ready</strong>
+            Sign up with your information exactly as shown on your school record.
+            Your health-centre profile and appointment are completed after sign-in.
+          </div>
         </div>
 
         <div id="signup-alert" style="display:none;margin-bottom:12px"></div>
 
-        <div class="signup-field-row">
+        <div class="auth-signup-grid">
           <div class="signup-field">
             <label for="signup-surname">Surname</label>
             <input id="signup-surname" type="text" autocomplete="family-name" placeholder="Surname"/>
@@ -172,19 +205,17 @@
             <label for="signup-first-name">First Name</label>
             <input id="signup-first-name" type="text" autocomplete="given-name" placeholder="First name"/>
           </div>
-        </div>
 
-        <div class="signup-field">
-          <label for="signup-other-name">Other Name</label>
-          <input id="signup-other-name" type="text" autocomplete="additional-name" placeholder="Other name (optional)"/>
-        </div>
+          <div class="signup-field full">
+            <label for="signup-other-name">Other Name</label>
+            <input id="signup-other-name" type="text" autocomplete="additional-name" placeholder="Other name (optional)"/>
+          </div>
 
-        <div class="signup-field">
-          <label for="signup-matric">Matric No.</label>
-          <input id="signup-matric" type="text" autocomplete="username" maxlength="20" placeholder="e.g. STU/2023/0001"/>
-        </div>
+          <div class="signup-field full">
+            <label for="signup-matric">Matric No.</label>
+            <input id="signup-matric" type="text" autocomplete="username" maxlength="20" placeholder="e.g. STU/2023/0001"/>
+          </div>
 
-        <div class="signup-field-row">
           <div class="signup-field">
             <label for="signup-email">Valid Email</label>
             <input id="signup-email" type="email" autocomplete="email" placeholder="you@example.com"/>
@@ -193,9 +224,7 @@
             <label for="signup-email-confirm">Confirm Email</label>
             <input id="signup-email-confirm" type="email" autocomplete="email" placeholder="Repeat email"/>
           </div>
-        </div>
 
-        <div class="signup-field-row">
           <div class="signup-field">
             <label for="signup-password">Password</label>
             <input id="signup-password" type="password" autocomplete="new-password" maxlength="15" placeholder="Create a password"/>
@@ -206,27 +235,32 @@
           </div>
         </div>
 
-        <label class="terms-row">
+        <label class="auth-check">
           <input id="signup-terms" type="checkbox"/>
           <span>I agree to the terms and conditions guiding the use of this site.</span>
         </label>
 
+        <label class="auth-check">
+          <input id="signup-captcha" type="checkbox"/>
+          <span>I confirm that I am creating this account for my own student health-centre access.</span>
+        </label>
 
         <button class="btn btn-red btn-block" onclick="createStudentAccount()">
-          <i class="fa fa-user-plus"></i> Create
+          Create student account <i class="fa fa-arrow-right"></i>
         </button>
 
-        <div class="signup-links">
-          <a href="login.html">Login</a>
-          <a href="login.html">Reset Password</a>
+        <div class="auth-links">
+          <a href="login.html"><i class="fa fa-sign-in"></i> Already have an account?</a>
+          <a href="login.html">Reset password</a>
         </div>
 
-        <div class="signup-powered">Powered by CarePoint Health Centre</div>
+        <div class="auth-footer-note">
+          Your health-centre details and appointment are completed securely after sign-in.
+          <div class="login-footer">CarePoint Smart Health Centre Management System &copy; 2026</div>
+        </div>
       </div>
-
-      <div class="login-footer">CarePoint Smart Health Centre Management System &copy; 2026</div>
-    </div>
-  </div>
+    </section>
+  </main>
 
   <script src="assets/js/app.js"></script>
   <script>
