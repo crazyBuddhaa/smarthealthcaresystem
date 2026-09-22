@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Register Patient | CarePoint Health Centre</title>
+    <title>Register Student | CarePoint Health Centre</title>
   <link rel="icon" href="assets/images/healthcare_favicon.svg"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
   <link rel="stylesheet" href="assets/css/style.css"/>
@@ -16,7 +16,7 @@
     <img src="assets/images/healthcare_logo.svg" alt="CarePoint Health Centre"/>
     <div class="topnav-brand-text">CarePoint<br>Health Centre</div>
   </div>
-  <div class="topnav-title">Register Patient</div>
+  <div class="topnav-title">Register Student</div>
   <div class="topnav-right">
     <span style="font-size:13px;color:rgba(255,255,255,0.9)"><i class="fa fa-user-circle"></i> <span id="topnav-user"></span></span>
     <button onclick="Auth.logout()" title="Logout" style="background:none;border:none;color:rgba(255,255,255,0.85);font-size:18px;cursor:pointer"><i class="fa fa-sign-out"></i></button>
@@ -30,10 +30,10 @@
   </div>
   <div class="sidebar-divider"></div>
   <div class="sidebar-section">
-    <div class="sidebar-section-title">Patients</div>
-    <div class="sidebar-item"><a href="patients.html"><i class="fa fa-users"></i> Patient Records</a></div>
-    <div class="sidebar-item"><a href="register.html"><i class="fa fa-user-plus"></i> Register Patient</a></div>
-    <div class="sidebar-item"><a href="records.html"><i class="fa fa-file-text"></i> Health Records</a></div>
+    <div class="sidebar-section-title">Students</div>
+    <div class="sidebar-item"><a href="patients.html"><i class="fa fa-users"></i> Student Profiles</a></div>
+    <div class="sidebar-item"><a href="register.html"><i class="fa fa-user-plus"></i> Register Student</a></div>
+    <div class="sidebar-item"><a href="records.html"><i class="fa fa-file-text"></i> Student Health Records</a></div>
   </div>
   <div class="sidebar-divider"></div>
   <div class="sidebar-section">
@@ -50,15 +50,15 @@
 
 <main class="page-wrapper">
   <div class="page-header">
-    <h1><i class="fa fa-user-plus"></i> Register New Patient</h1>
-    <div class="breadcrumb"><a href="dashboard.html">Home</a><span><a href="patients.html">Patients</a></span><span>Register</span></div>
+    <h1><i class="fa fa-user-plus"></i> Register New Student</h1>
+    <div class="breadcrumb"><a href="dashboard.html">Home</a><span><a href="patients.html">Student Profiles</a></span><span>Register Student</span></div>
   </div>
 
   <div id="success-msg" style="display:none"></div>
 
   <div class="card">
     <div class="card-header">
-      <h3><i class="fa fa-clipboard"></i> Patient Registration Form</h3>
+      <h3><i class="fa fa-clipboard"></i> Student Profile Registration Form</h3>
       <span class="badge badge-info">CarePoint Health Centre</span>
     </div>
     <div class="card-body">
@@ -69,7 +69,7 @@
           <div class="form-section-title"><i class="fa fa-user"></i> Personal Information</div>
           <div class="form-grid">
             <div class="form-group">
-              <label>Matric Number / JAMB Reg No. <span class="req">*</span></label>
+              <label>Matriculation Number / JAMB Reg No. <span class="req">*</span></label>
               <input class="form-control" id="reg-matric" placeholder="e.g. STU/2023/0001" required/>
             </div>
             <div class="form-group">
@@ -168,7 +168,7 @@
             </div>
             <div class="form-group" style="grid-column:1/-1">
               <label>Emergency Contact</label>
-              <input class="form-control" id="reg-emergency" placeholder="Name: Phone — e.g. Mrs A. Adeyemi: 08011223344"/>
+              <input class="form-control" id="reg-emergency" placeholder="Name: Phone, for example Mrs A. Adeyemi: 08011223344"/>
             </div>
             <div class="form-group" style="grid-column:1/-1">
               <label>Additional Medical Notes</label>
@@ -189,7 +189,7 @@
 
         <div style="display:flex;gap:12px;flex-wrap:wrap">
           <button type="submit" class="btn btn-red">
-            <i class="fa fa-save"></i> Register Patient
+            <i class="fa fa-save"></i> Register Student
           </button>
           <button type="reset" class="btn btn-gray">
             <i class="fa fa-refresh"></i> Clear Form
@@ -223,7 +223,7 @@
     // Check duplicate matric
     const existing = Store.get('hcms_patients', []);
     if (existing.find(p => p.matric.toLowerCase() === matric.toLowerCase())) {
-      toast('A patient with this Matric Number already exists.', 'error');
+      toast('A student with this matriculation number already exists.', 'error');
       return;
     }
 
@@ -255,8 +255,8 @@
     msg.style.display = 'flex';
     msg.className = 'alert alert-success';
     msg.innerHTML = `<i class="fa fa-check-circle"></i>
-      <div>Patient <strong>${name}</strong> (${matric}) has been registered successfully.
-      &nbsp;<a href="patients.html" style="color:inherit;text-decoration:underline">View all patients →</a></div>`;
+      <div>Student <strong>${name}</strong> (${matric}) has been registered successfully.
+      &nbsp;<a href="patients.html" style="color:inherit;text-decoration:underline">View all student profiles →</a></div>`;
 
     document.getElementById('reg-form').reset();
     window.scrollTo({ top: 0, behavior: 'smooth' });

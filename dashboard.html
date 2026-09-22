@@ -40,10 +40,10 @@
   </div>
   <div class="sidebar-divider"></div>
   <div class="sidebar-section">
-    <div class="sidebar-section-title">Patients</div>
-    <div class="sidebar-item"><a href="patients.html"><i class="fa fa-users"></i> Patient Records</a></div>
-    <div class="sidebar-item"><a href="register.html"><i class="fa fa-user-plus"></i> Register Patient</a></div>
-    <div class="sidebar-item"><a href="records.html"><i class="fa fa-file-medical-alt fa-file-text"></i> Health Records</a></div>
+    <div class="sidebar-section-title">Students</div>
+    <div class="sidebar-item"><a href="patients.html"><i class="fa fa-users"></i> Student Profiles</a></div>
+    <div class="sidebar-item"><a href="register.html"><i class="fa fa-user-plus"></i> Register Student</a></div>
+    <div class="sidebar-item"><a href="records.html"><i class="fa fa-file-medical-alt fa-file-text"></i> Student Health Records</a></div>
   </div>
   <div class="sidebar-divider"></div>
   <div class="sidebar-section">
@@ -72,7 +72,7 @@
     <div class="dashboard-hero-copy">
       <div class="dashboard-kicker"><i class="fa fa-heartbeat"></i> CarePoint operations</div>
       <h2>Good morning, <span id="welcome-name"></span>.</h2>
-      <p>Keep today’s patient flow, appointments, records, and payments moving from one calm workspace.</p>
+      <p>Keep today’s student flow, appointments, records, and payments moving from one calm workspace.</p>
       <div class="dashboard-date"><i class="fa fa-calendar-o"></i> <span>Today is <strong id="today-date"></strong></span></div>
     </div>
     <div class="dashboard-hero-status">
@@ -89,10 +89,10 @@
   <!-- Two-column lower section -->
   <div class="dashboard-content-grid">
 
-    <!-- Recent Patients -->
+    <!-- Recent Students -->
     <div class="card">
       <div class="card-header">
-        <h3><i class="fa fa-users"></i> Recent Patients</h3>
+        <h3><i class="fa fa-users"></i> Recent Students</h3>
         <a href="patients.html" class="btn btn-sm btn-teal">View All</a>
       </div>
       <div class="table-wrapper">
@@ -121,7 +121,7 @@
           <thead>
             <tr>
               <th>#</th>
-              <th>Patient</th>
+              <th>Student</th>
               <th>Time</th>
               <th>Status</th>
             </tr>
@@ -145,7 +145,7 @@
           <tr>
             <th>Date</th>
             <th>Matric No.</th>
-            <th>Patient</th>
+            <th>Student</th>
             <th>Amount</th>
             <th>Status</th>
           </tr>
@@ -172,7 +172,7 @@
   const records  = Store.get('hcms_records', []);
 
   const statsData = [
-    { label:'Total Patients', value: patients.length, icon:'fa-users',      color:'red',   change:'+2 this week', dir:'up' },
+    { label:'Total Students', value: patients.length, icon:'fa-users',      color:'red',   change:'+2 this week', dir:'up' },
     { label:'Queue Today',    value: queue.filter(q=>q.status!=='done').length, icon:'fa-list-ol', color:'amber', change: queue.filter(q=>q.status==='waiting').length+' waiting', dir:'down' },
     { label:'Pending Bills',  value: bills.filter(b=>b.status==='pending').length, icon:'fa-money', color:'teal', change:'₦'+bills.filter(b=>b.status==='pending').reduce((s,b)=>s+b.total,0).toLocaleString()+' outstanding', dir:'down' },
     { label:'Health Records', value: records.length, icon:'fa-file-text',   color:'green',  change:'+1 today', dir:'up' },

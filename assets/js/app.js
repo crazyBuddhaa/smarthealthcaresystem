@@ -1,6 +1,6 @@
 /* =============================================
    CarePoint Smart Health Centre Management System
-   Core JS — localStorage data layer + helpers
+   Core JS, localStorage data layer and helpers
    ============================================= */
 
 'use strict';
@@ -347,7 +347,7 @@ function seedData() {
     { id:1, patientId:1, date:'2025-06-10', complaint:'Headache and mild fever', diagnosis:'Malaria', treatment:'Arthemether/Lumefantrine, Paracetamol', doctor:'Dr. A. Okafor', notes:'Patient to return in 3 days if no improvement.' },
     { id:2, patientId:2, date:'2025-06-12', complaint:'Stomach pain after eating', diagnosis:'Gastritis', treatment:'Omeprazole, Antacid syrup', doctor:'Dr. A. Okafor', notes:'Avoid spicy food and alcohol.' },
     { id:3, patientId:3, date:'2025-06-15', complaint:'Cough and cold for 5 days', diagnosis:'Upper Respiratory Tract Infection', treatment:'Amoxicillin, Vitamin C, Cough syrup', doctor:'Dr. A. Okafor', notes:'Rest, drink plenty of water.' },
-    { id:4, patientId:1, date:'2025-07-02', complaint:'Follow-up — malaria symptoms resolved', diagnosis:'Recovered', treatment:'Continue multivitamins', doctor:'Dr. A. Okafor', notes:'Cleared for normal activities.' },
+    { id:4, patientId:1, date:'2025-07-02', complaint:'Follow-up, malaria symptoms resolved', diagnosis:'Recovered', treatment:'Continue multivitamins', doctor:'Dr. A. Okafor', notes:'Cleared for normal activities.' },
   ];
 
   const queue = [
@@ -442,7 +442,7 @@ function renderTopnavUser() {
 function today() { return new Date().toISOString().split('T')[0]; }
 function nowTime() { return new Date().toTimeString().slice(0,5); }
 function formatDate(d) {
-  if (!d) return '—';
+  if (!d) return 'Not available';
   const parts = d.split('-');
   if (parts.length !== 3) return d;
   return `${parts[2]}/${parts[1]}/${parts[0]}`;

@@ -30,10 +30,10 @@
   </div>
   <div class="sidebar-divider"></div>
   <div class="sidebar-section">
-    <div class="sidebar-section-title">Patients</div>
-    <div class="sidebar-item"><a href="patients.html"><i class="fa fa-users"></i> Patient Records</a></div>
-    <div class="sidebar-item"><a href="register.html"><i class="fa fa-user-plus"></i> Register Patient</a></div>
-    <div class="sidebar-item"><a href="records.html"><i class="fa fa-file-text"></i> Health Records</a></div>
+    <div class="sidebar-section-title">Students</div>
+    <div class="sidebar-item"><a href="patients.html"><i class="fa fa-users"></i> Student Profiles</a></div>
+    <div class="sidebar-item"><a href="register.html"><i class="fa fa-user-plus"></i> Register Student</a></div>
+    <div class="sidebar-item"><a href="records.html"><i class="fa fa-file-text"></i> Student Health Records</a></div>
   </div>
   <div class="sidebar-divider"></div>
   <div class="sidebar-section">
@@ -64,7 +64,7 @@
     </button>
     <div class="search-box" style="margin-left:auto">
       <i class="fa fa-search"></i>
-      <input type="text" id="bill-search" placeholder="Search patient or matric..." oninput="filterBills()"/>
+      <input type="text" id="bill-search" placeholder="Search student or matriculation number..." oninput="filterBills()"/>
     </div>
     <select class="form-control" id="bill-status-filter" onchange="filterBills()" style="max-width:150px">
       <option value="">All Status</option>
@@ -86,7 +86,7 @@
             <th>Invoice #</th>
             <th>Date</th>
             <th>Matric No.</th>
-            <th>Patient Name</th>
+            <th>Student Name</th>
             <th>Items</th>
             <th>Total Amount</th>
             <th>Status</th>
@@ -117,9 +117,9 @@
       <form id="bill-form" onsubmit="saveBill(event)">
         <div class="form-grid" style="margin-bottom:16px">
           <div class="form-group">
-            <label>Patient <span class="req">*</span></label>
+            <label>Student <span class="req">*</span></label>
             <select class="form-control" id="bill-patient" required>
-              <option value="">-- Select patient --</option>
+              <option value="">-- Select student --</option>
             </select>
           </div>
           <div class="form-group">
@@ -215,7 +215,7 @@
     patients.forEach(p => {
       const o = document.createElement('option');
       o.value = p.id;
-      o.textContent = `${p.matric} — ${p.name}`;
+      o.textContent = `${p.matric}, ${p.name}`;
       sel.appendChild(o);
     });
     document.getElementById('bill-date').value = today();
@@ -320,7 +320,7 @@
         <td style="font-size:12px">${b.items.map(i=>`${i.desc}`).join(', ')}</td>
         <td class="text-bold">${formatNaira(b.total)}</td>
         <td><span class="badge ${b.status==='paid'?'badge-success':'badge-warning'}">${b.status}</span></td>
-        <td style="font-size:12px;color:var(--eksu-muted)">${b.ref||'—'}</td>
+        <td style="font-size:12px;color:var(--eksu-muted)">${b.ref||'Not recorded'}</td>
         <td>
           <button class="btn btn-sm btn-teal" onclick="viewReceipt(${b.id})" title="View Invoice"><i class="fa fa-eye"></i></button>
           ${b.status==='pending' ? `<button class="btn btn-sm btn-red" style="margin-left:4px" onclick="openPayModal(${b.id})" title="Record Payment"><i class="fa fa-check"></i></button>` : ''}
@@ -345,7 +345,7 @@
         <div><strong>Date:</strong> ${formatDate(b.date)}</div>
       </div>
       <div style="background:var(--eksu-label-bg);border-radius:4px;padding:10px 14px;margin-bottom:14px;font-size:13px">
-        <strong>Patient:</strong> ${b.name}<br>
+        <strong>Student:</strong> ${b.name}<br>
         <strong>Matric No.:</strong> ${b.matric}
       </div>
       <table style="width:100%;font-size:13px;border-collapse:collapse;margin-bottom:14px">
@@ -373,7 +373,7 @@
     document.getElementById('pay-info').innerHTML = `
       <div class="alert alert-info" style="margin:0">
         <i class="fa fa-info-circle"></i>
-        <div>Recording payment for <strong>${b.name}</strong> — Invoice Amount: <strong>${formatNaira(b.total)}</strong></div>
+        <div>Recording payment for <strong>${b.name}</strong>. Invoice amount: <strong>${formatNaira(b.total)}</strong></div>
       </div>`;
     document.getElementById('pay-ref').value = '';
     document.getElementById('pay-method').value = '';

@@ -323,14 +323,14 @@
       <div class="student-avatar"><i class="fa fa-user"></i></div>
       <div style="flex:1">
         <div class="student-hero-kicker">Student health portal</div>
-        <div style="font-size:20px;font-weight:700" id="banner-name">—</div>
-        <div style="font-size:13px;opacity:0.85" id="banner-matric">—</div>
-        <div style="font-size:12px;opacity:0.75" id="banner-dept">—</div>
+        <div style="font-size:20px;font-weight:700" id="banner-name">Not available</div>
+        <div style="font-size:13px;opacity:0.85" id="banner-matric">Not available</div>
+        <div style="font-size:12px;opacity:0.75" id="banner-dept">Not available</div>
       </div>
       <div style="text-align:right">
         <div class="student-hero-status"><i class="fa fa-circle"></i> Portal active</div>
         <div style="font-size:10px;opacity:0.7;text-transform:uppercase;letter-spacing:1px">Card No.</div>
-        <div style="font-size:16px;font-weight:700;letter-spacing:1px" id="banner-card-no">—</div>
+        <div style="font-size:16px;font-weight:700;letter-spacing:1px" id="banner-card-no">Not issued</div>
         <div style="font-size:11px;opacity:0.7;margin-top:2px">Session 2025/2026</div>
       </div>
     </div>
@@ -539,7 +539,7 @@
         <div class="card-body">
           <div class="alert alert-info">
             <i class="fa fa-info-circle"></i>
-            <div>Health centre services are available <strong>Monday – Friday, 8:00 AM – 4:00 PM</strong>. Your appointment is booked online; check the portal after your visit for the result.</div>
+            <div>Health centre services are available <strong>Monday to Friday, 8:00 AM to 4:00 PM</strong>. Your appointment is booked online. Check the portal after your visit for the result.</div>
           </div>
           <div class="alert alert-warning" id="appt-reminder" style="display:none">
             <i class="fa fa-calendar"></i>
@@ -640,12 +640,12 @@
             </div>
             <img src="assets/images/healthcare_logo.svg" style="height:32px"/>
           </div>
-          <div style="font-size:16px;font-weight:700" id="mini-card-name">—</div>
-          <div style="font-size:11px;opacity:0.8;margin:2px 0 8px" id="mini-card-matric">—</div>
+          <div style="font-size:16px;font-weight:700" id="mini-card-name">Not available</div>
+          <div style="font-size:11px;opacity:0.8;margin:2px 0 8px" id="mini-card-matric">Not available</div>
           <div style="display:flex;gap:14px;font-size:11px">
-            <div><div style="opacity:0.65;font-size:9px">Blood</div><strong id="mini-card-blood">—</strong></div>
-            <div><div style="opacity:0.65;font-size:9px">Genotype</div><strong id="mini-card-geno">—</strong></div>
-            <div style="margin-left:auto;text-align:right"><div style="opacity:0.65;font-size:9px">Card No.</div><strong id="mini-card-no" style="font-size:10px;letter-spacing:0.5px">—</strong></div>
+            <div><div style="opacity:0.65;font-size:9px">Blood</div><strong id="mini-card-blood">Not available</strong></div>
+            <div><div style="opacity:0.65;font-size:9px">Genotype</div><strong id="mini-card-geno">Not available</strong></div>
+            <div style="margin-left:auto;text-align:right"><div style="opacity:0.65;font-size:9px">Card No.</div><strong id="mini-card-no" style="font-size:10px;letter-spacing:0.5px">Not issued</strong></div>
           </div>
         </div>
       </div>
@@ -684,14 +684,14 @@
     document.getElementById('banner-dept').textContent     = p.dept
       ? `${p.dept}${p.level?' | Level '+p.level:''}`
       : 'Complete your Health Centre profile';
-    document.getElementById('banner-card-no').textContent  = p.cardNo || '—';
+    document.getElementById('banner-card-no').textContent  = p.cardNo || 'Not issued';
 
     // Mini card
     document.getElementById('mini-card-name').textContent   = p.name;
     document.getElementById('mini-card-matric').textContent = p.matric;
-    document.getElementById('mini-card-blood').textContent  = p.blood || '—';
-    document.getElementById('mini-card-geno').textContent   = p.genotype || '—';
-    document.getElementById('mini-card-no').textContent     = p.cardNo || '—';
+    document.getElementById('mini-card-blood').textContent  = p.blood || 'Not available';
+    document.getElementById('mini-card-geno').textContent   = p.genotype || 'Not available';
+    document.getElementById('mini-card-no').textContent     = p.cardNo || 'Not issued';
 
     // Card link
     document.getElementById('view-print-card').href = `health-card.html?matric=${encodeURIComponent(p.matric)}`;
@@ -837,7 +837,7 @@
     document.getElementById('banner-dept').textContent = `${dept}${level ? ' | Level ' + level : ''}`;
     document.getElementById('banner-card-no').textContent = cardNo;
     document.getElementById('mini-card-blood').textContent = blood;
-    document.getElementById('mini-card-geno').textContent = genotype || '—';
+    document.getElementById('mini-card-geno').textContent = genotype || 'Not available';
     document.getElementById('mini-card-no').textContent = cardNo;
     toast('Your Health Centre registration and appointment have been submitted.', 'success', 5000);
   }
@@ -863,7 +863,7 @@
       approved: {
         type: 'success',
         icon: 'fa-check-circle',
-        title: 'Registration approved — card activated',
+        title: 'Registration approved, card activated',
         message: 'Your Health Centre registration was approved. Your digital Health Centre Card is now available.',
         action: '<button class="btn btn-sm btn-teal" onclick="showTab(\'tab-card\', document.querySelectorAll(\'.portal-tab\')[3])"><i class="fa fa-id-card-o"></i> View card</button>'
       },
@@ -895,8 +895,8 @@
     if (!workflow) {
       badge.textContent = 'Not applicable';
       badge.className = 'badge badge-secondary';
-      summary.textContent = 'This patient record was created by staff.';
-      percent.textContent = '—';
+      summary.textContent = 'This student profile was created by staff.';
+      percent.textContent = 'Not available';
       bar.style.width = '0%';
       list.innerHTML = `<div class="alert alert-info" style="margin:0">
         <i class="fa fa-info-circle"></i>
@@ -1058,7 +1058,7 @@
     const reminder = document.getElementById('appt-reminder');
     reminder.style.display = 'flex';
     document.getElementById('appt-reminder-text').innerHTML =
-      `<strong>Upcoming Appointment:</strong> ${formatDate(appt.date)} at ${appt.time} — ${appt.reason}. 
+      `<strong>Upcoming Appointment:</strong> ${formatDate(appt.date)} at ${appt.time}, ${appt.reason}.
        Your forms and documents are already submitted online. Check the portal after the appointment for your result.`;
   }
 
@@ -1099,7 +1099,7 @@
     grid.innerHTML = fields.map(([k,v]) => `
       <div class="form-group">
         <label>${k}</label>
-        <div style="padding:8px 12px;background:var(--eksu-label-bg);border-radius:4px;font-size:13px;border:1px solid var(--eksu-border)">${v||'—'}</div>
+        <div style="padding:8px 12px;background:var(--eksu-label-bg);border-radius:4px;font-size:13px;border:1px solid var(--eksu-border)">${v||'Not available'}</div>
       </div>`).join('');
   }
 
@@ -1121,7 +1121,7 @@
         ${pending.length ? `<div class="stat-change down">▼ ${formatNaira(pending.reduce((s,b)=>s+b.total,0))}</div>`:''}
         </div></div>
       <div class="stat-card green"><div class="stat-icon"><i class="fa fa-id-card-o"></i></div>
-        <div class="stat-info"><div class="stat-value">${cardIssued ? '✓' : '—'}</div><div class="stat-label">Card Status</div>
+        <div class="stat-info"><div class="stat-value">${cardIssued ? '✓' : 'Not issued'}</div><div class="stat-label">Card Status</div>
          <div class="stat-change up">${cardIssued ? '▲ Activated' : 'Awaiting approval'}</div></div></div>`;
   }
 

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Health Records | CarePoint Health Centre</title>
+  <title>Student Health Records | CarePoint Health Centre</title>
   <link rel="icon" href="assets/images/healthcare_favicon.svg"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
   <link rel="stylesheet" href="assets/css/style.css"/>
@@ -16,7 +16,7 @@
     <img src="assets/images/healthcare_logo.svg" alt="CarePoint Health Centre"/>
     <div class="topnav-brand-text">CarePoint<br>Health Centre</div>
   </div>
-  <div class="topnav-title">Health Records</div>
+  <div class="topnav-title">Student Health Records</div>
   <div class="topnav-right">
     <span style="font-size:13px;color:rgba(255,255,255,0.9)"><i class="fa fa-user-circle"></i> <span id="topnav-user"></span></span>
     <button onclick="Auth.logout()" title="Logout" style="background:none;border:none;color:rgba(255,255,255,0.85);font-size:18px;cursor:pointer"><i class="fa fa-sign-out"></i></button>
@@ -30,10 +30,10 @@
   </div>
   <div class="sidebar-divider"></div>
   <div class="sidebar-section">
-    <div class="sidebar-section-title">Patients</div>
-    <div class="sidebar-item"><a href="patients.html"><i class="fa fa-users"></i> Patient Records</a></div>
-    <div class="sidebar-item"><a href="register.html"><i class="fa fa-user-plus"></i> Register Patient</a></div>
-    <div class="sidebar-item"><a href="records.html"><i class="fa fa-file-text"></i> Health Records</a></div>
+    <div class="sidebar-section-title">Students</div>
+    <div class="sidebar-item"><a href="patients.html"><i class="fa fa-users"></i> Student Profiles</a></div>
+    <div class="sidebar-item"><a href="register.html"><i class="fa fa-user-plus"></i> Register Student</a></div>
+    <div class="sidebar-item"><a href="records.html"><i class="fa fa-file-text"></i> Student Health Records</a></div>
   </div>
   <div class="sidebar-divider"></div>
   <div class="sidebar-section">
@@ -54,13 +54,13 @@
     <div class="breadcrumb"><a href="dashboard.html">Home</a><span>Health Records</span></div>
   </div>
 
-  <!-- Patient selector -->
+  <!-- Student selector -->
   <div class="card" style="margin-bottom:16px">
     <div class="card-body" style="padding:14px 18px">
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-        <label style="font-weight:600;font-size:13px;white-space:nowrap"><i class="fa fa-user text-red"></i> Select Patient:</label>
+        <label style="font-weight:600;font-size:13px;white-space:nowrap"><i class="fa fa-user text-red"></i> Select Student:</label>
         <select class="form-control" id="patient-select" onchange="loadPatient()" style="max-width:360px;flex:1">
-          <option value="">-- Choose a patient --</option>
+          <option value="">-- Choose a student --</option>
         </select>
         <button class="btn btn-red btn-sm" onclick="openModal('add-record-modal')">
           <i class="fa fa-plus"></i> Add Consultation
@@ -72,7 +72,7 @@
     </div>
   </div>
 
-  <!-- Patient info banner -->
+  <!-- Student profile banner -->
   <div id="patient-banner" style="display:none" class="alert alert-info" style="margin-bottom:16px"></div>
 
   <!-- Records table -->
@@ -96,13 +96,13 @@
           </tr>
         </thead>
         <tbody id="records-tbody">
-          <tr><td colspan="8" class="text-center text-muted" style="padding:30px">Select a patient above to view their health records.</td></tr>
+          <tr><td colspan="8" class="text-center text-muted" style="padding:30px">Select a student above to view their health records.</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 
-  <!-- All records view (when no patient selected) -->
+  <!-- All records view when no student is selected -->
   <div class="card" id="all-records-card" style="display:none;margin-top:16px">
     <div class="card-header">
       <h3><i class="fa fa-list"></i> All Consultations</h3>
@@ -110,7 +110,7 @@
     <div class="table-wrapper">
       <table>
         <thead>
-          <tr><th>#</th><th>Date</th><th>Patient</th><th>Matric</th><th>Diagnosis</th><th>Doctor</th></tr>
+          <tr><th>#</th><th>Date</th><th>Student</th><th>Matric</th><th>Diagnosis</th><th>Doctor</th></tr>
         </thead>
         <tbody id="all-records-tbody"></tbody>
       </table>
@@ -129,9 +129,9 @@
       <form id="add-record-form" onsubmit="saveRecord(event)">
         <div class="form-grid">
           <div class="form-group">
-            <label>Patient <span class="req">*</span></label>
+            <label>Student <span class="req">*</span></label>
             <select class="form-control" id="rec-patient" required>
-              <option value="">-- Select patient --</option>
+              <option value="">-- Select student --</option>
             </select>
           </div>
           <div class="form-group">
@@ -140,7 +140,7 @@
           </div>
           <div class="form-group" style="grid-column:1/-1">
             <label>Chief Complaint <span class="req">*</span></label>
-            <input class="form-control" id="rec-complaint" placeholder="Patient's presenting complaint" required/>
+            <input class="form-control" id="rec-complaint" placeholder="Student's presenting complaint" required/>
           </div>
           <div class="form-group" style="grid-column:1/-1">
             <label>Diagnosis <span class="req">*</span></label>
@@ -199,7 +199,7 @@
       patients.forEach(p => {
         const o = document.createElement('option');
         o.value = p.id;
-        o.textContent = `${p.matric} — ${p.name}`;
+        o.textContent = `${p.matric}, ${p.name}`;
         sel.appendChild(o);
       });
     });
@@ -230,7 +230,7 @@
       banner.style.display = 'none';
       allRecCard.style.display = 'none';
       document.getElementById('records-tbody').innerHTML =
-        '<tr><td colspan="8" class="text-center text-muted" style="padding:30px">Select a patient above to view their health records.</td></tr>';
+        '<tr><td colspan="8" class="text-center text-muted" style="padding:30px">Select a student above to view their health records.</td></tr>';
       document.getElementById('records-count').textContent = '0 records';
       renderAllRecords();
       return;
@@ -257,7 +257,7 @@
     document.getElementById('records-count').textContent = `${records.length} record(s)`;
 
     if (!records.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted" style="padding:30px"><i class="fa fa-folder-open-o fa-2x"></i><br>No consultation records for this patient yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted" style="padding:30px"><i class="fa fa-folder-open-o fa-2x"></i><br>No consultation records for this student yet.</td></tr>';
       return;
     }
 
@@ -270,7 +270,7 @@
         <td><strong>${r.diagnosis}</strong></td>
         <td style="max-width:200px;white-space:normal">${r.treatment}</td>
         <td>${r.doctor}</td>
-        <td style="max-width:160px;white-space:normal;font-size:12px;color:var(--eksu-muted)">${r.notes||'—'}</td>
+        <td style="max-width:160px;white-space:normal;font-size:12px;color:var(--eksu-muted)">${r.notes||'No notes'}</td>
         <td>
           <button class="btn btn-sm btn-teal" onclick="viewRecord(${r.id})"><i class="fa fa-eye"></i></button>
           <button class="btn btn-sm btn-gray" style="margin-left:4px" onclick="deleteRecord(${r.id})"><i class="fa fa-trash"></i></button>
@@ -291,8 +291,8 @@
       tbody.innerHTML += `<tr>
         <td>${records.length - i}</td>
         <td>${formatDate(r.date)}</td>
-        <td>${p ? p.name : '—'}</td>
-        <td>${p ? p.matric : '—'}</td>
+        <td>${p ? p.name : 'Not found'}</td>
+        <td>${p ? p.matric : 'Not available'}</td>
         <td><strong>${r.diagnosis}</strong></td>
         <td>${r.doctor}</td>
       </tr>`;
@@ -302,7 +302,7 @@
   function saveRecord(e) {
     e.preventDefault();
     const pid = parseInt(document.getElementById('rec-patient').value);
-    if (!pid) { toast('Please select a patient.', 'error'); return; }
+    if (!pid) { toast('Please select a student.', 'error'); return; }
 
     const records = Store.get('hcms_records', []);
     records.push({
@@ -331,8 +331,8 @@
     const p = Store.get('hcms_patients', []).find(x => x.id === r.patientId);
     document.getElementById('view-record-body').innerHTML = `
       <div style="background:var(--eksu-label-bg);border-radius:4px;padding:12px;margin-bottom:14px;font-size:13px">
-        <strong>Patient:</strong> ${p ? p.name : '—'} &nbsp;|&nbsp;
-        <strong>Matric:</strong> ${p ? p.matric : '—'} &nbsp;|&nbsp;
+        <strong>Student:</strong> ${p ? p.name : 'Not found'} &nbsp;|&nbsp;
+        <strong>Matric:</strong> ${p ? p.matric : 'Not available'} &nbsp;|&nbsp;
         <strong>Date:</strong> ${formatDate(r.date)}
       </div>
       <div class="form-section">

@@ -30,10 +30,10 @@
   </div>
   <div class="sidebar-divider"></div>
   <div class="sidebar-section">
-    <div class="sidebar-section-title">Patients</div>
-    <div class="sidebar-item"><a href="patients.html"><i class="fa fa-users"></i> Patient Records</a></div>
-    <div class="sidebar-item"><a href="register.html"><i class="fa fa-user-plus"></i> Register Patient</a></div>
-    <div class="sidebar-item"><a href="records.html"><i class="fa fa-file-text"></i> Health Records</a></div>
+    <div class="sidebar-section-title">Students</div>
+    <div class="sidebar-item"><a href="patients.html"><i class="fa fa-users"></i> Student Profiles</a></div>
+    <div class="sidebar-item"><a href="register.html"><i class="fa fa-user-plus"></i> Register Student</a></div>
+    <div class="sidebar-item"><a href="records.html"><i class="fa fa-file-text"></i> Student Health Records</a></div>
   </div>
   <div class="sidebar-divider"></div>
   <div class="sidebar-section">
@@ -255,13 +255,13 @@
           </div>
         </div>
         <div style="grid-column:1/-1;background:var(--eksu-label-bg);border-radius:4px;padding:12px">
-          <strong>${a.name}</strong> — ${a.matric}<br>
+          <strong>${a.name}</strong>, ${a.matric}<br>
           <span style="color:var(--eksu-muted)">${a.dept}</span>
         </div>
         <div><strong>Reason:</strong><br>${a.reason}</div>
         <div><strong>Status:</strong><br><span class="badge ${statusCls[a.status]}">${a.status}</span></div>
         <div><strong>Payment Ref:</strong><br>${a.paymentRef}</div>
-        <div><strong>Card No.:</strong><br>${a.cardNo||p?.cardNo||'—'}</div>
+        <div><strong>Card No.:</strong><br>${a.cardNo||p?.cardNo||'Not issued'}</div>
         ${a.rescheduleDate ? `<div style="grid-column:1/-1;background:#fff3e0;border-radius:4px;padding:10px;border-left:3px solid var(--eksu-amber)">
           <strong>Reschedule Request:</strong> ${formatDate(a.rescheduleDate)} at ${a.rescheduleTime}<br>
           <span style="font-size:12px">${a.rescheduleReason||''}</span>

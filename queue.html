@@ -30,10 +30,10 @@
   </div>
   <div class="sidebar-divider"></div>
   <div class="sidebar-section">
-    <div class="sidebar-section-title">Patients</div>
-    <div class="sidebar-item"><a href="patients.html"><i class="fa fa-users"></i> Patient Records</a></div>
-    <div class="sidebar-item"><a href="register.html"><i class="fa fa-user-plus"></i> Register Patient</a></div>
-    <div class="sidebar-item"><a href="records.html"><i class="fa fa-file-text"></i> Health Records</a></div>
+    <div class="sidebar-section-title">Students</div>
+    <div class="sidebar-item"><a href="patients.html"><i class="fa fa-users"></i> Student Profiles</a></div>
+    <div class="sidebar-item"><a href="register.html"><i class="fa fa-user-plus"></i> Register Student</a></div>
+    <div class="sidebar-item"><a href="records.html"><i class="fa fa-file-text"></i> Student Health Records</a></div>
   </div>
   <div class="sidebar-divider"></div>
   <div class="sidebar-section">
@@ -57,7 +57,7 @@
   <!-- Queue stats bar -->
   <div class="stats-grid" style="margin-bottom:20px" id="queue-stats"></div>
 
-  <!-- Active patient banner -->
+  <!-- Active student banner -->
   <div id="active-banner" class="alert alert-info" style="display:none;margin-bottom:16px">
     <i class="fa fa-stethoscope fa-2x"></i>
     <div>
@@ -74,7 +74,7 @@
   <!-- Controls -->
   <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
     <button class="btn btn-red" onclick="callNext()">
-      <i class="fa fa-bell"></i> Call Next Patient
+      <i class="fa fa-bell"></i> Call Next Student
     </button>
     <button class="btn btn-teal" onclick="openModal('add-queue-modal')">
       <i class="fa fa-plus"></i> Add to Queue
@@ -96,7 +96,7 @@
     <h3 style="font-size:18px;color:#555;font-weight:600">Queue is Empty</h3>
     <p style="margin-top:6px">All patients have been attended to. Add new patients to the queue below.</p>
     <button class="btn btn-red" style="margin-top:16px" onclick="openModal('add-queue-modal')">
-      <i class="fa fa-plus"></i> Add Patient to Queue
+      <i class="fa fa-plus"></i> Add Student to Queue
     </button>
   </div>
 
@@ -108,7 +108,7 @@
     <div class="table-wrapper">
       <table>
         <thead>
-          <tr><th>Token</th><th>Patient</th><th>Matric No.</th><th>Department</th><th>Arrived</th><th>Status</th><th>Actions</th></tr>
+          <tr><th>Token</th><th>Student</th><th>Matric No.</th><th>Department</th><th>Arrived</th><th>Status</th><th>Actions</th></tr>
         </thead>
         <tbody id="queue-table-body"></tbody>
       </table>
@@ -120,15 +120,15 @@
 <div class="modal-backdrop" id="add-queue-modal">
   <div class="modal">
     <div class="modal-header">
-      <h4><i class="fa fa-plus"></i> Add Patient to Queue</h4>
+      <h4><i class="fa fa-plus"></i> Add Student to Queue</h4>
       <button class="modal-close" onclick="closeModal('add-queue-modal')">&times;</button>
     </div>
     <div class="modal-body">
       <form id="queue-form" onsubmit="addToQueue(event)">
         <div class="form-group" style="margin-bottom:14px">
-          <label>Select Patient <span class="req">*</span></label>
+          <label>Select Student <span class="req">*</span></label>
           <select class="form-control" id="q-patient" required>
-            <option value="">-- Choose registered patient --</option>
+            <option value="">-- Choose registered student --</option>
           </select>
         </div>
         <div class="form-group" style="margin-bottom:14px">
@@ -167,7 +167,7 @@
     patients.forEach(p => {
       const o = document.createElement('option');
       o.value = p.id;
-      o.textContent = `${p.matric} — ${p.name} (${p.dept})`;
+        o.textContent = `${p.matric}, ${p.name} (${p.dept})`;
       sel.appendChild(o);
     });
     document.getElementById('q-time').value = nowTime();
@@ -256,12 +256,12 @@
   function callNext() {
     const queue = Store.get('hcms_queue', []);
     const active = queue.find(q => q.status === 'active');
-    if (active) { toast('There is already a patient being attended to. Mark them as done first.', 'warning'); return; }
+    if (active) { toast('There is already a student being attended to. Mark the student as done first.', 'warning'); return; }
     const next = queue.find(q => q.status === 'waiting');
     if (!next) { toast('No patients waiting in the queue.', 'info'); return; }
     next.status = 'active';
     Store.set('hcms_queue', queue);
-    toast(`Now calling #${next.token} — ${next.name}`, 'info');
+      toast(`Now calling #${next.token}, ${next.name}`, 'info');
     renderQueue();
   }
 
@@ -276,7 +276,7 @@
     if (next) {
       next.status = 'active';
       Store.set('hcms_queue', queue);
-      toast(`Done. Now calling #${next.token} — ${next.name}`, 'success');
+      toast(`Done. Now calling #${next.token}, ${next.name}`, 'success');
     } else {
       toast('Patient marked as done. No more patients in queue.', 'success');
     }
@@ -289,7 +289,7 @@
     if (!entry) return;
     if (status === 'active') {
       const alreadyActive = queue.find(q => q.status === 'active');
-      if (alreadyActive) { toast('Another patient is currently being attended to. Mark them as done first.', 'warning'); return; }
+      if (alreadyActive) { toast('Another student is currently being attended to. Mark the student as done first.', 'warning'); return; }
     }
     entry.status = status;
     Store.set('hcms_queue', queue);
