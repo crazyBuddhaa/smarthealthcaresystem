@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Staff &amp; Tasks | CarePoint Health Centre</title>
+  <link rel="icon" href="assets/images/healthcare_favicon.svg"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
+  <link rel="stylesheet" href="assets/css/style.css"/>
+  <style>
+    .admin-layout {
+      display: grid;
+      grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.6fr);
+      gap: 18px;
+      align-items: start;
+    }
+    .admin-stack { display: grid; gap: 18px; }
+    .admin-note { font-size: 12px; line-height: 1.55; color: var(--eksu-muted); }
+    .admin-table-wrap { overflow-x: auto; }
+    .admin-table { min-width: 760px; }
+    .admin-table td { vertical-align: middle; }
+    .admin-actions { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+    .admin-actions .form-control { min-width: 120px; width: auto; padding: 7px 8px; font-size: 11px; }
+    .admin-actions .btn { font-size: 11px; padding: 7px 9px; }
+    .role-status { display:inline-flex; align-items:center; gap:5px; }
+    .role-status::before {
+      content:'';
+      width:7px; height:7px; border-radius:50%;
+      background:#94a3b8;
+    }
+    .role-status.active::before { background:#16a34a; }
+    .role-status.revoked::before { background:#dc2626; }
+    .task-description { max-width: 280px; color: var(--eksu-muted); font-size: 11px; line-height: 1.45; }
+    @media (max-width: 950px) {
+      .admin-layout { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body class="staff-shell">
+
+<nav class="topnav">
+  <div class="topnav-brand">
+    <button id="sidebar-toggle" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 8px 0 0">
+      <i class="fa fa-bars"></i>
+    </button>
+    <img src="assets/images/healthcare_logo.svg" alt="CarePoint Health Centre"/>
+    <div class="topnav-brand-text">CarePoint<br>Health Centre</div>
+  </div>
+  <div class="topnav-title">Staff administration</div>
+  <div class="topnav-right">
+    <span style="font-size:13px;color:rgba(255,255,255,0.9)">
+      <i class="fa fa-user-circle"></i> <span id="topnav-user"></span>
+    </span>
+    <button onclick="Auth.logout()" title="Logout" style="background:none;border:none;color:rgba(255,255,255,0.85);font-size:18px;cursor:pointer">
+      <i class="fa fa-sign-out"></i>
+    </button>
+  </div>
+</nav>
+
+<aside class="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Main</div>
+    <div class="sidebar-item"><a href="dashboard.html"><i class="fa fa-tachometer"></i> Dashboard</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Students</div>
+    <div class="sidebar-item"><a href="patients.html"><i class="fa fa-users"></i> Student Profiles</a></div>
+    <div class="sidebar-item"><a href="register.html"><i class="fa fa-user-plus"></i> Register Student</a></div>
+    <div class="sidebar-item"><a href="records.html"><i class="fa fa-file-text"></i> Student Health Records</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Operations</div>
+    <div class="sidebar-item"><a href="appointment.html"><i class="fa fa-calendar"></i> Appointments</a></div>
+    <div class="sidebar-item"><a href="queue.html"><i class="fa fa-list-ol"></i> Queue Management</a></div>
+    <div class="sidebar-item"><a href="billing.html"><i class="fa fa-money"></i> Billing</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Administration</div>
+    <div class="sidebar-item"><a href="staff-management.html"><i class="fa fa-user-secret"></i> Staff &amp; Tasks</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-item"><a href="index.html" onclick="Auth.logout();return false"><i class="fa fa-sign-out"></i> Logout</a></div>
+  </div>
+</aside>
+
+<main class="page-wrapper">
+  <div class="page-header">
+    <h1><i class="fa fa-user-secret"></i> Staff &amp; Tasks</h1>
+    <div class="breadcrumb"><a href="dashboard.html">Home</a><span>Administration</span><span>Staff &amp; Tasks</span></div>
+  </div>
+
+  <div id="admin-access-alert" style="display:none"></div>
+
+  <div id="admin-content">
+    <div class="alert alert-info" style="margin-bottom:18px">
+      <i class="fa fa-shield"></i>
+      <div>
+        <strong>Administrator workspace</strong>
+        <div style="font-size:12px;margin-top:3px">
+          Create staff accounts, assign or revoke clinic roles, and delegate operational tasks.
+          Revoking a role also revokes that staff member’s active tasks.
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-layout">
+      <div class="admin-stack">
+        <div class="card">
+          <div class="card-header">
+            <h3><i class="fa fa-user-plus"></i> Create Staff Account</h3>
+            <span class="badge badge-info">Admin only</span>
+          </div>
+          <div class="card-body">
+            <form id="create-staff-form" onsubmit="createStaffAccount(event)">
+              <div class="form-group">
+                <label for="staff-name">Full name <span class="req">*</span></label>
+                <input class="form-control" id="staff-name" placeholder="e.g. Dr. Ada Okafor" required/>
+              </div>
+              <div class="form-group">
+                <label for="staff-username">Staff ID / username <span class="req">*</span></label>
+                <input class="form-control" id="staff-username" placeholder="e.g. doctor2" required/>
+              </div>
+              <div class="form-group">
+                <label for="staff-password">Initial password <span class="req">*</span></label>
+                <input class="form-control" type="password" id="staff-password" minlength="6" placeholder="At least 6 characters" required/>
+              </div>
+              <div class="form-group">
+                <label for="staff-role">Assign role <span class="req">*</span></label>
+                <select class="form-control" id="staff-role" required></select>
+              </div>
+              <button class="btn btn-red btn-block" type="submit">
+                <i class="fa fa-plus"></i> Create Staff Account
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3><i class="fa fa-tasks"></i> Assign Task</h3>
+            <span class="badge badge-info">Admin only</span>
+          </div>
+          <div class="card-body">
+            <form id="create-task-form" onsubmit="createStaffTask(event)">
+              <div class="form-group">
+                <label for="task-title">Task title <span class="req">*</span></label>
+                <input class="form-control" id="task-title" placeholder="e.g. Review student registration documents" required/>
+              </div>
+              <div class="form-group">
+                <label for="task-description">Task details</label>
+                <textarea class="form-control" id="task-description" rows="3" placeholder="Add instructions or context"></textarea>
+              </div>
+              <div class="form-group">
+                <label for="task-assignee">Assign to <span class="req">*</span></label>
+                <select class="form-control" id="task-assignee" required></select>
+              </div>
+              <div class="form-group">
+                <label for="task-due-date">Due date</label>
+                <input class="form-control" type="date" id="task-due-date"/>
+              </div>
+              <button class="btn btn-red btn-block" type="submit">
+                <i class="fa fa-paper-plane"></i> Assign Task
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-stack">
+        <div class="card">
+          <div class="card-header">
+            <h3><i class="fa fa-users"></i> Staff Accounts</h3>
+            <span class="badge badge-pending" id="staff-count"></span>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr><th>Staff member</th><th>Staff ID</th><th>Current role</th><th>Status</th><th>Role actions</th></tr>
+              </thead>
+              <tbody id="staff-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3><i class="fa fa-list-alt"></i> Assigned Tasks</h3>
+            <span class="badge badge-pending" id="task-count"></span>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr><th>Task</th><th>Assigned to</th><th>Due</th><th>Status</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="task-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="assets/js/app.js"></script>
+<script>
+  const currentUser = initPage();
+  const adminContent = document.getElementById('admin-content');
+  const accessAlert = document.getElementById('admin-access-alert');
+
+  if (!currentUser || currentUser.role !== 'admin') {
+    adminContent.style.display = 'none';
+    accessAlert.style.display = 'flex';
+    accessAlert.className = 'alert alert-danger';
+    accessAlert.innerHTML = '<i class="fa fa-lock"></i><div>Only an administrator can access staff and task management.</div>';
+  } else {
+    renderRoleOptions();
+    renderStaff();
+    renderTaskAssignees();
+    renderTasks();
+  }
+
+  function renderRoleOptions() {
+    document.getElementById('staff-role').innerHTML = STAFF_ROLE_DEFINITIONS
+      .map(role => `<option value="${role.value}">${role.label}</option>`).join('');
+  }
+
+  function renderStaff() {
+    const staff = StaffAdmin.listStaff();
+    document.getElementById('staff-count').textContent = `${staff.length} account${staff.length === 1 ? '' : 's'}`;
+    const body = document.getElementById('staff-table-body');
+    body.innerHTML = staff.map(user => {
+      const safeId = user.username.replace(/[^a-z0-9_-]/gi, '-');
+      const isAdmin = user.role === 'admin' || user.username.toLowerCase() === 'admin';
+      const roleOptions = [
+        '<option value="">Unassigned</option>',
+        ...STAFF_ROLE_DEFINITIONS.map(role =>
+          `<option value="${role.value}" ${user.role === role.value ? 'selected' : ''}>${role.label}</option>`)
+      ].join('');
+      return `<tr>
+        <td><strong>${escapeHtml(user.name)}</strong></td>
+        <td>${escapeHtml(user.username)}</td>
+        <td><span class="badge ${isAdmin ? 'badge-info' : 'badge-secondary'}">${escapeHtml(user.roleLabel)}</span></td>
+        <td><span class="role-status ${user.active ? 'active' : 'revoked'}">${user.active ? 'Active' : 'Role revoked'}</span></td>
+        <td>
+          ${isAdmin
+            ? '<span class="admin-note">Protected account</span>'
+            : `<div class="admin-actions">
+                <select class="form-control" id="role-${safeId}" aria-label="Role for ${escapeHtml(user.name)}">${roleOptions}</select>
+                <button class="btn btn-sm btn-outline-teal" data-username="${escapeHtml(user.username)}" onclick="assignStaffRole(this.dataset.username, document.getElementById('role-${safeId}').value)">
+                  <i class="fa fa-check"></i> Assign
+                </button>
+                <button class="btn btn-sm btn-outline-red" data-username="${escapeHtml(user.username)}" onclick="revokeStaffRole(this.dataset.username)">
+                  <i class="fa fa-ban"></i> Revoke
+                </button>
+              </div>`}
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  function renderTaskAssignees() {
+    const activeStaff = StaffAdmin.listStaff()
+      .filter(user => user.active && user.role !== 'admin');
+    const select = document.getElementById('task-assignee');
+    select.innerHTML = activeStaff.length
+      ? activeStaff.map(user => `<option value="${escapeHtml(user.username)}">${escapeHtml(user.name)} — ${escapeHtml(user.roleLabel)}</option>`).join('')
+      : '<option value="">No active staff accounts available</option>';
+    select.disabled = !activeStaff.length;
+  }
+
+  function renderTasks() {
+    const tasks = StaffAdmin.listTasks();
+    const activeTasks = tasks.filter(task => task.status !== 'revoked');
+    document.getElementById('task-count').textContent = `${activeTasks.length} active`;
+    const body = document.getElementById('task-table-body');
+    if (!tasks.length) {
+      body.innerHTML = '<tr><td colspan="5" class="text-center text-muted" style="padding:24px">No tasks have been assigned yet.</td></tr>';
+      return;
+    }
+    body.innerHTML = tasks
+      .sort((a, b) => (a.status === 'revoked') - (b.status === 'revoked'))
+      .map(task => {
+        const revoked = task.status === 'revoked';
+        const statusClass = task.status === 'completed' ? 'badge-success' : revoked ? 'badge-secondary' : 'badge-pending';
+        return `<tr>
+          <td>
+            <strong>${escapeHtml(task.title)}</strong>
+            ${task.description ? `<div class="task-description">${escapeHtml(task.description)}</div>` : ''}
+          </td>
+          <td>${escapeHtml(task.assigneeName)}<div class="admin-note">${escapeHtml(task.assigneeRole || '')}</div></td>
+          <td>${task.dueDate ? formatDate(task.dueDate) : '<span class="text-muted">No date</span>'}</td>
+          <td><span class="badge ${statusClass}">${escapeHtml(task.status)}</span></td>
+          <td>
+            ${revoked || task.status === 'completed'
+              ? '<span class="admin-note">No action</span>'
+              : `<button class="btn btn-sm btn-outline-red" onclick="revokeStaffTask(${task.id})"><i class="fa fa-ban"></i> Revoke</button>`}
+          </td>
+        </tr>`;
+      }).join('');
+  }
+
+  function createStaffAccount(event) {
+    event.preventDefault();
+    const result = StaffAdmin.createStaff({
+      name: document.getElementById('staff-name').value,
+      username: document.getElementById('staff-username').value,
+      password: document.getElementById('staff-password').value,
+      role: document.getElementById('staff-role').value
+    });
+    if (!result.ok) {
+      toast(result.message, 'error');
+      return;
+    }
+    document.getElementById('create-staff-form').reset();
+    renderStaff();
+    renderTaskAssignees();
+    toast(`${result.user.name} was created as a ${staffRoleLabel(result.user.role)}.`, 'success');
+  }
+
+  function assignStaffRole(username, role) {
+    const result = StaffAdmin.assignRole(username, role);
+    if (!result.ok) {
+      toast(result.message, 'error');
+      return;
+    }
+    renderStaff();
+    renderTaskAssignees();
+    toast(`${result.user.name} now has the ${staffRoleLabel(role)} role.`, 'success');
+  }
+
+  function revokeStaffRole(username) {
+    const user = StaffAdmin.listStaff().find(item => item.username === username);
+    if (!user || !window.confirm(`Revoke ${user.name}'s role and active tasks?`)) return;
+    const result = StaffAdmin.revokeRole(username);
+    if (!result.ok) {
+      toast(result.message, 'error');
+      return;
+    }
+    renderStaff();
+    renderTaskAssignees();
+    renderTasks();
+    toast(`${user.name}'s role was revoked.`, 'warning');
+  }
+
+  function createStaffTask(event) {
+    event.preventDefault();
+    const result = StaffAdmin.createTask({
+      title: document.getElementById('task-title').value,
+      description: document.getElementById('task-description').value,
+      assigneeUsername: document.getElementById('task-assignee').value,
+      dueDate: document.getElementById('task-due-date').value
+    });
+    if (!result.ok) {
+      toast(result.message, 'error');
+      return;
+    }
+    document.getElementById('create-task-form').reset();
+    renderTasks();
+    toast(`Task assigned to ${result.task.assigneeName}.`, 'success');
+  }
+
+  function revokeStaffTask(taskId) {
+    const task = StaffAdmin.listTasks().find(item => String(item.id) === String(taskId));
+    if (!task || !window.confirm(`Revoke the task "${task.title}"?`)) return;
+    const result = StaffAdmin.revokeTask(taskId);
+    if (!result.ok) {
+      toast(result.message, 'error');
+      return;
+    }
+    renderTasks();
+    toast('Task revoked.', 'warning');
+  }
+</script>
+</body>
+</html>

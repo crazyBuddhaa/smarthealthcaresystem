@@ -52,6 +52,11 @@
     <div class="sidebar-item"><a href="queue.html"><i class="fa fa-list-ol"></i> Queue Management</a></div>
     <div class="sidebar-item"><a href="billing.html"><i class="fa fa-money"></i> Billing</a></div>
   </div>
+  <div class="sidebar-divider" data-admin-only style="display:none"></div>
+  <div class="sidebar-section" data-admin-only style="display:none">
+    <div class="sidebar-section-title">Administration</div>
+    <div class="sidebar-item"><a href="staff-management.html"><i class="fa fa-user-secret"></i> Staff &amp; Tasks</a></div>
+  </div>
   <div class="sidebar-divider"></div>
   <div class="sidebar-section">
     <div class="sidebar-item"><a href="index.html" onclick="Auth.logout();return false"><i class="fa fa-sign-out"></i> Logout</a></div>
@@ -155,6 +160,29 @@
     </div>
   </div>
 
+  <div class="dashboard-content-grid mt-3">
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fa fa-tasks"></i> My Assigned Tasks</h3>
+        <a href="staff-management.html" class="btn btn-sm btn-teal" data-admin-only style="display:none">Manage</a>
+      </div>
+      <div class="card-body" id="my-tasks-body">
+        <p class="text-muted" style="font-size:13px;margin:0">Loading assigned tasks…</p>
+      </div>
+    </div>
+    <div class="card" data-admin-only style="display:none">
+      <div class="card-header">
+        <h3><i class="fa fa-shield"></i> Administration</h3>
+        <a href="staff-management.html" class="btn btn-sm btn-teal">Open</a>
+      </div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--eksu-muted);margin:0">
+          Create staff accounts, assign or revoke roles, and manage operational tasks from the staff administration workspace.
+        </p>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <script src="assets/js/app.js"></script>
@@ -225,6 +253,42 @@
       <td><span class="badge ${b.status==='paid'?'badge-success':'badge-warning'}">${b.status}</span></td>
     </tr>`;
   });
+
+  function renderMyTasks() {
+    const body = document.getElementById('my-tasks-body');
+    const tasks = StaffAdmin.listTasks()
+      .filter(task => task.assigneeUsername === user.username && task.status !== 'revoked')
+      .sort((a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999'));
+    if (!tasks.length) {
+      body.innerHTML = '<p class="text-muted" style="font-size:13px;margin:0">No active tasks assigned to you.</p>';
+      return;
+    }
+    body.innerHTML = tasks.map(task => `
+      <div style="display:flex;gap:12px;align-items:flex-start;border-bottom:1px solid var(--eksu-border);padding:10px 0">
+        <i class="fa fa-check-square-o" style="color:var(--eksu-red);font-size:18px;margin-top:2px"></i>
+        <div style="flex:1;min-width:0">
+          <strong style="font-size:13px">${escapeHtml(task.title)}</strong>
+          ${task.description ? `<div style="font-size:11px;color:var(--eksu-muted);margin-top:3px">${escapeHtml(task.description)}</div>` : ''}
+          <div style="font-size:10px;color:var(--eksu-muted);margin-top:5px">
+            ${task.dueDate ? `Due ${formatDate(task.dueDate)}` : 'No due date'}
+          </div>
+        </div>
+        <select class="form-control" style="width:auto;min-width:118px;font-size:11px;padding:5px 7px" onchange="changeMyTaskStatus(${task.id}, this.value)">
+          <option value="assigned" ${task.status === 'assigned' ? 'selected' : ''}>Assigned</option>
+          <option value="in-progress" ${task.status === 'in-progress' ? 'selected' : ''}>In progress</option>
+          <option value="completed" ${task.status === 'completed' ? 'selected' : ''}>Completed</option>
+        </select>
+      </div>`).join('');
+  }
+
+  function changeMyTaskStatus(taskId, status) {
+    const result = StaffAdmin.updateTaskStatus(taskId, status);
+    if (!result.ok) toast(result.message, 'error');
+    else toast('Task status updated.', 'success');
+    renderMyTasks();
+  }
+
+  renderMyTasks();
 </script>
 </body>
 </html>

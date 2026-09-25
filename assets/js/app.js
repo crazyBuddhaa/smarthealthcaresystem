@@ -19,21 +19,66 @@ const Store = {
 };
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
-const Auth = {
-  users: [
+const DEFAULT_STAFF_USERS = [
     { username: 'admin',    password: 'admin123',    role: 'admin',  name: 'System Admin' },
     { username: 'doctor1',  password: 'password1',   role: 'doctor', name: 'Dr. A. Okafor' },
     { username: 'nurse1',   password: 'password1',   role: 'nurse',  name: 'Nurse B. Adeleke' },
     { username: 'cashier1', password: 'password1',   role: 'cashier',name: 'C. Nwosu (Cashier)' },
-  ],
+];
+
+const STAFF_ROLE_DEFINITIONS = [
+  { value: 'doctor', label: 'Doctor' },
+  { value: 'nurse', label: 'Nurse' },
+  { value: 'cashier', label: 'Cashier' }
+];
+
+const Auth = {
+  users: DEFAULT_STAFF_USERS,
+  allUsers() {
+    const savedUsers = Store.get('hcms_staff_users', []);
+    const defaults = this.users.map(defaultUser => {
+      const saved = savedUsers.find(user =>
+        user.username.toLowerCase() === defaultUser.username.toLowerCase()
+      );
+      return { ...defaultUser, ...(saved || {}), source: 'system' };
+    });
+    const defaultNames = new Set(this.users.map(user => user.username.toLowerCase()));
+    const customUsers = savedUsers
+      .filter(user => !defaultNames.has(user.username.toLowerCase()))
+      .map(user => ({ ...user, source: 'custom' }));
+    return [...defaults, ...customUsers];
+  },
+  find(username) {
+    if (!username) return null;
+    return this.allUsers().find(user =>
+      user.username.toLowerCase() === String(username).trim().toLowerCase()
+    ) || null;
+  },
+  isActive(user) {
+    return Boolean(user && user.role && user.role !== 'unassigned' && user.active !== false);
+  },
   login(username, password) {
-    const u = this.users.find(u => u.username === username && u.password === password);
-    if (u) { sessionStorage.setItem('hcms_user', JSON.stringify(u)); return u; }
+    const u = this.find(username);
+    if (u && u.password === password && this.isActive(u)) {
+      sessionStorage.setItem('hcms_user', JSON.stringify(u));
+      return u;
+    }
     return null;
   },
   current() {
-    try { return JSON.parse(sessionStorage.getItem('hcms_user')); } catch { return null; }
+    try {
+      const stored = JSON.parse(sessionStorage.getItem('hcms_user'));
+      const current = this.find(stored?.username);
+      if (!this.isActive(current)) {
+        sessionStorage.removeItem('hcms_user');
+        return null;
+      }
+      return current;
+    } catch {
+      return null;
+    }
   },
+  isAdmin() { return this.current()?.role === 'admin'; },
   logout() { sessionStorage.removeItem('hcms_user'); window.location.href = 'index.html'; },
   require() {
     if (!this.current()) { window.location.href = 'login.html'; return null; }
@@ -224,6 +269,176 @@ function getRegistrationWorkflow(patientId) {
   Store.set('hcms_registration_workflows', workflows);
   return workflow;
 }
+
+// ── Staff administration ─────────────────────────────────────────────────────
+// The prototype stores staff accounts and tasks in localStorage. A production
+// version should move identity, authorization, and audit history to a backend.
+function validStaffRole(role) {
+  return STAFF_ROLE_DEFINITIONS.some(item => item.value === role);
+}
+
+function staffRoleLabel(role) {
+  return STAFF_ROLE_DEFINITIONS.find(item => item.value === role)?.label || 'Unassigned';
+}
+
+function saveStaffUser(user) {
+  const savedUsers = Store.get('hcms_staff_users', []);
+  const index = savedUsers.findIndex(item =>
+    item.username.toLowerCase() === user.username.toLowerCase()
+  );
+  const record = { ...user };
+  delete record.source;
+  if (index >= 0) savedUsers[index] = record;
+  else savedUsers.push(record);
+  Store.set('hcms_staff_users', savedUsers);
+  return Auth.find(user.username);
+}
+
+const StaffAdmin = {
+  roles: STAFF_ROLE_DEFINITIONS,
+  listStaff() {
+    return Auth.allUsers().map(user => ({
+      ...user,
+      active: Auth.isActive(user),
+      roleLabel: user.role === 'admin' ? 'Administrator' : staffRoleLabel(user.role)
+    }));
+  },
+  createStaff(details = {}) {
+    if (!Auth.isAdmin()) return { ok: false, message: 'Only an administrator can create staff accounts.' };
+
+    const name = String(details.name || '').trim();
+    const username = String(details.username || '').trim();
+    const password = String(details.password || '');
+    const role = String(details.role || '');
+    if (!name || !username || !password || !validStaffRole(role)) {
+      return { ok: false, message: 'Enter a name, staff ID, password, and valid role.' };
+    }
+    if (password.length < 6) {
+      return { ok: false, message: 'Staff passwords must be at least 6 characters.' };
+    }
+    if (Auth.find(username)) {
+      return { ok: false, message: 'That staff ID is already in use.' };
+    }
+
+    const user = saveStaffUser({
+      username,
+      password,
+      role,
+      name,
+      active: true,
+      createdOn: today()
+    });
+    return { ok: true, user };
+  },
+  assignRole(username, role) {
+    if (!Auth.isAdmin()) return { ok: false, message: 'Only an administrator can assign roles.' };
+    if (!validStaffRole(role)) return { ok: false, message: 'Select a valid staff role.' };
+
+    const user = Auth.find(username);
+    if (!user) return { ok: false, message: 'Staff account not found.' };
+    if (user.role === 'admin' || user.username.toLowerCase() === 'admin') {
+      return { ok: false, message: 'The administrator account is protected.' };
+    }
+
+    const updated = saveStaffUser({
+      ...user,
+      role,
+      active: true,
+      revokedOn: null
+    });
+    return { ok: true, user: updated };
+  },
+  revokeRole(username) {
+    if (!Auth.isAdmin()) return { ok: false, message: 'Only an administrator can revoke roles.' };
+
+    const user = Auth.find(username);
+    if (!user) return { ok: false, message: 'Staff account not found.' };
+    if (user.role === 'admin' || user.username.toLowerCase() === 'admin') {
+      return { ok: false, message: 'The administrator account is protected.' };
+    }
+
+    saveStaffUser({
+      ...user,
+      role: 'unassigned',
+      active: false,
+      revokedOn: today()
+    });
+
+    const tasks = Store.get('hcms_staff_tasks', []);
+    let changed = false;
+    tasks.forEach(task => {
+      if (task.assigneeUsername === user.username && task.status !== 'revoked' && task.status !== 'completed') {
+        task.status = 'revoked';
+        task.revokedOn = today();
+        changed = true;
+      }
+    });
+    if (changed) Store.set('hcms_staff_tasks', tasks);
+    return { ok: true };
+  },
+  listTasks() {
+    return Store.get('hcms_staff_tasks', []);
+  },
+  createTask(details = {}) {
+    if (!Auth.isAdmin()) return { ok: false, message: 'Only an administrator can create tasks.' };
+
+    const title = String(details.title || '').trim();
+    const description = String(details.description || '').trim();
+    const assigneeUsername = String(details.assigneeUsername || '').trim();
+    const dueDate = String(details.dueDate || '').trim();
+    const assignee = Auth.find(assigneeUsername);
+    if (!title || !assignee || !Auth.isActive(assignee) || assignee.role === 'admin') {
+      return { ok: false, message: 'Choose an active staff member for this task.' };
+    }
+
+    const task = {
+      id: Store.nextId('hcms_staff_tasks'),
+      title,
+      description,
+      assigneeUsername: assignee.username,
+      assigneeName: assignee.name,
+      assigneeRole: assignee.role,
+      dueDate,
+      status: 'assigned',
+      assignedBy: Auth.current().name,
+      createdOn: today(),
+      revokedOn: null
+    };
+    const tasks = Store.get('hcms_staff_tasks', []);
+    tasks.push(task);
+    Store.set('hcms_staff_tasks', tasks);
+    return { ok: true, task };
+  },
+  revokeTask(taskId) {
+    if (!Auth.isAdmin()) return { ok: false, message: 'Only an administrator can revoke tasks.' };
+
+    const tasks = Store.get('hcms_staff_tasks', []);
+    const task = tasks.find(item => String(item.id) === String(taskId));
+    if (!task) return { ok: false, message: 'Task not found.' };
+    if (task.status === 'completed') return { ok: false, message: 'Completed tasks cannot be revoked.' };
+
+    task.status = 'revoked';
+    task.revokedOn = today();
+    Store.set('hcms_staff_tasks', tasks);
+    return { ok: true, task };
+  },
+  updateTaskStatus(taskId, status) {
+    const current = Auth.current();
+    const allowed = ['assigned', 'in-progress', 'completed'];
+    if (!current || !allowed.includes(status)) return { ok: false, message: 'Invalid task update.' };
+
+    const tasks = Store.get('hcms_staff_tasks', []);
+    const task = tasks.find(item => String(item.id) === String(taskId));
+    if (!task || task.status === 'revoked') return { ok: false, message: 'Task is not available.' };
+    if (current.role !== 'admin' && task.assigneeUsername !== current.username) {
+      return { ok: false, message: 'You can only update tasks assigned to you.' };
+    }
+
+    task.status = status;
+    Store.set('hcms_staff_tasks', tasks);
+    return { ok: true, task };
+  }
+};
 
 const AUTOMATIC_APPOINTMENT_SLOTS = [
   '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
@@ -425,6 +640,9 @@ function registrationProgress(workflow) {
 
 window.StudentAuth      = StudentAuth;
 window.validatePaymentRef = validatePaymentRef;
+window.STAFF_ROLE_DEFINITIONS = STAFF_ROLE_DEFINITIONS;
+window.staffRoleLabel = staffRoleLabel;
+window.StaffAdmin = StaffAdmin;
 window.REGISTRATION_STEP_DEFINITIONS = REGISTRATION_STEP_DEFINITIONS;
 window.createRegistrationWorkflow = createRegistrationWorkflow;
 window.getRegistrationWorkflow = getRegistrationWorkflow;
@@ -565,11 +783,16 @@ function initSidebarToggle() {
 
 // ── Shared layout init (called on every inner page) ───────────────────────────
 function initPage() {
-  Auth.require();
+  const user = Auth.require();
+  if (!user) return null;
   seedData();
   setActiveNav();
   renderTopnavUser();
   initSidebarToggle();
+  document.querySelectorAll('[data-admin-only]').forEach(item => {
+    item.style.display = user.role === 'admin' ? '' : 'none';
+  });
+  return user;
 }
 
 // ── Export (for inline scripts) ───────────────────────────────────────────────
@@ -585,3 +808,10 @@ window.formatNaira = formatNaira;
 window.today    = today;
 window.nowTime  = nowTime;
 window.seedData = seedData;
+window.escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#039;'
+}[char]));
