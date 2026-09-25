@@ -345,7 +345,7 @@
         <p class="setup-intro">
           Your student account has been created. Complete your health-centre registration online,
           upload the required documents, and submit your profile for review. The Health Centre team
-          will provide your appointment details after reviewing your registration.
+          will automatically assign your next available appointment after registration is complete.
         </p>
         <div id="setup-alert" style="display:none;margin-bottom:12px"></div>
 
@@ -484,7 +484,7 @@
       <button class="portal-tab active" onclick="showTab('tab-overview',this)">
         <i class="fa fa-tachometer"></i> Overview
       </button>
-      <button class="portal-tab" onclick="showTab('tab-appointment',this)">
+      <button class="portal-tab" id="appointment-tab" style="display:none" onclick="showTab('tab-appointment',this)">
         <i class="fa fa-calendar"></i> My Appointment
       </button>
       <button class="portal-tab" onclick="showTab('tab-records',this)">
@@ -506,7 +506,7 @@
         <div class="card-body">
           <div class="alert alert-info">
             <i class="fa fa-info-circle"></i>
-            <div>Health centre services are available <strong>Monday to Friday, 8:00 AM to 4:00 PM</strong>. Your appointment is booked online. Check the portal after your visit for the result.</div>
+            <div>Health centre services are available <strong>Monday to Friday, 8:00 AM to 4:00 PM</strong>. Your appointment is scheduled automatically after registration is complete. Check the portal after your visit for the result.</div>
           </div>
           <div class="alert alert-warning" id="appt-reminder" style="display:none">
             <i class="fa fa-calendar"></i>
@@ -663,6 +663,10 @@
     // Card link
     document.getElementById('view-print-card').href = `health-card.html?matric=${encodeURIComponent(p.matric)}`;
 
+    if (p.profileComplete === true && p.selfRegistered) {
+      scheduleNextAvailableAppointment(p.id);
+    }
+    updateAppointmentVisibility(p);
     loadAppointment(p);
     loadRecords(p);
     loadProfile(p);
@@ -678,6 +682,19 @@
 
     const incomplete = p.profileComplete === false;
     setup.style.display = incomplete ? 'block' : 'none';
+  }
+
+  function updateAppointmentVisibility(p) {
+    const tab = document.getElementById('appointment-tab');
+    const panel = document.getElementById('tab-appointment');
+    if (!tab || !panel) return;
+
+    const visible = p.profileComplete === true;
+    tab.style.display = visible ? '' : 'none';
+    if (!visible && panel.classList.contains('active')) {
+      const overviewTab = document.querySelector('.portal-tab[onclick*="tab-overview"]');
+      if (overviewTab) showTab('tab-overview', overviewTab);
+    }
   }
 
   function completeStudentSetup() {
@@ -746,8 +763,11 @@
     };
     Store.set('hcms_patients', patients);
 
+    const appointment = scheduleNextAvailableAppointment(p.id);
     const workflows = Store.get('hcms_registration_workflows', []);
     const workflow = createRegistrationWorkflow(p.id, {
+      appointmentDate: appointment?.date || '',
+      appointmentTime: appointment?.time || '',
       formSubmitted: true,
       documents: patients[patientIndex].onlineDocuments
     });
@@ -758,6 +778,7 @@
 
     const updatedPatient = patients[patientIndex];
     toggleStudentSetup(updatedPatient);
+    updateAppointmentVisibility(updatedPatient);
     loadAppointment(updatedPatient);
     loadProfile(updatedPatient);
     loadStats(updatedPatient);
@@ -768,7 +789,13 @@
     document.getElementById('mini-card-blood').textContent = blood;
     document.getElementById('mini-card-geno').textContent = genotype || 'Not available';
     document.getElementById('mini-card-no').textContent = cardNo;
-    toast('Your Health Centre registration has been submitted for review.', 'success', 5000);
+    toast(
+      appointment
+        ? `Registration complete. Your appointment is ${formatDate(appointment.date)} at ${appointment.time}.`
+        : 'Registration submitted. The next available appointment could not be assigned yet.',
+      appointment ? 'success' : 'warning',
+      5000
+    );
   }
 
   function renderRegistrationResult(workflow) {

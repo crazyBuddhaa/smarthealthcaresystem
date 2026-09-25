@@ -106,10 +106,10 @@ const REGISTRATION_STEP_DEFINITIONS = [
   },
   {
     key: 'appointment-booked',
-    label: 'Appointment scheduled by the Health Centre',
+    label: 'Appointment scheduled automatically',
     icon: 'fa-calendar-check-o',
-    description: 'The Health Centre team will provide your appointment details after reviewing your registration.',
-    action: 'Awaiting appointment'
+    description: 'The system assigns the next available clinic time based on appointments and the queue.',
+    action: 'Appointment assigned'
   },
   {
     key: 'appointment-completed',
@@ -225,6 +225,107 @@ function getRegistrationWorkflow(patientId) {
   return workflow;
 }
 
+const AUTOMATIC_APPOINTMENT_SLOTS = [
+  '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
+  '11:00', '11:30', '12:00', '14:00', '14:30', '15:00'
+];
+
+function timeToMinutes(value) {
+  const [hours, minutes] = String(value || '').split(':').map(Number);
+  return Number.isFinite(hours) && Number.isFinite(minutes)
+    ? hours * 60 + minutes
+    : null;
+}
+
+function localDateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function dateAfterDays(days) {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + days);
+  return localDateKey(date);
+}
+
+function findNextAvailableAppointmentSlot() {
+  const appointments = Store.get('hcms_appointments', []);
+  const queue = Store.get('hcms_queue', []);
+  const currentDate = localDateKey(new Date());
+  const currentTime = timeToMinutes(nowTime());
+
+  for (let offset = 0; offset <= 60; offset += 1) {
+    const date = dateAfterDays(offset);
+    const weekday = new Date(`${date}T00:00:00`).getDay();
+    if (weekday === 0 || weekday === 6) continue;
+
+    const occupiedTimes = appointments
+      .filter(item => item.date === date && item.status !== 'cancelled')
+      .map(item => item.time);
+
+    // Queue entries represent today's clinic load; future dates have no queue yet.
+    if (date === currentDate) {
+      occupiedTimes.push(
+        ...queue
+          .filter(item => item.status !== 'done')
+          .map(item => item.time)
+      );
+    }
+
+    const isBusy = slot => occupiedTimes.some(occupied => {
+      const occupiedMinutes = timeToMinutes(occupied);
+      const slotMinutes = timeToMinutes(slot);
+      return occupiedMinutes !== null &&
+        slotMinutes !== null &&
+        Math.abs(occupiedMinutes - slotMinutes) < 30;
+    });
+
+    for (const slot of AUTOMATIC_APPOINTMENT_SLOTS) {
+      if (date === currentDate && currentTime !== null && timeToMinutes(slot) <= currentTime) {
+        continue;
+      }
+      if (!isBusy(slot)) return { date, time: slot };
+    }
+  }
+
+  return null;
+}
+
+function scheduleNextAvailableAppointment(patientId, reason = 'Health Centre Registration & General Check-up') {
+  const patients = Store.get('hcms_patients', []);
+  const patient = patients.find(item => item.id === patientId);
+  if (!patient?.profileComplete) return null;
+
+  const appointments = Store.get('hcms_appointments', []);
+  const existing = appointments.find(item =>
+    item.patientId === patientId && item.status !== 'cancelled'
+  );
+  if (existing) return existing;
+
+  const slot = findNextAvailableAppointmentSlot();
+  if (!slot) return null;
+
+  const appointment = {
+    id: Store.nextId('hcms_appointments'),
+    patientId,
+    matric: patient.matric,
+    name: patient.name,
+    dept: patient.dept,
+    date: slot.date,
+    time: slot.time,
+    reason,
+    status: 'confirmed',
+    paymentRef: '',
+    cardNo: patient.cardNo || ''
+  };
+  appointments.push(appointment);
+  Store.set('hcms_appointments', appointments);
+  return appointment;
+}
+
 function updateRegistrationStep(patientId, stepKey, status = 'complete') {
   const workflow = getRegistrationWorkflow(patientId);
   if (!workflow) return null;
@@ -327,6 +428,7 @@ window.validatePaymentRef = validatePaymentRef;
 window.REGISTRATION_STEP_DEFINITIONS = REGISTRATION_STEP_DEFINITIONS;
 window.createRegistrationWorkflow = createRegistrationWorkflow;
 window.getRegistrationWorkflow = getRegistrationWorkflow;
+window.scheduleNextAvailableAppointment = scheduleNextAvailableAppointment;
 window.updateRegistrationStep = updateRegistrationStep;
 window.reviewRegistrationWorkflow = reviewRegistrationWorkflow;
 window.registrationProgress = registrationProgress;
