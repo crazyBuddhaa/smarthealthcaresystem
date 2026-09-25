@@ -138,9 +138,243 @@
   </div>
 </div>
 
+<!-- Administrator reschedule modal -->
+<div class="modal-backdrop" id="admin-reschedule-modal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <h4><i class="fa fa-calendar"></i> Reschedule Student Appointment</h4>
+      <button class="modal-close" type="button" onclick="closeModal('admin-reschedule-modal')">&times;</button>
+    </div>
+    <form id="admin-reschedule-form" onsubmit="saveAdminReschedule(event)">
+      <div class="modal-body">
+        <input type="hidden" id="admin-reschedule-id"/>
+        <div class="alert alert-info" style="margin-bottom:16px">
+          <i class="fa fa-user"></i>
+          <div id="admin-reschedule-current"></div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="admin-reschedule-date">New Date <span class="req">*</span></label>
+            <input type="date" class="form-control" id="admin-reschedule-date" required onchange="updateAdminRescheduleTimes()"/>
+          </div>
+          <div class="form-group">
+            <label for="admin-reschedule-time">New Time <span class="req">*</span></label>
+            <select class="form-control" id="admin-reschedule-time" required>
+              <option value="">Select a date first</option>
+            </select>
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label for="admin-reschedule-note">Reason / note for the change</label>
+            <textarea class="form-control" id="admin-reschedule-note" rows="2" maxlength="240" placeholder="Optional note for the appointment history"></textarea>
+          </div>
+        </div>
+        <small class="text-muted">Available clinic slots are Monday–Friday, 8:00 AM–12:00 PM and 2:00 PM–3:00 PM.</small>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-gray" type="button" onclick="closeModal('admin-reschedule-modal')">Cancel</button>
+        <button class="btn btn-red" id="admin-reschedule-submit" type="submit"><i class="fa fa-calendar-check-o"></i> Save New Appointment</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script src="assets/js/app.js"></script>
 <script>
   initPage();
+
+  const ADMIN_APPOINTMENT_SLOTS = [
+    '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
+    '11:00', '11:30', '12:00', '14:00', '14:30', '15:00'
+  ];
+
+  function localDateValue(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function isClinicWeekday(dateValue) {
+    if (!dateValue) return false;
+    const date = new Date(`${dateValue}T00:00:00`);
+    return Number.isFinite(date.getTime()) && date.getDay() !== 0 && date.getDay() !== 6;
+  }
+
+  function appointmentMinutes(timeValue) {
+    const [hours, minutes] = String(timeValue || '').split(':').map(Number);
+    return Number.isFinite(hours) && Number.isFinite(minutes) ? hours * 60 + minutes : null;
+  }
+
+  function availableAdminAppointmentSlots(dateValue, appointmentId) {
+    if (!isClinicWeekday(dateValue)) return [];
+
+    const appointments = Store.get('hcms_appointments', []);
+    const occupiedTimes = appointments
+      .filter(item =>
+        item.date === dateValue &&
+        item.status !== 'cancelled' &&
+        String(item.id) !== String(appointmentId)
+      )
+      .map(item => item.time);
+
+    if (dateValue === localDateValue()) {
+      occupiedTimes.push(
+        ...Store.get('hcms_queue', [])
+          .filter(item => item.status !== 'done')
+          .map(item => item.time)
+      );
+    }
+
+    const currentMinutes = dateValue === localDateValue()
+      ? appointmentMinutes(new Date().toTimeString().slice(0, 5))
+      : null;
+
+    return ADMIN_APPOINTMENT_SLOTS.filter(slot => {
+      const slotMinutes = appointmentMinutes(slot);
+      if (currentMinutes !== null && slotMinutes <= currentMinutes) return false;
+      return !occupiedTimes.some(time => {
+        const occupiedMinutes = appointmentMinutes(time);
+        return occupiedMinutes !== null && Math.abs(occupiedMinutes - slotMinutes) < 30;
+      });
+    });
+  }
+
+  function findFirstAvailableAdminDate(appointmentId) {
+    for (let offset = 0; offset <= 120; offset += 1) {
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() + offset);
+      const dateValue = localDateValue(date);
+      if (availableAdminAppointmentSlots(dateValue, appointmentId).length) return dateValue;
+    }
+    return '';
+  }
+
+  function updateAdminRescheduleTimes(preferredTime = '') {
+    const dateValue = document.getElementById('admin-reschedule-date').value;
+    const appointmentId = document.getElementById('admin-reschedule-id').value;
+    const select = document.getElementById('admin-reschedule-time');
+    const slots = availableAdminAppointmentSlots(dateValue, appointmentId);
+
+    if (!slots.length) {
+      select.innerHTML = '<option value="">No available slots — choose another weekday</option>';
+      select.disabled = true;
+      return;
+    }
+
+    select.disabled = false;
+    select.innerHTML = '<option value="">Choose an available time</option>' + slots
+      .map(slot => `<option value="${slot}" ${slot === preferredTime ? 'selected' : ''}>${slot}</option>`)
+      .join('');
+  }
+
+  function openAdminReschedule(id) {
+    if (!Auth.isAdmin()) {
+      toast('Only an administrator can reschedule student appointments.', 'error');
+      return;
+    }
+
+    const appointment = Store.get('hcms_appointments', [])
+      .find(item => String(item.id) === String(id));
+    if (!appointment || ['cancelled', 'completed'].includes(appointment.status)) {
+      toast('Only an active appointment can be rescheduled.', 'warning');
+      return;
+    }
+
+    const firstAvailableDate = findFirstAvailableAdminDate(appointment.id);
+    if (!firstAvailableDate) {
+      toast('No clinic appointment slots are available in the next 120 days.', 'warning');
+      return;
+    }
+
+    const todayValue = localDateValue();
+    const originalDateIsAvailable = appointment.date >= todayValue &&
+      availableAdminAppointmentSlots(appointment.date, appointment.id).length > 0;
+    const initialDate = originalDateIsAvailable ? appointment.date : firstAvailableDate;
+
+    document.getElementById('admin-reschedule-id').value = appointment.id;
+    document.getElementById('admin-reschedule-current').innerHTML =
+      `<strong>${escapeHtml(appointment.name)}</strong> · ${escapeHtml(appointment.matric)}<br>` +
+      `Current appointment: ${formatDate(appointment.date)} at ${escapeHtml(appointment.time)}`;
+    document.getElementById('admin-reschedule-date').min = todayValue;
+    document.getElementById('admin-reschedule-date').value = initialDate;
+    document.getElementById('admin-reschedule-note').value = '';
+    updateAdminRescheduleTimes(initialDate === appointment.date ? appointment.time : '');
+    closeModal('appt-modal');
+    openModal('admin-reschedule-modal');
+  }
+
+  function saveAdminReschedule(event) {
+    event.preventDefault();
+    if (!Auth.isAdmin()) {
+      toast('Only an administrator can reschedule student appointments.', 'error');
+      return;
+    }
+
+    const appointmentId = document.getElementById('admin-reschedule-id').value;
+    const dateValue = document.getElementById('admin-reschedule-date').value;
+    const timeValue = document.getElementById('admin-reschedule-time').value;
+    const note = document.getElementById('admin-reschedule-note').value.trim();
+    const appointments = Store.get('hcms_appointments', []);
+    const appointment = appointments.find(item => String(item.id) === String(appointmentId));
+
+    if (!appointment || ['cancelled', 'completed'].includes(appointment.status)) {
+      toast('This appointment is no longer available to reschedule.', 'warning');
+      closeModal('admin-reschedule-modal');
+      renderAppts();
+      renderToday();
+      return;
+    }
+    if (!dateValue || dateValue < localDateValue() || !isClinicWeekday(dateValue)) {
+      toast('Choose today or a future weekday for the new appointment.', 'error');
+      return;
+    }
+    if (!availableAdminAppointmentSlots(dateValue, appointment.id).includes(timeValue)) {
+      toast('That time is no longer available. Choose another open slot.', 'warning');
+      updateAdminRescheduleTimes();
+      return;
+    }
+
+    const currentUser = Auth.current();
+    const history = Array.isArray(appointment.rescheduleHistory)
+      ? appointment.rescheduleHistory
+      : [];
+    history.push({
+      oldDate: appointment.date,
+      oldTime: appointment.time,
+      newDate: dateValue,
+      newTime: timeValue,
+      note,
+      rescheduledBy: currentUser?.name || currentUser?.username || 'Administrator',
+      rescheduledOn: today()
+    });
+
+    appointment.date = dateValue;
+    appointment.time = timeValue;
+    appointment.status = 'confirmed';
+    appointment.rescheduleHistory = history;
+    delete appointment.rescheduleDate;
+    delete appointment.rescheduleTime;
+    delete appointment.rescheduleReason;
+    Store.set('hcms_appointments', appointments);
+
+    const workflow = getRegistrationWorkflow(appointment.patientId);
+    if (workflow) {
+      workflow.appointmentDate = dateValue;
+      workflow.appointmentTime = timeValue;
+      workflow.updatedOn = today();
+      const workflows = Store.get('hcms_registration_workflows', []);
+      const workflowIndex = workflows.findIndex(item => item.patientId === appointment.patientId);
+      if (workflowIndex >= 0) workflows[workflowIndex] = workflow;
+      else workflows.push(workflow);
+      Store.set('hcms_registration_workflows', workflows);
+    }
+
+    closeModal('admin-reschedule-modal');
+    renderAppts();
+    renderToday();
+    toast(`Appointment rescheduled to ${formatDate(dateValue)} at ${timeValue}.`, 'success', 5000);
+  }
 
   function init() {
     document.getElementById('today-label').textContent = new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
@@ -179,6 +413,7 @@
     document.getElementById('appt-count').textContent = `${filtered.length} result(s)`;
 
     const statusCls = { confirmed:'badge-success', pending:'badge-pending', rescheduled:'badge-info', cancelled:'badge-danger', completed:'badge-secondary' };
+    const canAdminReschedule = Auth.isAdmin();
     const tbody = document.getElementById('appt-tbody');
     tbody.innerHTML = '';
 
@@ -203,6 +438,7 @@
           <button class="btn btn-sm btn-teal" onclick="viewAppt(${a.id})" title="View"><i class="fa fa-eye"></i></button>
           ${a.status==='pending'    ? `<button class="btn btn-sm btn-red" style="margin-left:4px" onclick="confirmAppt(${a.id})" title="Confirm"><i class="fa fa-check"></i></button>` : ''}
           ${a.status==='rescheduled'? `<button class="btn btn-sm btn-amber" style="margin-left:4px;background:var(--eksu-amber);color:#fff" onclick="approveReschedule(${a.id})" title="Approve Reschedule"><i class="fa fa-calendar"></i></button>` : ''}
+          ${canAdminReschedule && a.status!=='cancelled' && a.status!=='completed' ? `<button class="btn btn-sm btn-outline-teal" style="margin-left:4px" onclick="openAdminReschedule(${a.id})" title="Reschedule Appointment" aria-label="Reschedule appointment for ${escapeHtml(a.name)}"><i class="fa fa-calendar"></i></button>` : ''}
           ${a.status!=='cancelled' && a.status!=='completed' ? `<button class="btn btn-sm btn-gray" style="margin-left:4px" onclick="cancelAppt(${a.id})" title="Cancel"><i class="fa fa-times"></i></button>` : ''}
           ${a.status==='confirmed'  ? `<button class="btn btn-sm btn-outline-teal" style="margin-left:4px" onclick="markComplete(${a.id})" title="Mark Complete"><i class="fa fa-flag-checkered"></i></button>` : ''}
           <a class="btn btn-sm btn-outline-red" style="margin-left:4px" href="health-card.html?matric=${encodeURIComponent(a.matric)}" title="View Card"><i class="fa fa-id-card-o"></i></a>
@@ -217,8 +453,11 @@
     const tbody = document.getElementById('today-tbody');
     const statusCls = { confirmed:'badge-success', pending:'badge-pending', rescheduled:'badge-info', cancelled:'badge-danger', completed:'badge-secondary' };
 
-    if (!appts.length) return;
     tbody.innerHTML = '';
+    if (!appts.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted" style="padding:20px">No appointments scheduled for today.</td></tr>';
+      return;
+    }
     [...appts].sort((a,b) => a.time.localeCompare(b.time)).forEach(a => {
       tbody.innerHTML += `<tr>
         <td><strong>${a.time}</strong></td>
@@ -239,6 +478,9 @@
     if (!a) return;
     const p = Store.get('hcms_patients',[]).find(x => x.id === a.patientId);
     const statusCls = { confirmed:'badge-success', pending:'badge-pending', rescheduled:'badge-info', cancelled:'badge-danger', completed:'badge-secondary' };
+    const latestAdminReschedule = Array.isArray(a.rescheduleHistory)
+      ? a.rescheduleHistory[a.rescheduleHistory.length - 1]
+      : null;
 
     document.getElementById('appt-modal-body').innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">
@@ -266,11 +508,17 @@
           <strong>Reschedule Request:</strong> ${formatDate(a.rescheduleDate)} at ${a.rescheduleTime}<br>
           <span style="font-size:12px">${a.rescheduleReason||''}</span>
         </div>` : ''}
+        ${latestAdminReschedule ? `<div style="grid-column:1/-1;background:#eff6ff;border-radius:4px;padding:10px;border-left:3px solid var(--eksu-teal)">
+          <strong>Latest staff reschedule:</strong> ${formatDate(latestAdminReschedule.oldDate)} at ${escapeHtml(latestAdminReschedule.oldTime)}
+          → ${formatDate(latestAdminReschedule.newDate)} at ${escapeHtml(latestAdminReschedule.newTime)}<br>
+          <span style="font-size:12px">Updated by ${escapeHtml(latestAdminReschedule.rescheduledBy || 'Administrator')}${latestAdminReschedule.note ? ` · ${escapeHtml(latestAdminReschedule.note)}` : ''}</span>
+        </div>` : ''}
       </div>`;
 
     document.getElementById('appt-modal-footer').innerHTML = `
       ${a.status==='pending'     ? `<button class="btn btn-teal btn-sm" onclick="confirmAppt(${a.id});closeModal('appt-modal')"><i class="fa fa-check"></i> Confirm</button>` : ''}
       ${a.status==='rescheduled' ? `<button class="btn btn-amber btn-sm" style="background:var(--eksu-amber);color:#fff" onclick="approveReschedule(${a.id});closeModal('appt-modal')"><i class="fa fa-calendar"></i> Approve Reschedule</button>` : ''}
+      ${Auth.isAdmin() && a.status!=='cancelled' && a.status!=='completed' ? `<button class="btn btn-outline-teal btn-sm" onclick="openAdminReschedule(${a.id})"><i class="fa fa-calendar"></i> Reschedule</button>` : ''}
       ${a.status==='confirmed'   ? `<button class="btn btn-teal btn-sm" onclick="sendToQueue(${a.id});closeModal('appt-modal')"><i class="fa fa-list-ol"></i> Add to Queue</button>` : ''}
       <a href="health-card.html?matric=${encodeURIComponent(a.matric)}" class="btn btn-outline-red btn-sm"><i class="fa fa-id-card-o"></i> View Card</a>
       <button class="btn btn-gray btn-sm" onclick="closeModal('appt-modal')">Close</button>`;
