@@ -80,7 +80,7 @@ const REGISTRATION_STEP_DEFINITIONS = [
     key: 'fee-paid',
     label: 'Pay Health Centre fee online',
     icon: 'fa-credit-card',
-    description: 'Submit the approved online payment reference to start your registration.',
+    description: 'Upload proof of your Health Centre payment with your registration documents.',
     action: 'Payment recorded'
   },
   {
@@ -106,10 +106,10 @@ const REGISTRATION_STEP_DEFINITIONS = [
   },
   {
     key: 'appointment-booked',
-    label: 'Book your appointment online',
+    label: 'Appointment scheduled by the Health Centre',
     icon: 'fa-calendar-check-o',
-    description: 'Choose an available date and time for your Health Centre appointment.',
-    action: 'Appointment booked'
+    description: 'The Health Centre team will provide your appointment details after reviewing your registration.',
+    action: 'Awaiting appointment'
   },
   {
     key: 'appointment-completed',
@@ -143,7 +143,7 @@ function createRegistrationWorkflow(patientId, details = {}) {
 
   const documents = details.documents || {};
   const completeKeys = [
-    details.paymentRef ? 'fee-paid' : null,
+    details.paymentRef || documents.healthReceipt ? 'fee-paid' : null,
     documents.healthReceipt && documents.schoolReceipt ? 'documents-uploaded' : null,
     documents.passportPhotos?.length ? 'passport-photos-uploaded' : null,
     details.formSubmitted ? 'form-submitted' : null,
@@ -180,7 +180,8 @@ function getRegistrationWorkflow(patientId) {
       .find(item => item.patientId === patientId && item.status !== 'cancelled');
     const legacyComplete = key => oldSteps.get(key)?.status === 'complete';
     const migratedComplete = {
-      'fee-paid': legacyComplete('fee-paid') || Boolean(workflow.paymentRef),
+      'fee-paid': legacyComplete('fee-paid') || Boolean(workflow.paymentRef) ||
+        Boolean(workflow.documents?.healthReceipt),
       'appointment-booked': legacyComplete('appointment-booked') ||
         Boolean(workflow.appointmentDate && workflow.appointmentTime) ||
         Boolean(appointment?.date && appointment?.time)

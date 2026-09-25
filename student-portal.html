@@ -344,8 +344,8 @@
       <div class="card-body">
         <p class="setup-intro">
           Your student account has been created. Complete your health-centre registration online,
-          upload the required documents, and request your first appointment. After the appointment,
-          return here to check your result and card activation status.
+          upload the required documents, and submit your profile for review. The Health Centre team
+          will provide your appointment details after reviewing your registration.
         </p>
         <div id="setup-alert" style="display:none;margin-bottom:12px"></div>
 
@@ -427,39 +427,6 @@
           <div class="form-group" style="grid-column:1/-1">
             <label>Additional Medical History</label>
             <textarea class="form-control" id="setup-notes" rows="3" placeholder="Previous surgeries, ongoing medication, disabilities..."></textarea>
-          </div>
-        </div>
-
-        <div class="setup-section-title"><i class="fa fa-money"></i> Payment and appointment</div>
-        <div class="form-grid">
-          <div class="form-group">
-            <label>Health Centre Payment Reference <span class="req">*</span></label>
-            <input class="form-control" id="setup-payment" placeholder="RRR / payment reference"/>
-          </div>
-          <div class="form-group">
-            <label>Preferred Date <span class="req">*</span></label>
-            <input type="date" class="form-control" id="setup-date"/>
-          </div>
-          <div class="form-group">
-            <label>Preferred Time <span class="req">*</span></label>
-            <select class="form-control" id="setup-time">
-              <option value="">-- Select time --</option>
-              <option value="08:00">8:00 AM</option><option value="08:30">8:30 AM</option>
-              <option value="09:00">9:00 AM</option><option value="09:30">9:30 AM</option>
-              <option value="10:00">10:00 AM</option><option value="10:30">10:30 AM</option>
-              <option value="11:00">11:00 AM</option><option value="11:30">11:30 AM</option>
-              <option value="12:00">12:00 PM</option><option value="14:00">2:00 PM</option>
-              <option value="14:30">2:30 PM</option><option value="15:00">3:00 PM</option>
-            </select>
-          </div>
-          <div class="form-group" style="grid-column:1/-1">
-            <label>Reason for Visit</label>
-            <select class="form-control" id="setup-reason">
-              <option>Health Centre Card Collection &amp; General Check-up</option>
-              <option>Blood Test</option><option>Eye Test</option>
-              <option>Dental Check</option><option>General Consultation</option>
-              <option>Routine Medical Examination</option>
-            </select>
           </div>
         </div>
 
@@ -711,16 +678,6 @@
 
     const incomplete = p.profileComplete === false;
     setup.style.display = incomplete ? 'block' : 'none';
-
-    if (incomplete) {
-      const minDate = new Date();
-      minDate.setDate(minDate.getDate() + 1);
-      const minDateValue = minDate.toISOString().split('T')[0];
-      document.getElementById('setup-date').min = minDateValue;
-      if (!document.getElementById('setup-date').value) {
-        document.getElementById('setup-date').value = minDateValue;
-      }
-    }
   }
 
   function completeStudentSetup() {
@@ -740,19 +697,12 @@
     const phone = document.getElementById('setup-phone').value.trim();
     const dept = document.getElementById('setup-dept').value.trim();
     const emergency = document.getElementById('setup-emergency').value.trim();
-    const paymentRef = document.getElementById('setup-payment').value.trim();
-    const date = document.getElementById('setup-date').value;
-    const time = document.getElementById('setup-time').value;
     const healthReceipt = document.getElementById('setup-health-receipt').files[0];
     const schoolReceipt = document.getElementById('setup-school-receipt').files[0];
     const passportPhoto = document.getElementById('setup-passports').files[0];
 
-    if (!gender || !phone || !dept || !emergency || !paymentRef || !date || !time) {
+    if (!gender || !phone || !dept || !emergency) {
       showAlert(alert, 'danger', 'Please complete all required fields before continuing.');
-      return;
-    }
-    if (!validatePaymentRef(paymentRef)) {
-      showAlert(alert, 'danger', 'Invalid payment reference. Please check your receipt and try again.');
       return;
     }
     if (!healthReceipt || !schoolReceipt || !passportPhoto) {
@@ -760,7 +710,6 @@
       return;
     }
 
-    const fullName = p.name;
     const faculty = document.getElementById('setup-faculty').value;
     const level = document.getElementById('setup-level').value;
     const address = document.getElementById('setup-address').value.trim();
@@ -797,28 +746,8 @@
     };
     Store.set('hcms_patients', patients);
 
-    const appointments = Store.get('hcms_appointments', []);
-    const appointment = {
-      id: Store.nextId('hcms_appointments'),
-      patientId: p.id,
-      matric: p.matric,
-      name: fullName,
-      dept,
-      date,
-      time,
-      reason: document.getElementById('setup-reason').value,
-      status: 'confirmed',
-      paymentRef,
-      cardNo
-    };
-    appointments.push(appointment);
-    Store.set('hcms_appointments', appointments);
-
     const workflows = Store.get('hcms_registration_workflows', []);
     const workflow = createRegistrationWorkflow(p.id, {
-      paymentRef,
-      appointmentDate: date,
-      appointmentTime: time,
       formSubmitted: true,
       documents: patients[patientIndex].onlineDocuments
     });
@@ -839,7 +768,7 @@
     document.getElementById('mini-card-blood').textContent = blood;
     document.getElementById('mini-card-geno').textContent = genotype || 'Not available';
     document.getElementById('mini-card-no').textContent = cardNo;
-    toast('Your Health Centre registration and appointment have been submitted.', 'success', 5000);
+    toast('Your Health Centre registration has been submitted for review.', 'success', 5000);
   }
 
   function renderRegistrationResult(workflow) {
@@ -930,6 +859,8 @@
           ? `<button class="btn btn-sm btn-teal journey-step-action" onclick="checkRegistrationResult()"><i class="fa fa-refresh"></i> Check result</button>`
         : definition.key === 'card-activated'
           ? `<span class="badge badge-pending journey-step-action"><i class="fa fa-lock"></i> Awaiting approval</span>`
+        : current && definition.key === 'appointment-booked'
+          ? `<span class="badge badge-info journey-step-action">Awaiting clinic scheduling</span>`
         : current
           ? `<span class="badge badge-secondary journey-step-action">Complete online form above</span>`
           : `<span class="badge badge-secondary journey-step-action">Complete previous step</span>`;
@@ -1011,8 +942,7 @@
     if (!appt) {
       body.innerHTML = `<div class="text-center text-muted" style="padding:30px">
         <i class="fa fa-calendar-o fa-2x" style="margin-bottom:10px;opacity:0.4"></i>
-        <p>No appointment found.</p>
-        <button class="btn btn-red btn-sm" style="margin-top:8px" onclick="document.getElementById('student-setup-card').scrollIntoView({behavior:'smooth'})">Complete Registration</button>
+        <p>Your appointment will appear here after the Health Centre schedules it.</p>
       </div>`;
       return;
     }
