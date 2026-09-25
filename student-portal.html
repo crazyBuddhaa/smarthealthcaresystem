@@ -1116,6 +1116,24 @@
     currentStudent = null;
   }
 
+  // Keep an open student portal in sync when staff changes an appointment
+  // from another tab in the same browser.
+  window.addEventListener('storage', event => {
+    if (event.storageArea !== localStorage || event.key !== 'hcms_appointments' || !currentStudent) return;
+
+    const patient = Store.get('hcms_patients', [])
+      .find(item => item.id === currentStudent.patientId);
+    if (!patient) return;
+
+    const studentAppointment = Store.get('hcms_appointments', [])
+      .find(item => item.patientId === patient.id);
+    if (!studentAppointment) return;
+
+    loadAppointment(patient);
+    loadStats(patient);
+    toast('Your appointment was updated by the Health Centre.', 'info', 5000);
+  });
+
   // The shared login page owns authentication for both students and staff.
   const s = StudentAuth.current();
   if (s) {
