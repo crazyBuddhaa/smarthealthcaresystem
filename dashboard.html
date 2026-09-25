@@ -193,66 +193,55 @@
   document.getElementById('welcome-name').textContent = user.name;
   document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-GB', {weekday:'long',day:'numeric',month:'long',year:'numeric'});
 
-  // Stats
-  const patients = Store.get('hcms_patients', []);
-  const queue    = Store.get('hcms_queue', []);
-  const bills    = Store.get('hcms_bills', []);
-  const records  = Store.get('hcms_records', []);
+  function renderDashboard() {
+    const patients = Store.get('hcms_patients', []);
+    const queue    = Store.get('hcms_queue', []);
+    const bills    = Store.get('hcms_bills', []);
+    const records  = Store.get('hcms_records', []);
 
-  const statsData = [
-    { label:'Total Students', value: patients.length, icon:'fa-users',      color:'red',   change:'+2 this week', dir:'up' },
-    { label:'Queue Today',    value: queue.filter(q=>q.status!=='done').length, icon:'fa-list-ol', color:'amber', change: queue.filter(q=>q.status==='waiting').length+' waiting', dir:'down' },
-    { label:'Pending Bills',  value: bills.filter(b=>b.status==='pending').length, icon:'fa-money', color:'teal', change:'₦'+bills.filter(b=>b.status==='pending').reduce((s,b)=>s+b.total,0).toLocaleString()+' outstanding', dir:'down' },
-    { label:'Health Records', value: records.length, icon:'fa-file-text',   color:'green',  change:'+1 today', dir:'up' },
-  ];
+    const statsData = [
+      { label:'Total Students', value: patients.length, icon:'fa-users', color:'red', change:'+2 this week', dir:'up' },
+      { label:'Queue Today', value: queue.filter(q => q.status !== 'done').length, icon:'fa-list-ol', color:'amber', change:queue.filter(q => q.status === 'waiting').length + ' waiting', dir:'down' },
+      { label:'Pending Bills', value:bills.filter(b => b.status === 'pending').length, icon:'fa-money', color:'teal', change:'₦' + bills.filter(b => b.status === 'pending').reduce((sum, bill) => sum + bill.total, 0).toLocaleString() + ' outstanding', dir:'down' },
+      { label:'Health Records', value:records.length, icon:'fa-file-text', color:'green', change:'+1 today', dir:'up' },
+    ];
 
-  const sg = document.getElementById('stats-grid');
-  statsData.forEach(s => {
-    sg.innerHTML += `
-      <div class="stat-card ${s.color}">
-        <div class="stat-icon"><i class="fa ${s.icon}"></i></div>
+    document.getElementById('stats-grid').innerHTML = statsData.map(stat => `
+      <div class="stat-card ${stat.color}">
+        <div class="stat-icon"><i class="fa ${stat.icon}"></i></div>
         <div class="stat-info">
-          <div class="stat-value">${s.value}</div>
-          <div class="stat-label">${s.label}</div>
-          <div class="stat-change ${s.dir}">${s.dir==='up'?'▲':'▼'} ${s.change}</div>
+          <div class="stat-value">${stat.value}</div>
+          <div class="stat-label">${stat.label}</div>
+          <div class="stat-change ${stat.dir}">${stat.dir === 'up' ? '▲' : '▼'} ${stat.change}</div>
         </div>
-      </div>`;
-  });
+      </div>`).join('');
 
-  // Recent patients
-  const rp = document.getElementById('recent-patients');
-  patients.slice(-5).reverse().forEach(p => {
-    rp.innerHTML += `<tr>
-      <td><span class="text-red text-bold">${p.matric}</span></td>
-      <td>${p.name}</td>
-      <td>${p.dept}</td>
-      <td><span class="badge badge-info">${p.blood}</span></td>
-    </tr>`;
-  });
+    document.getElementById('recent-patients').innerHTML = patients.slice(-5).reverse().map(patient => `
+      <tr>
+        <td><span class="text-red text-bold">${escapeHtml(patient.matric)}</span></td>
+        <td>${escapeHtml(patient.name)}</td>
+        <td>${escapeHtml(patient.dept || 'Not provided')}</td>
+        <td><span class="badge badge-info">${escapeHtml(patient.blood || 'Unknown')}</span></td>
+      </tr>`).join('');
 
-  // Queue preview
-  const qp = document.getElementById('queue-preview');
-  queue.forEach(q => {
     const statusMap = { waiting:'badge-pending', active:'badge-info', done:'badge-success' };
-    qp.innerHTML += `<tr>
-      <td class="text-bold text-red">${q.token}</td>
-      <td>${q.name}</td>
-      <td>${q.time}</td>
-      <td><span class="badge ${statusMap[q.status]||'badge-secondary'}">${q.status}</span></td>
-    </tr>`;
-  });
+    document.getElementById('queue-preview').innerHTML = queue.map(item => `
+      <tr>
+        <td class="text-bold text-red">${escapeHtml(item.token)}</td>
+        <td>${escapeHtml(item.name)}</td>
+        <td>${escapeHtml(item.time)}</td>
+        <td><span class="badge ${statusMap[item.status] || 'badge-secondary'}">${escapeHtml(item.status)}</span></td>
+      </tr>`).join('');
 
-  // Recent bills
-  const rb = document.getElementById('recent-bills');
-  bills.slice(-4).reverse().forEach(b => {
-    rb.innerHTML += `<tr>
-      <td>${formatDate(b.date)}</td>
-      <td>${b.matric}</td>
-      <td>${b.name}</td>
-      <td class="text-bold">${formatNaira(b.total)}</td>
-      <td><span class="badge ${b.status==='paid'?'badge-success':'badge-warning'}">${b.status}</span></td>
-    </tr>`;
-  });
+    document.getElementById('recent-bills').innerHTML = bills.slice(-4).reverse().map(bill => `
+      <tr>
+        <td>${formatDate(bill.date)}</td>
+        <td>${escapeHtml(bill.matric)}</td>
+        <td>${escapeHtml(bill.name)}</td>
+        <td class="text-bold">${formatNaira(bill.total)}</td>
+        <td><span class="badge ${bill.status === 'paid' ? 'badge-success' : 'badge-warning'}">${escapeHtml(bill.status)}</span></td>
+      </tr>`).join('');
+  }
 
   function renderMyTasks() {
     const body = document.getElementById('my-tasks-body');
@@ -288,7 +277,32 @@
     renderMyTasks();
   }
 
+  renderDashboard();
   renderMyTasks();
+
+  // localStorage is shared by pages from this origin in the same browser.
+  // The storage event refreshes this dashboard when another tab writes to it.
+  const dashboardStorageKeys = new Set([
+    'hcms_patients',
+    'hcms_queue',
+    'hcms_bills',
+    'hcms_records',
+    'hcms_staff_tasks'
+  ]);
+
+  window.addEventListener('storage', event => {
+    if (event.storageArea !== localStorage) return;
+    if (event.key !== null && !dashboardStorageKeys.has(event.key)) return;
+    renderDashboard();
+    if (event.key === null || event.key === 'hcms_staff_tasks') renderMyTasks();
+  });
+
+  // Re-read after returning to this tab/page, including browser back navigation.
+  window.addEventListener('focus', renderDashboard);
+  window.addEventListener('pageshow', () => {
+    renderDashboard();
+    renderMyTasks();
+  });
 </script>
 </body>
 </html>
