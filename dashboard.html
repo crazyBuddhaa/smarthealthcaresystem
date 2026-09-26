@@ -185,6 +185,7 @@
 
 </main>
 
+<script src="/api/config.js"></script>
 <script src="assets/js/app.js"></script>
 <script>
   initPage();
@@ -280,8 +281,7 @@
   renderDashboard();
   renderMyTasks();
 
-  // localStorage is shared by pages from this origin in the same browser.
-  // The storage event refreshes this dashboard when another tab writes to it.
+  // Refresh the dashboard after a Supabase-backed write in this page.
   const dashboardStorageKeys = new Set([
     'hcms_patients',
     'hcms_queue',
@@ -290,11 +290,11 @@
     'hcms_staff_tasks'
   ]);
 
-  window.addEventListener('storage', event => {
-    if (event.storageArea !== localStorage) return;
-    if (event.key !== null && !dashboardStorageKeys.has(event.key)) return;
+  window.addEventListener('hcms-data-changed', event => {
+    const key = event.detail?.key;
+    if (key !== null && !dashboardStorageKeys.has(key)) return;
     renderDashboard();
-    if (event.key === null || event.key === 'hcms_staff_tasks') renderMyTasks();
+    if (key === null || key === 'hcms_staff_tasks') renderMyTasks();
   });
 
   // Re-read after returning to this tab/page, including browser back navigation.

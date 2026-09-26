@@ -259,22 +259,20 @@
 
 </div>
 
+<script src="/api/config.js"></script>
 <script src="assets/js/app.js"></script>
 <script>
   seedData();
 
   function loadCard() {
-    // Check URL param first, then session storage
+    // Check URL param first. A newly issued card is represented in Supabase.
     const params   = new URLSearchParams(window.location.search);
     const matricP  = params.get('matric');
-    const newCard  = JSON.parse(sessionStorage.getItem('hcms_new_card') || 'null');
 
     let p = null;
 
     if (matricP) {
       p = Store.get('hcms_patients',[]).find(x => x.matric.toLowerCase() === matricP.toLowerCase());
-    } else if (newCard) {
-      p = Store.get('hcms_patients',[]).find(x => x.id === newCard.patientId);
     }
 
     // Staff viewing a student card

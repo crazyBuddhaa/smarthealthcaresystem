@@ -631,6 +631,7 @@
   </div><!-- end portal-body -->
 </div><!-- end portal-view -->
 
+<script src="/api/config.js"></script>
 <script src="assets/js/app.js"></script>
 <script>
   seedData();
@@ -1116,10 +1117,9 @@
     currentStudent = null;
   }
 
-  // Keep an open student portal in sync when staff changes an appointment
-  // from another tab in the same browser.
-  window.addEventListener('storage', event => {
-    if (event.storageArea !== localStorage || event.key !== 'hcms_appointments' || !currentStudent) return;
+  // Keep the open portal in sync when this page changes an appointment.
+  window.addEventListener('hcms-data-changed', event => {
+    if (event.detail?.key !== 'hcms_appointments' || !currentStudent) return;
 
     const patient = Store.get('hcms_patients', [])
       .find(item => item.id === currentStudent.patientId);

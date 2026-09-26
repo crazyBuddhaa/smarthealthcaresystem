@@ -1,22 +1,91 @@
 /* =============================================
    CarePoint Smart Health Centre Management System
-   Core JS, localStorage data layer and helpers
+   Core JS, Supabase data layer and helpers
    ============================================= */
 
 'use strict';
 
-// ── Storage helpers ──────────────────────────────────────────────────────────
+// ── Supabase storage helpers ──────────────────────────────────────────────────
+const SUPABASE_STORE_TABLE = 'hcms_store';
+const supabaseConfig = window.SUPABASE_CONFIG || {};
+const supabaseStoreUrl = supabaseConfig.url
+  ? `${supabaseConfig.url.replace(/\/$/, '')}/rest/v1/${SUPABASE_STORE_TABLE}`
+  : '';
+const supabaseStoreHeaders = supabaseConfig.anonKey
+  ? {
+      apikey: supabaseConfig.anonKey,
+      Authorization: `Bearer ${supabaseConfig.anonKey}`,
+      'Content-Type': 'application/json'
+    }
+  : {};
+
 const Store = {
-  get(key, def = []) {
-    try { return JSON.parse(localStorage.getItem(key)) ?? def; }
-    catch { return def; }
+  cache: Object.create(null),
+  remote: Boolean(supabaseStoreUrl && supabaseConfig.anonKey),
+  writeQueue: Promise.resolve(),
+  lastError: null,
+
+  bootstrap() {
+    if (!this.remote) {
+      this.lastError = new Error('Supabase client configuration is unavailable.');
+      console.warn('HCMS data is not connected to Supabase.', this.lastError);
+      return;
+    }
+
+    // The existing multi-page UI uses synchronous Store.get calls during
+    // script startup. Load the small key/value snapshot before those scripts
+    // run; all subsequent writes are asynchronous upserts.
+    try {
+      const request = new XMLHttpRequest();
+      request.open('GET', `${supabaseStoreUrl}?select=key,value`, false);
+      Object.entries(supabaseStoreHeaders).forEach(([key, value]) => request.setRequestHeader(key, value));
+      request.send();
+      if (request.status < 200 || request.status >= 300) {
+        throw new Error(`Supabase returned HTTP ${request.status}.`);
+      }
+
+      JSON.parse(request.responseText || '[]').forEach(row => {
+        this.cache[row.key] = row.value;
+      });
+    } catch (error) {
+      this.lastError = error;
+      console.error('Unable to load HCMS data from Supabase.', error);
+    }
   },
-  set(key, val) { localStorage.setItem(key, JSON.stringify(val)); },
+
+  get(key, def = []) {
+    return Object.prototype.hasOwnProperty.call(this.cache, key) ? this.cache[key] : def;
+  },
+
+  set(key, val) {
+    this.cache[key] = val;
+    window.dispatchEvent(new CustomEvent('hcms-data-changed', { detail: { key, value: val } }));
+
+    if (!this.remote) return;
+    this.writeQueue = this.writeQueue
+      .catch(() => {})
+      .then(() => fetch(`${supabaseStoreUrl}?on_conflict=key`, {
+        method: 'POST',
+        headers: { ...supabaseStoreHeaders, Prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify([{ key, value: val }]),
+        keepalive: true
+      }))
+      .then(response => {
+        if (!response.ok) throw new Error(`Supabase write failed with HTTP ${response.status}.`);
+      })
+      .catch(error => {
+        this.lastError = error;
+        console.error(`Unable to save ${key} to Supabase.`, error);
+      });
+  },
+
   nextId(key) {
     const ids = Store.get(key, []).map(r => parseInt(r.id) || 0);
     return ids.length ? Math.max(...ids) + 1 : 1;
   }
 };
+
+Store.bootstrap();
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 const DEFAULT_STAFF_USERS = [
@@ -31,6 +100,33 @@ const STAFF_ROLE_DEFINITIONS = [
   { value: 'nurse', label: 'Nurse' },
   { value: 'cashier', label: 'Cashier' }
 ];
+
+function readAuthCookie(name) {
+  const entry = document.cookie.split('; ').find(item => item.startsWith(`${name}=`));
+  if (!entry) return null;
+  try {
+    return JSON.parse(decodeURIComponent(escape(atob(entry.slice(name.length + 1)))));
+  } catch {
+    return null;
+  }
+}
+
+function writeAuthCookie(name, value) {
+  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(value))));
+  document.cookie = `${name}=${encoded}; path=/; max-age=28800; SameSite=Lax`;
+}
+
+function clearAuthCookie(name) {
+  document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
+}
+
+function publicUser(user) {
+  if (!user) return null;
+  const safe = { ...user };
+  delete safe.password;
+  delete safe.source;
+  return safe;
+}
 
 const Auth = {
   users: DEFAULT_STAFF_USERS,
@@ -60,26 +156,22 @@ const Auth = {
   login(username, password) {
     const u = this.find(username);
     if (u && u.password === password && this.isActive(u)) {
-      sessionStorage.setItem('hcms_user', JSON.stringify(u));
+      writeAuthCookie('hcms_user', publicUser(u));
       return u;
     }
     return null;
   },
   current() {
-    try {
-      const stored = JSON.parse(sessionStorage.getItem('hcms_user'));
-      const current = this.find(stored?.username);
-      if (!this.isActive(current)) {
-        sessionStorage.removeItem('hcms_user');
-        return null;
-      }
-      return current;
-    } catch {
+    const stored = readAuthCookie('hcms_user');
+    const current = this.find(stored?.username);
+    if (!this.isActive(current)) {
+      clearAuthCookie('hcms_user');
       return null;
     }
+    return current;
   },
   isAdmin() { return this.current()?.role === 'admin'; },
-  logout() { sessionStorage.removeItem('hcms_user'); window.location.href = 'index.html'; },
+  logout() { clearAuthCookie('hcms_user'); window.location.href = 'index.html'; },
   require() {
     if (!this.current()) { window.location.href = 'login.html'; return null; }
     return this.current();
@@ -101,13 +193,13 @@ const StudentAuth = {
   login(matric, password) {
     const students = Store.get('hcms_students_auth', []);
     const u = students.find(s => s.matric.toLowerCase() === matric.toLowerCase() && s.password === password);
-    if (u) { sessionStorage.setItem('hcms_student', JSON.stringify(u)); return u; }
+    if (u) { writeAuthCookie('hcms_student', publicUser(u)); return u; }
     return null;
   },
   current() {
-    try { return JSON.parse(sessionStorage.getItem('hcms_student')); } catch { return null; }
+    return readAuthCookie('hcms_student');
   },
-  logout() { sessionStorage.removeItem('hcms_student'); window.location.href = 'student-portal.html'; },
+  logout() { clearAuthCookie('hcms_student'); window.location.href = 'student-portal.html'; },
   register(matric, password, patientId) {
     const students = Store.get('hcms_students_auth', []);
     if (students.find(s => s.matric.toLowerCase() === matric.toLowerCase())) return false;
@@ -118,8 +210,8 @@ const StudentAuth = {
 };
 
 // ── Student health-centre registration journey ───────────────────────────────
-// The prototype stores online submissions locally. A production version should
-// replace these updates with staff/API verification and secure document storage.
+// Online submissions are persisted through the Supabase Store layer. A
+// production deployment should still add server-side document storage rules.
 const REGISTRATION_STEP_DEFINITIONS = [
   {
     key: 'fee-paid',
@@ -219,7 +311,7 @@ function getRegistrationWorkflow(patientId) {
   const workflows = Store.get('hcms_registration_workflows', []);
   let workflow = workflows.find(item => item.patientId === patientId);
   if (workflow) {
-    // Migrate an older locally stored checklist to the online journey.
+    // Migrate an older checklist record to the current online journey format.
     const oldSteps = new Map((workflow.steps || []).map(step => [step.key, step]));
     const appointment = Store.get('hcms_appointments', [])
       .find(item => item.patientId === patientId && item.status !== 'cancelled');
@@ -271,8 +363,7 @@ function getRegistrationWorkflow(patientId) {
 }
 
 // ── Staff administration ─────────────────────────────────────────────────────
-// The prototype stores staff accounts and tasks in localStorage. A production
-// version should move identity, authorization, and audit history to a backend.
+// Staff accounts and tasks are also persisted through the Supabase Store layer.
 function validStaffRole(role) {
   return STAFF_ROLE_DEFINITIONS.some(item => item.value === role);
 }
@@ -653,6 +744,10 @@ window.registrationProgress = registrationProgress;
 
 // ── Seed data ─────────────────────────────────────────────────────────────────
 function seedData() {
+  if (!Store.remote) {
+    toast('Supabase is not configured. Add SUPABASE_ANON_KEY in Vercel and redeploy.', 'error', 8000);
+    return;
+  }
   if (Store.get('hcms_seeded', false)) return;
 
   const patients = [
