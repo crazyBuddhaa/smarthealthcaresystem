@@ -592,8 +592,13 @@
       name:      a.name,
       matric:    a.matric,
       dept:      a.dept,
+      faculty:   Store.get('hcms_patients', []).find(patient => patient.id === a.patientId)?.faculty || '',
       time:      a.time,
+      appointmentTime: a.time,
       reason:    a.reason,
+      priority:  'appointment',
+      queueDate: today(),
+      source:    'appointment',
       status:    'waiting',
       token,
     });

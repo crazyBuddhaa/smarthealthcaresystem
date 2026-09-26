@@ -98,8 +98,165 @@ const SUPABASE_AUTH_SESSION_KEY = 'carepoint_auth_session';
 const STAFF_ROLE_DEFINITIONS = [
   { value: 'doctor', label: 'Doctor' },
   { value: 'nurse', label: 'Nurse' },
-  { value: 'cashier', label: 'Cashier' }
+  { value: 'cashier', label: 'Cashier / Reception' }
 ];
+
+// ── Queue policy ─────────────────────────────────────────────────────────────
+// Queue operations are intentionally kept in the same key/value store as the
+// rest of this prototype. The policy is editable by administrators and is
+// read by the reception queue so the two workspaces always use the same rules.
+const DEFAULT_QUEUE_SETTINGS = {
+  version: 1,
+  criterion: 'arrival',
+  dailyQuota: 30,
+  quotaScope: 'centre',
+  overflowPolicy: 'waitlist',
+  underQuotaPolicy: 'fill-available',
+  updatedOn: null,
+  updatedBy: ''
+};
+
+const QUEUE_CRITERIA = [
+  { value: 'arrival', label: 'First come, first served', description: 'Use check-in time as the primary order.' },
+  { value: 'appointment', label: 'Appointment time', description: 'Students with earlier appointments are called first.' },
+  { value: 'faculty', label: 'Faculty grouping', description: 'Keep students from the same faculty together, then use check-in time.' },
+  { value: 'department', label: 'Department grouping', description: 'Keep students from the same department together, then use check-in time.' },
+  { value: 'priority', label: 'Priority and appointment', description: 'Urgent cases first, then appointments, then walk-ins.' }
+];
+
+const QUEUE_OVERFLOW_POLICIES = [
+  { value: 'waitlist', label: 'Keep on today’s waiting list', description: 'Do not call beyond the quota. Staff can carry the list forward manually.' },
+  { value: 'carry-forward', label: 'Move overflow to the next clinic day', description: 'When the quota is reached, waiting students receive the next clinic date.' },
+  { value: 'continue', label: 'Continue beyond the quota', description: 'Treat the quota as a target and allow reception to keep serving.' }
+];
+
+function getQueueSettings() {
+  const saved = Store.get('hcms_queue_settings', {});
+  const settings = { ...DEFAULT_QUEUE_SETTINGS, ...(saved && typeof saved === 'object' ? saved : {}) };
+  settings.dailyQuota = Math.max(0, Math.min(1000, parseInt(settings.dailyQuota, 10) || 0));
+  if (!QUEUE_CRITERIA.some(item => item.value === settings.criterion)) settings.criterion = DEFAULT_QUEUE_SETTINGS.criterion;
+  if (!['centre', 'group'].includes(settings.quotaScope)) settings.quotaScope = DEFAULT_QUEUE_SETTINGS.quotaScope;
+  if (!QUEUE_OVERFLOW_POLICIES.some(item => item.value === settings.overflowPolicy)) {
+    settings.overflowPolicy = DEFAULT_QUEUE_SETTINGS.overflowPolicy;
+  }
+  if (!['fill-available', 'respect-groups'].includes(settings.underQuotaPolicy)) {
+    settings.underQuotaPolicy = DEFAULT_QUEUE_SETTINGS.underQuotaPolicy;
+  }
+  return settings;
+}
+
+function saveQueueSettings(details = {}) {
+  const settings = {
+    ...getQueueSettings(),
+    ...details,
+    dailyQuota: Math.max(0, Math.min(1000, parseInt(details.dailyQuota, 10) || 0)),
+    updatedOn: today(),
+    updatedBy: Auth.current()?.name || Auth.current()?.username || 'Administrator'
+  };
+  Store.set('hcms_queue_settings', settings);
+  return settings;
+}
+
+function queueDateForEntry(entry) {
+  return entry?.queueDate || entry?.date || today();
+}
+
+function nextClinicDate(dateValue = today()) {
+  const date = new Date(`${dateValue}T00:00:00`);
+  if (!Number.isFinite(date.getTime())) return dateValue;
+  do {
+    date.setDate(date.getDate() + 1);
+  } while (date.getDay() === 0 || date.getDay() === 6);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function queueGroupForEntry(entry, settings = getQueueSettings()) {
+  const patient = Store.get('hcms_patients', []).find(item => item.id === entry?.patientId);
+  if (settings.criterion === 'faculty') return entry?.faculty || patient?.faculty || 'Faculty not provided';
+  if (settings.criterion === 'department') return entry?.dept || patient?.dept || 'Department not provided';
+  return '';
+}
+
+function queuePriorityRank(entry, settings = getQueueSettings()) {
+  if (settings.criterion !== 'priority') return 0;
+  return ({ urgent: 0, appointment: 1, 'walk-in': 2 }[entry?.priority] ?? 2);
+}
+
+function sortQueueEntries(entries, settings = getQueueSettings()) {
+  const list = [...entries];
+  const timeValue = entry => {
+    const value = settings.criterion === 'appointment'
+      ? (entry.appointmentTime || entry.time)
+      : entry.time;
+    const [hours, minutes] = String(value || '23:59').split(':').map(Number);
+    return (Number.isFinite(hours) ? hours : 23) * 60 + (Number.isFinite(minutes) ? minutes : 59);
+  };
+  return list.sort((a, b) => {
+    const priority = queuePriorityRank(a, settings) - queuePriorityRank(b, settings);
+    if (priority) return priority;
+    if ((settings.criterion === 'faculty' || settings.criterion === 'department') &&
+        settings.underQuotaPolicy === 'respect-groups') {
+      const group = queueGroupForEntry(a, settings).localeCompare(queueGroupForEntry(b, settings));
+      if (group) return group;
+    }
+    return timeValue(a) - timeValue(b) || (Number(a.id) || 0) - (Number(b.id) || 0);
+  });
+}
+
+function queueEntriesForDate(dateValue = today()) {
+  return Store.get('hcms_queue', [])
+    .filter(entry => queueDateForEntry(entry) === dateValue)
+    .map(entry => {
+      const patient = Store.get('hcms_patients', []).find(item => item.id === entry.patientId);
+      if (!entry.faculty && patient?.faculty) entry.faculty = patient.faculty;
+      if (!entry.dept && patient?.dept) entry.dept = patient.dept;
+      return entry;
+    });
+}
+
+function queueCapacitySummary(entries = queueEntriesForDate(), settings = getQueueSettings()) {
+  const quota = Number(settings.dailyQuota) || 0;
+  const attended = entries.filter(entry => ['active', 'done'].includes(entry.status)).length;
+  const waiting = entries.filter(entry => entry.status === 'waiting').length;
+  const remaining = quota ? Math.max(quota - attended, 0) : null;
+  return {
+    quota,
+    attended,
+    waiting,
+    remaining,
+    reached: quota > 0 && attended >= quota
+  };
+}
+
+function queueGroupCapacityReached(entries, entry, settings = getQueueSettings()) {
+  if (settings.quotaScope !== 'group' || !['faculty', 'department'].includes(settings.criterion)) return false;
+  const quota = Number(settings.dailyQuota) || 0;
+  if (!quota) return false;
+  const group = queueGroupForEntry(entry, settings);
+  const served = entries.filter(item =>
+    ['active', 'done'].includes(item.status) && queueGroupForEntry(item, settings) === group
+  ).length;
+  return served >= quota;
+}
+
+function carryQueueOverflowForward(dateValue = today()) {
+  const settings = getQueueSettings();
+  if (settings.overflowPolicy !== 'carry-forward') return 0;
+  const queue = Store.get('hcms_queue', []);
+  const nextDate = nextClinicDate(dateValue);
+  let moved = 0;
+  queue.forEach(entry => {
+    if (queueDateForEntry(entry) !== dateValue || entry.status !== 'waiting') return;
+    entry.queueDate = nextDate;
+    entry.overflowedFrom = dateValue;
+    moved += 1;
+  });
+  if (moved) Store.set('hcms_queue', queue);
+  return moved;
+}
 
 function readAuthSession() {
   try {
@@ -1029,6 +1186,19 @@ window.uploadRegistrationDocument = uploadRegistrationDocument;
 window.openRegistrationDocument = openRegistrationDocument;
 window.validatePaymentRef = validatePaymentRef;
 window.STAFF_ROLE_DEFINITIONS = STAFF_ROLE_DEFINITIONS;
+window.DEFAULT_QUEUE_SETTINGS = DEFAULT_QUEUE_SETTINGS;
+window.QUEUE_CRITERIA = QUEUE_CRITERIA;
+window.QUEUE_OVERFLOW_POLICIES = QUEUE_OVERFLOW_POLICIES;
+window.getQueueSettings = getQueueSettings;
+window.saveQueueSettings = saveQueueSettings;
+window.queueDateForEntry = queueDateForEntry;
+window.nextClinicDate = nextClinicDate;
+window.queueGroupForEntry = queueGroupForEntry;
+window.sortQueueEntries = sortQueueEntries;
+window.queueEntriesForDate = queueEntriesForDate;
+window.queueCapacitySummary = queueCapacitySummary;
+window.queueGroupCapacityReached = queueGroupCapacityReached;
+window.carryQueueOverflowForward = carryQueueOverflowForward;
 window.staffRoleLabel = staffRoleLabel;
 window.StaffAdmin = StaffAdmin;
 window.REGISTRATION_STEP_DEFINITIONS = REGISTRATION_STEP_DEFINITIONS;

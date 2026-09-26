@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Queue Policy | CarePoint Health Centre</title>
+  <link rel="icon" href="assets/images/healthcare_favicon.svg"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
+  <link rel="stylesheet" href="assets/css/style.css"/>
+  <style>
+    .policy-layout { display:grid; grid-template-columns:minmax(0, 1.2fr) minmax(280px, .8fr); gap:18px; align-items:start; }
+    .policy-option { border:1px solid var(--eksu-border); border-radius:6px; padding:11px 12px; margin-top:8px; }
+    .policy-option strong { display:block; font-size:13px; }
+    .policy-option span { display:block; color:var(--eksu-muted); font-size:11px; line-height:1.45; margin-top:3px; }
+    .policy-preview { background:#f8fafc; border:1px solid var(--eksu-border); border-radius:8px; padding:16px; }
+    .policy-preview strong { color:var(--eksu-red); }
+    @media (max-width: 850px) { .policy-layout { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body class="staff-shell">
+
+<nav class="topnav">
+  <div class="topnav-brand">
+    <button id="sidebar-toggle" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0 8px 0 0"><i class="fa fa-bars"></i></button>
+    <img src="assets/images/healthcare_logo.svg" alt="CarePoint Health Centre"/>
+    <div class="topnav-brand-text">CarePoint<br>Health Centre</div>
+  </div>
+  <div class="topnav-title">Queue policy</div>
+  <div class="topnav-right">
+    <span style="font-size:13px;color:rgba(255,255,255,0.9)"><i class="fa fa-user-circle"></i> <span id="topnav-user"></span></span>
+    <button onclick="Auth.logout()" title="Logout" style="background:none;border:none;color:rgba(255,255,255,0.85);font-size:18px;cursor:pointer"><i class="fa fa-sign-out"></i></button>
+  </div>
+</nav>
+
+<aside class="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Main</div>
+    <div class="sidebar-item"><a href="dashboard.html"><i class="fa fa-tachometer"></i> Dashboard</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Students</div>
+    <div class="sidebar-item"><a href="patients.html"><i class="fa fa-users"></i> Student Profiles</a></div>
+    <div class="sidebar-item"><a href="register.html"><i class="fa fa-user-plus"></i> Register Student</a></div>
+    <div class="sidebar-item"><a href="records.html"><i class="fa fa-file-text"></i> Student Health Records</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Operations</div>
+    <div class="sidebar-item"><a href="appointment.html"><i class="fa fa-calendar"></i> Appointments</a></div>
+    <div class="sidebar-item"><a href="queue.html"><i class="fa fa-list-ol"></i> Reception Queue</a></div>
+    <div class="sidebar-item"><a href="billing.html"><i class="fa fa-money"></i> Billing</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Administration</div>
+    <div class="sidebar-item"><a href="staff-management.html"><i class="fa fa-user-secret"></i> Staff &amp; Tasks</a></div>
+    <div class="sidebar-item"><a href="queue-settings.html"><i class="fa fa-sliders"></i> Queue Policy</a></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-item"><a href="index.html" onclick="Auth.logout();return false"><i class="fa fa-sign-out"></i> Logout</a></div>
+  </div>
+</aside>
+
+<main class="page-wrapper">
+  <div class="page-header">
+    <h1><i class="fa fa-sliders"></i> Queue Policy</h1>
+    <div class="breadcrumb"><a href="dashboard.html">Home</a><span>Administration</span><span>Queue Policy</span></div>
+  </div>
+
+  <div id="access-alert" style="display:none"></div>
+  <div id="policy-content">
+    <div class="alert alert-info" style="margin-bottom:18px">
+      <i class="fa fa-shield"></i>
+      <div>
+        <strong>Administrator-controlled student flow</strong>
+        <div style="font-size:12px;margin-top:3px">
+          These rules are used by the reception queue when it orders students, reports capacity, and decides what happens after the daily quota is reached.
+        </div>
+      </div>
+    </div>
+
+    <div class="policy-layout">
+      <div class="card">
+        <div class="card-header">
+          <h3><i class="fa fa-cogs"></i> Daily queue rules</h3>
+          <span class="badge badge-info">Admin only</span>
+        </div>
+        <div class="card-body">
+          <form id="queue-policy-form" onsubmit="savePolicy(event)">
+            <div class="form-group">
+              <label for="queue-criterion">How should students be ordered? <span class="req">*</span></label>
+              <select class="form-control" id="queue-criterion" required onchange="updatePolicyForm()"></select>
+              <div id="criterion-help" class="text-muted" style="font-size:11px;margin-top:5px"></div>
+            </div>
+
+            <div class="form-group">
+              <label for="queue-quota">Students attended per day</label>
+              <input class="form-control" type="number" id="queue-quota" min="0" max="1000" step="1" required/>
+              <div class="text-muted" style="font-size:11px;margin-top:5px">Use 0 for no daily limit.</div>
+            </div>
+
+            <div class="form-group">
+              <label for="queue-quota-scope">What does the quota apply to?</label>
+              <select class="form-control" id="queue-quota-scope" onchange="updatePolicyForm()">
+                <option value="centre">The whole health centre</option>
+                <option value="group">Each faculty or department group</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="queue-overflow">What should happen when the quota is reached?</label>
+              <select class="form-control" id="queue-overflow" required></select>
+              <div id="overflow-help" class="text-muted" style="font-size:11px;margin-top:5px"></div>
+            </div>
+
+            <div class="form-group">
+              <label for="queue-under-quota">If capacity remains unused</label>
+              <select class="form-control" id="queue-under-quota">
+                <option value="fill-available">Use available capacity for the next eligible student</option>
+                <option value="respect-groups">Respect the selected faculty/department order</option>
+              </select>
+            </div>
+
+            <button class="btn btn-red" type="submit"><i class="fa fa-save"></i> Save Queue Policy</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h3><i class="fa fa-eye"></i> Reception preview</h3></div>
+        <div class="card-body">
+          <div class="policy-preview" id="policy-preview"></div>
+          <p class="text-muted" style="font-size:12px;line-height:1.5;margin:14px 0 0">
+            Reception staff can check students in and call the next eligible student. They cannot change these rules.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="/api/config.js"></script>
+<script src="assets/js/app.js"></script>
+<script>
+  const currentUser = initPage();
+  const content = document.getElementById('policy-content');
+  const alertBox = document.getElementById('access-alert');
+
+  if (!currentUser || currentUser.role !== 'admin') {
+    content.style.display = 'none';
+    alertBox.style.display = 'flex';
+    alertBox.className = 'alert alert-danger';
+    alertBox.innerHTML = '<i class="fa fa-lock"></i><div>Only an administrator can change queue policy.</div>';
+  } else {
+    populatePolicyForm();
+  }
+
+  function populatePolicyForm() {
+    const settings = getQueueSettings();
+    document.getElementById('queue-criterion').innerHTML = QUEUE_CRITERIA
+      .map(item => `<option value="${item.value}" ${item.value === settings.criterion ? 'selected' : ''}>${escapeHtml(item.label)}</option>`)
+      .join('');
+    document.getElementById('queue-overflow').innerHTML = QUEUE_OVERFLOW_POLICIES
+      .map(item => `<option value="${item.value}" ${item.value === settings.overflowPolicy ? 'selected' : ''}>${escapeHtml(item.label)}</option>`)
+      .join('');
+    document.getElementById('queue-quota').value = settings.dailyQuota;
+    document.getElementById('queue-quota-scope').value = settings.quotaScope;
+    document.getElementById('queue-under-quota').value = settings.underQuotaPolicy;
+    updatePolicyForm();
+  }
+
+  function updatePolicyForm() {
+    const settings = {
+      criterion: document.getElementById('queue-criterion').value,
+      quotaScope: document.getElementById('queue-quota-scope').value,
+      dailyQuota: Number(document.getElementById('queue-quota').value) || 0,
+      overflowPolicy: document.getElementById('queue-overflow').value,
+      underQuotaPolicy: document.getElementById('queue-under-quota').value
+    };
+    const criterion = QUEUE_CRITERIA.find(item => item.value === settings.criterion);
+    const overflow = QUEUE_OVERFLOW_POLICIES.find(item => item.value === settings.overflowPolicy);
+    const scope = settings.quotaScope === 'group' && ['faculty', 'department'].includes(settings.criterion)
+      ? 'per ' + (settings.criterion === 'faculty' ? 'faculty' : 'department')
+      : 'for the whole centre';
+    document.getElementById('queue-quota-scope').disabled = !['faculty', 'department'].includes(settings.criterion);
+    if (!['faculty', 'department'].includes(settings.criterion)) {
+      document.getElementById('queue-quota-scope').value = 'centre';
+      settings.quotaScope = 'centre';
+    }
+    document.getElementById('criterion-help').textContent = criterion?.description || '';
+    document.getElementById('overflow-help').textContent = overflow?.description || '';
+    document.getElementById('policy-preview').innerHTML = `
+      <div style="font-size:12px;color:var(--eksu-muted);text-transform:uppercase;letter-spacing:.06em">Configured behaviour</div>
+      <div style="font-size:22px;font-weight:700;margin:8px 0">${settings.dailyQuota || 'No'} <span style="font-size:13px;font-weight:400">daily limit</span></div>
+      <div style="font-size:13px;margin-bottom:10px"><strong>Order:</strong> ${escapeHtml(criterion?.label || '')}</div>
+      <div style="font-size:13px;margin-bottom:10px"><strong>Quota:</strong> ${escapeHtml(scope)}</div>
+      <div style="font-size:13px"><strong>Overflow:</strong> ${escapeHtml(overflow?.label || '')}</div>`;
+  }
+
+  function savePolicy(event) {
+    event.preventDefault();
+    const criterion = document.getElementById('queue-criterion').value;
+    const quota = Number(document.getElementById('queue-quota').value);
+    if (!Number.isInteger(quota) || quota < 0 || quota > 1000) {
+      toast('Enter a daily quota from 0 to 1000.', 'error');
+      return;
+    }
+    const settings = saveQueueSettings({
+      criterion,
+      dailyQuota: quota,
+      quotaScope: ['faculty', 'department'].includes(criterion)
+        ? document.getElementById('queue-quota-scope').value
+        : 'centre',
+      overflowPolicy: document.getElementById('queue-overflow').value,
+      underQuotaPolicy: document.getElementById('queue-under-quota').value
+    });
+    populatePolicyForm();
+    toast(`Queue policy saved. Reception will use ${QUEUE_CRITERIA.find(item => item.value === settings.criterion)?.label.toLowerCase()}.`, 'success');
+  }
+</script>
+</body>
+</html>

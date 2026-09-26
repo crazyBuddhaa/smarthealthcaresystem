@@ -30,7 +30,7 @@ function roleLabel(role) {
     admin: 'Administrator',
     doctor: 'Doctor',
     nurse: 'Nurse',
-    cashier: 'Cashier',
+    cashier: 'Cashier / Reception',
     unassigned: 'Unassigned'
   })[role] || 'Unassigned';
 }
