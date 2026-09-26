@@ -223,9 +223,22 @@
         <td>${p.phone}</td>
         <td>${p.allergies||'None'}</td>
         <td>
-          <button class="btn btn-sm btn-teal" onclick="viewPatient(${p.id})" title="View"><i class="fa fa-eye"></i></button>
-          <button class="btn btn-sm btn-outline-red" style="margin-left:4px" onclick="editPatient(${p.id})" title="Edit"><i class="fa fa-pencil"></i></button>
-          <button class="btn btn-sm btn-gray" style="margin-left:4px" onclick="deletePatient(${p.id})" title="Delete"><i class="fa fa-trash"></i></button>
+          <div class="action-menu">
+            <button class="action-menu-toggle" type="button" aria-label="Open actions for ${escapeHtml(p.name)}" aria-expanded="false" onclick="toggleActionMenu(this)">
+              <i class="fa fa-ellipsis-v" aria-hidden="true"></i>
+            </button>
+            <div class="action-menu-dropdown" role="menu">
+              <button class="action-menu-item" type="button" role="menuitem" onclick="closeActionMenus();viewPatient(${p.id})">
+                <i class="fa fa-eye" aria-hidden="true"></i> View profile
+              </button>
+              <button class="action-menu-item" type="button" role="menuitem" onclick="closeActionMenus();editPatient(${p.id})">
+                <i class="fa fa-pencil" aria-hidden="true"></i> Edit profile
+              </button>
+              <button class="action-menu-item danger" type="button" role="menuitem" onclick="closeActionMenus();deletePatient(${p.id})">
+                <i class="fa fa-trash" aria-hidden="true"></i> Delete profile
+              </button>
+            </div>
+          </div>
         </td>
       </tr>`;
     });

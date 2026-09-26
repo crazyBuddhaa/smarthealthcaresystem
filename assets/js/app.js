@@ -858,6 +858,44 @@ function closeModal(id) {
   if (el) el.classList.remove('open');
 }
 
+// ── Row action menus ──────────────────────────────────────────────────────────
+function closeActionMenus(except = null) {
+  document.querySelectorAll('.action-menu.open').forEach(menu => {
+    if (menu !== except) {
+      menu.classList.remove('open');
+      menu.classList.remove('drop-up');
+      menu.querySelector('.action-menu-toggle')?.setAttribute('aria-expanded', 'false');
+    }
+  });
+}
+
+function toggleActionMenu(button) {
+  const menu = button.closest('.action-menu');
+  if (!menu) return;
+
+  const willOpen = !menu.classList.contains('open');
+  closeActionMenus(menu);
+  if (willOpen) {
+    const menuRect = menu.getBoundingClientRect();
+    const itemCount = menu.querySelectorAll('.action-menu-item').length;
+    const estimatedHeight = Math.min(340, Math.max(58, itemCount * 40 + 12));
+    const bottomSpace = window.innerHeight - menuRect.bottom;
+    menu.classList.toggle('drop-up', bottomSpace < estimatedHeight + 10);
+  } else {
+    menu.classList.remove('drop-up');
+  }
+  menu.classList.toggle('open', willOpen);
+  button.setAttribute('aria-expanded', String(willOpen));
+}
+
+document.addEventListener('click', event => {
+  if (!event.target.closest('.action-menu')) closeActionMenus();
+});
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') closeActionMenus();
+});
+
 // Close modal when clicking backdrop
 document.addEventListener('click', e => {
   if (e.target.classList.contains('modal-backdrop')) {
@@ -931,6 +969,8 @@ window.Auth     = Auth;
 window.toast    = toast;
 window.openModal  = openModal;
 window.closeModal = closeModal;
+window.closeActionMenus = closeActionMenus;
+window.toggleActionMenu = toggleActionMenu;
 window.confirmAction = confirmAction;
 window.initPage = initPage;
 window.formatDate  = formatDate;

@@ -323,9 +323,22 @@
         <td><span class="badge ${b.status==='paid'?'badge-success':'badge-warning'}">${b.status}</span></td>
         <td style="font-size:12px;color:var(--eksu-muted)">${b.ref||'Not recorded'}</td>
         <td>
-          <button class="btn btn-sm btn-teal" onclick="viewReceipt(${b.id})" title="View Invoice"><i class="fa fa-eye"></i></button>
-          ${b.status==='pending' ? `<button class="btn btn-sm btn-red" style="margin-left:4px" onclick="openPayModal(${b.id})" title="Record Payment"><i class="fa fa-check"></i></button>` : ''}
-          <button class="btn btn-sm btn-gray" style="margin-left:4px" onclick="deleteBill(${b.id})" title="Delete"><i class="fa fa-trash"></i></button>
+          <div class="action-menu">
+            <button class="action-menu-toggle" type="button" aria-label="Open actions for invoice ${invNo}" aria-expanded="false" onclick="toggleActionMenu(this)">
+              <i class="fa fa-ellipsis-v" aria-hidden="true"></i>
+            </button>
+            <div class="action-menu-dropdown" role="menu">
+              <button class="action-menu-item" type="button" role="menuitem" onclick="closeActionMenus();viewReceipt(${b.id})">
+                <i class="fa fa-eye" aria-hidden="true"></i> View invoice
+              </button>
+              ${b.status==='pending' ? `<button class="action-menu-item" type="button" role="menuitem" onclick="closeActionMenus();openPayModal(${b.id})">
+                <i class="fa fa-check" aria-hidden="true"></i> Record payment
+              </button>` : ''}
+              <button class="action-menu-item danger" type="button" role="menuitem" onclick="closeActionMenus();deleteBill(${b.id})">
+                <i class="fa fa-trash" aria-hidden="true"></i> Delete invoice
+              </button>
+            </div>
+          </div>
         </td>
       </tr>`;
     });

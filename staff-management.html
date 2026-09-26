@@ -262,12 +262,19 @@
             ? '<span class="admin-note">Protected account</span>'
             : `<div class="admin-actions">
                 <select class="form-control" id="role-${safeId}" aria-label="Role for ${escapeHtml(user.name)}">${roleOptions}</select>
-                <button class="btn btn-sm btn-outline-teal" data-username="${escapeHtml(user.username)}" onclick="assignStaffRole(this.dataset.username, document.getElementById('role-${safeId}').value)">
-                  <i class="fa fa-check"></i> Assign
-                </button>
-                <button class="btn btn-sm btn-outline-red" data-username="${escapeHtml(user.username)}" onclick="revokeStaffRole(this.dataset.username)">
-                  <i class="fa fa-ban"></i> Revoke
-                </button>
+                <div class="action-menu">
+                  <button class="action-menu-toggle" type="button" aria-label="Open role actions for ${escapeHtml(user.name)}" aria-expanded="false" onclick="toggleActionMenu(this)">
+                    <i class="fa fa-ellipsis-v" aria-hidden="true"></i>
+                  </button>
+                  <div class="action-menu-dropdown" role="menu">
+                    <button class="action-menu-item" type="button" role="menuitem" data-username="${escapeHtml(user.username)}" onclick="closeActionMenus();assignStaffRole(this.dataset.username, document.getElementById('role-${safeId}').value)">
+                      <i class="fa fa-check" aria-hidden="true"></i> Assign selected role
+                    </button>
+                    <button class="action-menu-item danger" type="button" role="menuitem" data-username="${escapeHtml(user.username)}" onclick="closeActionMenus();revokeStaffRole(this.dataset.username)">
+                      <i class="fa fa-ban" aria-hidden="true"></i> Revoke role
+                    </button>
+                  </div>
+                </div>
               </div>`}
         </td>
       </tr>`;
@@ -309,7 +316,16 @@
           <td>
             ${revoked || task.status === 'completed'
               ? '<span class="admin-note">No action</span>'
-              : `<button class="btn btn-sm btn-outline-red" onclick="revokeStaffTask(${task.id})"><i class="fa fa-ban"></i> Revoke</button>`}
+              : `<div class="action-menu">
+                  <button class="action-menu-toggle" type="button" aria-label="Open task actions for ${escapeHtml(task.title)}" aria-expanded="false" onclick="toggleActionMenu(this)">
+                    <i class="fa fa-ellipsis-v" aria-hidden="true"></i>
+                  </button>
+                  <div class="action-menu-dropdown" role="menu">
+                    <button class="action-menu-item danger" type="button" role="menuitem" onclick="closeActionMenus();revokeStaffTask(${task.id})">
+                      <i class="fa fa-ban" aria-hidden="true"></i> Revoke task
+                    </button>
+                  </div>
+                </div>`}
           </td>
         </tr>`;
       }).join('');

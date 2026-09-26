@@ -273,8 +273,19 @@
         <td>${r.doctor}</td>
         <td style="max-width:160px;white-space:normal;font-size:12px;color:var(--eksu-muted)">${r.notes||'No notes'}</td>
         <td>
-          <button class="btn btn-sm btn-teal" onclick="viewRecord(${r.id})"><i class="fa fa-eye"></i></button>
-          <button class="btn btn-sm btn-gray" style="margin-left:4px" onclick="deleteRecord(${r.id})"><i class="fa fa-trash"></i></button>
+          <div class="action-menu">
+            <button class="action-menu-toggle" type="button" aria-label="Open actions for consultation record ${r.id}" aria-expanded="false" onclick="toggleActionMenu(this)">
+              <i class="fa fa-ellipsis-v" aria-hidden="true"></i>
+            </button>
+            <div class="action-menu-dropdown" role="menu">
+              <button class="action-menu-item" type="button" role="menuitem" onclick="closeActionMenus();viewRecord(${r.id})">
+                <i class="fa fa-eye" aria-hidden="true"></i> View record
+              </button>
+              <button class="action-menu-item danger" type="button" role="menuitem" onclick="closeActionMenus();deleteRecord(${r.id})">
+                <i class="fa fa-trash" aria-hidden="true"></i> Delete record
+              </button>
+            </div>
+          </div>
         </td>
       </tr>`;
     });

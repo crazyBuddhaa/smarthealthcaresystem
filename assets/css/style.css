@@ -233,6 +233,115 @@ img { max-width: 100%; }
 .btn-block { width: 100%; }
 .btn-sm { padding: 6px 12px; font-size: 12px; }
 
+/* ── Compact row action menu ── */
+.action-menu {
+  position: relative;
+  display: inline-block;
+  text-align: left;
+}
+
+.action-menu-toggle {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--eksu-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--eksu-text);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.action-menu-toggle:hover,
+.action-menu.open .action-menu-toggle,
+.action-menu-toggle:focus-visible {
+  background: var(--eksu-label-bg);
+  border-color: var(--eksu-teal);
+  color: var(--eksu-teal);
+  outline: none;
+}
+
+.action-menu-dropdown {
+  display: none;
+  position: absolute;
+  z-index: 100;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 165px;
+  padding: 6px;
+  border: 1px solid var(--eksu-border);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(23, 50, 77, 0.16);
+}
+
+.action-menu.drop-up .action-menu-dropdown {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+.action-menu.open .action-menu-dropdown {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.action-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--eksu-text);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.action-menu-item:hover,
+.action-menu-item:focus-visible {
+  background: var(--eksu-label-bg);
+  color: var(--eksu-teal);
+  outline: none;
+}
+
+.action-menu-item i {
+  width: 15px;
+  color: var(--eksu-teal);
+  text-align: center;
+}
+
+.action-menu-item.danger {
+  color: var(--eksu-danger);
+}
+
+.action-menu-item.danger i {
+  color: var(--eksu-danger);
+}
+
+.action-menu-item.danger:hover,
+.action-menu-item.danger:focus-visible {
+  background: rgba(220, 38, 38, 0.07);
+  color: var(--eksu-danger);
+}
+
+@media (max-width: 600px) {
+  .action-menu-toggle {
+    width: 34px;
+    height: 34px;
+  }
+
+  .action-menu-dropdown {
+    min-width: 155px;
+  }
+}
+
 .login-actions {
   display: flex;
   gap: 10px;

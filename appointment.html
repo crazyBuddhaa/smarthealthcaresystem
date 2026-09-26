@@ -436,13 +436,34 @@
         <td style="font-size:12px;color:var(--eksu-muted)">${a.paymentRef}</td>
         <td><span class="badge ${statusCls[a.status]||'badge-secondary'}">${a.status}</span></td>
         <td>
-          <button class="btn btn-sm btn-teal" onclick="viewAppt(${a.id})" title="View"><i class="fa fa-eye"></i></button>
-          ${a.status==='pending'    ? `<button class="btn btn-sm btn-red" style="margin-left:4px" onclick="confirmAppt(${a.id})" title="Confirm"><i class="fa fa-check"></i></button>` : ''}
-          ${a.status==='rescheduled'? `<button class="btn btn-sm btn-amber" style="margin-left:4px;background:var(--eksu-amber);color:#fff" onclick="approveReschedule(${a.id})" title="Approve Reschedule"><i class="fa fa-calendar"></i></button>` : ''}
-          ${canAdminReschedule && a.status!=='cancelled' && a.status!=='completed' ? `<button class="btn btn-sm btn-outline-teal" style="margin-left:4px" onclick="openAdminReschedule(${a.id})" title="Reschedule Appointment" aria-label="Reschedule appointment for ${escapeHtml(a.name)}"><i class="fa fa-calendar"></i></button>` : ''}
-          ${a.status!=='cancelled' && a.status!=='completed' ? `<button class="btn btn-sm btn-gray" style="margin-left:4px" onclick="cancelAppt(${a.id})" title="Cancel"><i class="fa fa-times"></i></button>` : ''}
-          ${a.status==='confirmed'  ? `<button class="btn btn-sm btn-outline-teal" style="margin-left:4px" onclick="markComplete(${a.id})" title="Mark Complete"><i class="fa fa-flag-checkered"></i></button>` : ''}
-          <a class="btn btn-sm btn-outline-red" style="margin-left:4px" href="health-card.html?matric=${encodeURIComponent(a.matric)}" title="View Card"><i class="fa fa-id-card-o"></i></a>
+          <div class="action-menu">
+            <button class="action-menu-toggle" type="button" aria-label="Open actions for ${escapeHtml(a.name)}" aria-expanded="false" onclick="toggleActionMenu(this)">
+              <i class="fa fa-ellipsis-v" aria-hidden="true"></i>
+            </button>
+            <div class="action-menu-dropdown" role="menu">
+              <button class="action-menu-item" type="button" role="menuitem" onclick="closeActionMenus();viewAppt(${a.id})">
+                <i class="fa fa-eye" aria-hidden="true"></i> View appointment
+              </button>
+              ${a.status==='pending' ? `<button class="action-menu-item" type="button" role="menuitem" onclick="closeActionMenus();confirmAppt(${a.id})">
+                <i class="fa fa-check" aria-hidden="true"></i> Confirm appointment
+              </button>` : ''}
+              ${a.status==='rescheduled' ? `<button class="action-menu-item" type="button" role="menuitem" onclick="closeActionMenus();approveReschedule(${a.id})">
+                <i class="fa fa-calendar" aria-hidden="true"></i> Approve reschedule
+              </button>` : ''}
+              ${canAdminReschedule && a.status!=='cancelled' && a.status!=='completed' ? `<button class="action-menu-item" type="button" role="menuitem" onclick="closeActionMenus();openAdminReschedule(${a.id})">
+                <i class="fa fa-calendar" aria-hidden="true"></i> Reschedule appointment
+              </button>` : ''}
+              ${a.status!=='cancelled' && a.status!=='completed' ? `<button class="action-menu-item danger" type="button" role="menuitem" onclick="closeActionMenus();cancelAppt(${a.id})">
+                <i class="fa fa-times" aria-hidden="true"></i> Cancel appointment
+              </button>` : ''}
+              ${a.status==='confirmed' ? `<button class="action-menu-item" type="button" role="menuitem" onclick="closeActionMenus();markComplete(${a.id})">
+                <i class="fa fa-flag-checkered" aria-hidden="true"></i> Mark completed
+              </button>` : ''}
+              <a class="action-menu-item" role="menuitem" href="health-card.html?matric=${encodeURIComponent(a.matric)}" onclick="closeActionMenus()">
+                <i class="fa fa-id-card-o" aria-hidden="true"></i> View health card
+              </a>
+            </div>
+          </div>
         </td>
       </tr>`;
     });

@@ -225,10 +225,23 @@
             <div class="queue-dept"><i class="fa fa-graduation-cap" style="font-size:11px"></i> ${q.dept}</div>
             <div class="queue-time"><i class="fa fa-clock-o" style="font-size:11px"></i> Arrived ${q.time}</div>
             ${q.reason ? `<div class="queue-time"><i class="fa fa-comment-o" style="font-size:11px"></i> ${q.reason}</div>` : ''}
-            <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-              ${q.status==='waiting' ? `<button class="btn btn-sm btn-teal" onclick="setStatus(${q.id},'active')" style="flex:1"><i class="fa fa-play"></i> Call</button>` : ''}
-              ${q.status==='active'  ? `<button class="btn btn-sm btn-red" onclick="setStatus(${q.id},'done')" style="flex:1"><i class="fa fa-check"></i> Done</button>` : ''}
-              ${q.status==='done'    ? `<button class="btn btn-sm btn-gray" onclick="removeFromQueue(${q.id})" style="flex:1"><i class="fa fa-trash"></i> Remove</button>` : ''}
+            <div style="display:flex;justify-content:flex-end;margin-top:8px">
+              <div class="action-menu">
+                <button class="action-menu-toggle" type="button" aria-label="Open queue actions for token ${q.token}" aria-expanded="false" onclick="toggleActionMenu(this)">
+                  <i class="fa fa-ellipsis-v" aria-hidden="true"></i>
+                </button>
+                <div class="action-menu-dropdown" role="menu">
+                  ${q.status==='waiting' ? `<button class="action-menu-item" type="button" role="menuitem" onclick="closeActionMenus();setStatus(${q.id},'active')">
+                    <i class="fa fa-play" aria-hidden="true"></i> Call student
+                  </button>` : ''}
+                  ${q.status==='active' ? `<button class="action-menu-item" type="button" role="menuitem" onclick="closeActionMenus();setStatus(${q.id},'done')">
+                    <i class="fa fa-check" aria-hidden="true"></i> Mark done
+                  </button>` : ''}
+                  ${q.status==='done' ? `<button class="action-menu-item danger" type="button" role="menuitem" onclick="closeActionMenus();removeFromQueue(${q.id})">
+                    <i class="fa fa-trash" aria-hidden="true"></i> Remove from queue
+                  </button>` : ''}
+                </div>
+              </div>
             </div>
           </div>`;
       });
@@ -246,9 +259,22 @@
         <td>${q.time}</td>
         <td><span class="badge ${statusMap[q.status]||'badge-secondary'}">${q.status}</span></td>
         <td>
-          ${q.status==='waiting' ? `<button class="btn btn-sm btn-teal" onclick="setStatus(${q.id},'active')"><i class="fa fa-play"></i></button>` : ''}
-          ${q.status==='active'  ? `<button class="btn btn-sm btn-red"  onclick="setStatus(${q.id},'done')"><i class="fa fa-check"></i></button>` : ''}
-          <button class="btn btn-sm btn-gray" style="margin-left:4px" onclick="removeFromQueue(${q.id})"><i class="fa fa-trash"></i></button>
+          <div class="action-menu">
+            <button class="action-menu-toggle" type="button" aria-label="Open queue actions for token ${q.token}" aria-expanded="false" onclick="toggleActionMenu(this)">
+              <i class="fa fa-ellipsis-v" aria-hidden="true"></i>
+            </button>
+            <div class="action-menu-dropdown" role="menu">
+              ${q.status==='waiting' ? `<button class="action-menu-item" type="button" role="menuitem" onclick="closeActionMenus();setStatus(${q.id},'active')">
+                <i class="fa fa-play" aria-hidden="true"></i> Call student
+              </button>` : ''}
+              ${q.status==='active' ? `<button class="action-menu-item" type="button" role="menuitem" onclick="closeActionMenus();setStatus(${q.id},'done')">
+                <i class="fa fa-check" aria-hidden="true"></i> Mark done
+              </button>` : ''}
+              <button class="action-menu-item danger" type="button" role="menuitem" onclick="closeActionMenus();removeFromQueue(${q.id})">
+                <i class="fa fa-trash" aria-hidden="true"></i> Remove from queue
+              </button>
+            </div>
+          </div>
         </td>
       </tr>`;
     });
