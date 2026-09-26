@@ -49,10 +49,63 @@
     @media (max-width: 520px) {
       .dashboard-action-grid { grid-template-columns:1fr; }
     }
+    #staff-login-view .login-card { max-width: 500px; }
+    #staff-login-view .login-brand { justify-content: center; }
+    #staff-login-view .login-body { padding: 22px 24px 18px; }
+    #staff-login-view .login-footer { text-align: center; }
   </style>
 </head>
 <body class="dashboard-page">
 
+<div id="staff-login-view" class="login-page" style="display:none">
+  <div class="login-bg"></div>
+  <div class="login-bg-overlay"></div>
+  <div class="login-card">
+    <div class="login-brand">
+      <a href="index.html"><img src="assets/images/healthcare_logo.svg" alt="CarePoint Health Centre"/></a>
+      <div class="login-brand-title"><i class="fa fa-lock"></i> STAFF SIGN-IN</div>
+    </div>
+    <div class="login-body">
+      <div id="staff-login-alert" style="display:none;margin-bottom:12px"></div>
+      <p class="text-center text-muted" style="font-size:13px;margin:0 0 16px">
+        Sign in with your staff ID to open your CarePoint operations dashboard.
+      </p>
+      <form id="staff-login-form" class="auth-form" onsubmit="staffDashboardLogin(event)">
+        <div class="field-group">
+          <div class="field-label"><i class="fa fa-user"></i> Staff ID</div>
+          <input
+            type="text"
+            id="staff-dashboard-username"
+            placeholder="Enter your staff ID"
+            autocomplete="username"
+            maxlength="50"
+            required
+          />
+        </div>
+        <div class="field-group">
+          <div class="field-label"><i class="fa fa-key"></i> Password</div>
+          <input
+            type="password"
+            id="staff-dashboard-password"
+            placeholder="Enter your password"
+            autocomplete="current-password"
+            required
+          />
+        </div>
+        <button type="submit" id="staff-login-submit" class="btn btn-red btn-block">
+          <i class="fa fa-sign-in"></i> Sign in to dashboard
+        </button>
+      </form>
+      <p class="text-center text-muted" style="font-size:12px;margin:14px 0 0">
+        Student?
+        <a href="student-portal.html" style="color:var(--eksu-red);font-weight:700">Use student sign in</a>
+      </p>
+    </div>
+    <div class="login-footer">CarePoint Health Centre &copy; 2026</div>
+  </div>
+</div>
+
+<div id="dashboard-app" style="display:none">
 <!-- Top Navigation -->
 <nav class="topnav">
   <div class="topnav-brand">
@@ -231,15 +284,25 @@
   </div>
 
 </main>
+</div>
 
 <script src="/api/config.js"></script>
 <script src="assets/js/app.js"></script>
 <script>
-  const currentUser = initPage();
+  let currentUser = null;
+  let user = null;
+  const existingUser = Auth.current();
+  const isAuthenticatedStaff = Boolean(
+    existingUser?.active &&
+    existingUser.role !== 'student' &&
+    existingUser.role !== 'unassigned'
+  );
 
-  const user = Auth.current();
-  document.getElementById('welcome-name').textContent = user.name;
-  document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-GB', {weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  if (isAuthenticatedStaff) {
+    currentUser = initPage();
+    user = currentUser;
+    document.getElementById('dashboard-app').style.display = 'block';
+  }
 
   const DASHBOARD_ROLE_PROFILES = {
     admin: {
@@ -428,32 +491,100 @@
     renderMyTasks();
   }
 
-  renderRoleWorkspace();
-  renderDashboard();
-  renderMyTasks();
+  function initializeDashboard() {
+    document.getElementById('welcome-name').textContent = user.name;
+    document.getElementById('today-date').textContent =
+      new Date().toLocaleDateString('en-GB', {
+        weekday:'long',
+        day:'numeric',
+        month:'long',
+        year:'numeric'
+      });
 
-  // Refresh the dashboard after a Supabase-backed write in this page.
-  const dashboardStorageKeys = new Set([
-    'hcms_patients',
-    'hcms_queue',
-    'hcms_bills',
-    'hcms_records',
-    'hcms_staff_tasks'
-  ]);
-
-  window.addEventListener('hcms-data-changed', event => {
-    const key = event.detail?.key;
-    if (key !== null && !dashboardStorageKeys.has(key)) return;
-    renderDashboard();
-    if (key === null || key === 'hcms_staff_tasks') renderMyTasks();
-  });
-
-  // Re-read after returning to this tab/page, including browser back navigation.
-  window.addEventListener('focus', renderDashboard);
-  window.addEventListener('pageshow', () => {
+    renderRoleWorkspace();
     renderDashboard();
     renderMyTasks();
-  });
+
+    // Refresh the dashboard after a Supabase-backed write on this page.
+    const dashboardStorageKeys = new Set([
+      'hcms_patients',
+      'hcms_queue',
+      'hcms_bills',
+      'hcms_records',
+      'hcms_staff_tasks'
+    ]);
+
+    window.addEventListener('hcms-data-changed', event => {
+      const key = event.detail?.key;
+      if (key !== null && !dashboardStorageKeys.has(key)) return;
+      renderDashboard();
+      if (key === null || key === 'hcms_staff_tasks') renderMyTasks();
+    });
+
+    // Re-read after returning to this tab/page, including browser back navigation.
+    window.addEventListener('focus', renderDashboard);
+    window.addEventListener('pageshow', () => {
+      renderDashboard();
+      renderMyTasks();
+    });
+  }
+
+  async function staffDashboardLogin(event) {
+    event.preventDefault();
+
+    const username = document.getElementById('staff-dashboard-username').value.trim();
+    const password = document.getElementById('staff-dashboard-password').value;
+    const submit = document.getElementById('staff-login-submit');
+    const alert = document.getElementById('staff-login-alert');
+
+    if (!username || !password) {
+      showStaffLoginAlert('warning', 'Enter your staff ID and password to continue.');
+      return;
+    }
+
+    submit.disabled = true;
+    submit.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Signing in...';
+    const loggedInUser = await Auth.login(username, password);
+
+    if (loggedInUser?.role === 'student') {
+      window.location.href = 'student-portal.html';
+      return;
+    }
+
+    if (loggedInUser?.active && loggedInUser.role !== 'unassigned') {
+      user = loggedInUser;
+      currentUser = initPage();
+      document.getElementById('staff-login-view').style.display = 'none';
+      document.getElementById('dashboard-app').style.display = 'block';
+      initializeDashboard();
+      return;
+    }
+
+    submit.disabled = false;
+    submit.innerHTML = '<i class="fa fa-sign-in"></i> Sign in to dashboard';
+    showStaffLoginAlert('danger', 'Invalid staff ID or password, or your staff role is inactive.');
+  }
+
+  function showStaffLoginAlert(type, message) {
+    const alert = document.getElementById('staff-login-alert');
+    const icons = {
+      danger: 'fa-times-circle',
+      warning: 'fa-exclamation-triangle',
+      success: 'fa-check-circle',
+      info: 'fa-info-circle'
+    };
+    alert.style.display = 'flex';
+    alert.className = `alert alert-${type}`;
+    alert.innerHTML = `<i class="fa ${icons[type] || icons.info}"></i><div>${message}</div>`;
+  }
+
+  if (isAuthenticatedStaff) {
+    initializeDashboard();
+  } else if (existingUser?.role === 'student') {
+    window.location.href = 'student-portal.html';
+  } else {
+    document.getElementById('staff-login-view').style.display = 'flex';
+  }
 </script>
 </body>
 </html>
