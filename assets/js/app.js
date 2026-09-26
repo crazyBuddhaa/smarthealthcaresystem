@@ -87,94 +87,147 @@ const Store = {
 
 Store.bootstrap();
 
-// ── Auth ─────────────────────────────────────────────────────────────────────
-const DEFAULT_STAFF_USERS = [
-    { username: 'admin',    password: 'admin123',    role: 'admin',  name: 'System Admin' },
-    { username: 'doctor1',  password: 'password1',   role: 'doctor', name: 'Dr. A. Okafor' },
-    { username: 'nurse1',   password: 'password1',   role: 'nurse',  name: 'Nurse B. Adeleke' },
-    { username: 'cashier1', password: 'password1',   role: 'cashier',name: 'C. Nwosu (Cashier)' },
-];
-
+// ── Supabase Auth ────────────────────────────────────────────────────────────
+// Authentication is intentionally separate from the JSON data store. Passwords
+// never enter hcms_store; Supabase Auth owns password hashing, sessions, and
+// token validation. The small session snapshot below only contains the signed
+// JWT session returned by Supabase Auth.
+const SUPABASE_AUTH_SESSION_KEY = 'carepoint_auth_session';
 const STAFF_ROLE_DEFINITIONS = [
   { value: 'doctor', label: 'Doctor' },
   { value: 'nurse', label: 'Nurse' },
   { value: 'cashier', label: 'Cashier' }
 ];
 
-function readAuthCookie(name) {
-  const entry = document.cookie.split('; ').find(item => item.startsWith(`${name}=`));
-  if (!entry) return null;
+function readAuthSession() {
   try {
-    return JSON.parse(decodeURIComponent(escape(atob(entry.slice(name.length + 1)))));
+    return JSON.parse(sessionStorage.getItem(SUPABASE_AUTH_SESSION_KEY) || 'null');
   } catch {
     return null;
   }
 }
 
-function writeAuthCookie(name, value) {
-  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(value))));
-  document.cookie = `${name}=${encoded}; path=/; max-age=28800; SameSite=Lax`;
+function writeAuthSession(session) {
+  sessionStorage.setItem(SUPABASE_AUTH_SESSION_KEY, JSON.stringify(session));
 }
 
-function clearAuthCookie(name) {
-  document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
+function clearAuthSession() {
+  sessionStorage.removeItem(SUPABASE_AUTH_SESSION_KEY);
 }
 
-function publicUser(user) {
+function decodeJwtPayload(token) {
+  try {
+    const payload = token.split('.')[1];
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(decodeURIComponent(escape(atob(normalized))));
+  } catch {
+    return null;
+  }
+}
+
+function normalizedAuthUser(user) {
   if (!user) return null;
-  const safe = { ...user };
-  delete safe.password;
-  delete safe.source;
-  return safe;
+  const metadata = user.user_metadata || {};
+  const role = metadata.role || 'student';
+  return {
+    id: user.id,
+    email: user.email || '',
+    username: metadata.username || metadata.matric || user.email || '',
+    name: metadata.name || metadata.full_name || metadata.matric || user.email || 'CarePoint user',
+    role,
+    patientId: metadata.patientId ? parseInt(metadata.patientId) : null,
+    matric: metadata.matric || '',
+    active: metadata.active !== false && role !== 'unassigned'
+  };
+}
+
+async function supabaseAuthRequest(path, options = {}) {
+  if (!supabaseConfig.url || !supabaseConfig.anonKey) {
+    throw new Error('Supabase Auth is not configured.');
+  }
+
+  const response = await fetch(`${supabaseConfig.url.replace(/\/$/, '')}/auth/v1${path}`, {
+    ...options,
+    headers: {
+      apikey: supabaseConfig.anonKey,
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    }
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(body.msg || body.error_description || body.message || 'Authentication request failed.');
+    error.status = response.status;
+    throw error;
+  }
+  return body;
+}
+
+function authEmailForIdentifier(identifier) {
+  const value = String(identifier || '').trim();
+  if (value.includes('@')) return value.toLowerCase();
+  const normalized = value.toLowerCase().replace(/[^a-z0-9._/-]/g, '').replace(/\//g, '-');
+  const isStudent = /^(stu|student)([-/_]|$)/i.test(value);
+  return `${normalized}@${isStudent ? 'student' : 'staff'}.carepoint.local`;
 }
 
 const Auth = {
-  users: DEFAULT_STAFF_USERS,
-  allUsers() {
-    const savedUsers = Store.get('hcms_staff_users', []);
-    const defaults = this.users.map(defaultUser => {
-      const saved = savedUsers.find(user =>
-        user.username.toLowerCase() === defaultUser.username.toLowerCase()
-      );
-      return { ...defaultUser, ...(saved || {}), source: 'system' };
-    });
-    const defaultNames = new Set(this.users.map(user => user.username.toLowerCase()));
-    const customUsers = savedUsers
-      .filter(user => !defaultNames.has(user.username.toLowerCase()))
-      .map(user => ({ ...user, source: 'custom' }));
-    return [...defaults, ...customUsers];
-  },
-  find(username) {
-    if (!username) return null;
-    return this.allUsers().find(user =>
-      user.username.toLowerCase() === String(username).trim().toLowerCase()
-    ) || null;
-  },
-  isActive(user) {
-    return Boolean(user && user.role && user.role !== 'unassigned' && user.active !== false);
-  },
-  login(username, password) {
-    const u = this.find(username);
-    if (u && u.password === password && this.isActive(u)) {
-      writeAuthCookie('hcms_user', publicUser(u));
-      return u;
-    }
-    return null;
-  },
   current() {
-    const stored = readAuthCookie('hcms_user');
-    const current = this.find(stored?.username);
-    if (!this.isActive(current)) {
-      clearAuthCookie('hcms_user');
+    const session = readAuthSession();
+    if (!session?.access_token || !session.user) return null;
+    const claims = decodeJwtPayload(session.access_token);
+    if (claims?.exp && claims.exp * 1000 <= Date.now()) return null;
+    return normalizedAuthUser(session.user);
+  },
+  accessToken() {
+    return readAuthSession()?.access_token || '';
+  },
+  async login(identifier, password) {
+    try {
+      const session = await supabaseAuthRequest('/token?grant_type=password', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: authEmailForIdentifier(identifier),
+          password
+        })
+      });
+      if (!session.user || !session.access_token) return null;
+      writeAuthSession(session);
+      return normalizedAuthUser(session.user);
+    } catch (error) {
+      console.warn('Supabase Auth sign-in failed.', error);
       return null;
     }
-    return current;
   },
-  isAdmin() { return this.current()?.role === 'admin'; },
-  logout() { clearAuthCookie('hcms_user'); window.location.href = 'index.html'; },
+  async signOut(redirectTo = 'index.html') {
+    const token = this.accessToken();
+    if (token) {
+      fetch(`${supabaseConfig.url.replace(/\/$/, '')}/auth/v1/logout`, {
+        method: 'POST',
+        headers: {
+          apikey: supabaseConfig.anonKey,
+          Authorization: `Bearer ${token}`
+        },
+        keepalive: true
+      }).catch(() => {});
+    }
+    clearAuthSession();
+    window.location.href = redirectTo;
+  },
+  logout() {
+    this.signOut('index.html');
+  },
+  isAdmin() {
+    return this.current()?.role === 'admin';
+  },
   require() {
-    if (!this.current()) { window.location.href = 'login.html'; return null; }
-    return this.current();
+    const user = this.current();
+    if (!user || !user.active || user.role === 'student') {
+      clearAuthSession();
+      window.location.href = 'login.html';
+      return null;
+    }
+    return user;
   }
 };
 
@@ -188,24 +241,32 @@ function validatePaymentRef(ref) {
   return VALID_PAYMENT_PREFIXES.some(p => upper.startsWith(p)) || /^\d{10,}$/.test(upper);
 }
 
-// ── Student self-registration helpers ────────────────────────────────────────
+// ── Student authentication helpers ───────────────────────────────────────────
 const StudentAuth = {
-  login(matric, password) {
-    const students = Store.get('hcms_students_auth', []);
-    const u = students.find(s => s.matric.toLowerCase() === matric.toLowerCase() && s.password === password);
-    if (u) { writeAuthCookie('hcms_student', publicUser(u)); return u; }
-    return null;
+  async login(matric, password) {
+    const user = await Auth.login(matric, password);
+    return user?.role === 'student' ? user : null;
   },
   current() {
-    return readAuthCookie('hcms_student');
+    const user = Auth.current();
+    return user?.role === 'student' ? user : null;
   },
-  logout() { clearAuthCookie('hcms_student'); window.location.href = 'student-portal.html'; },
-  register(matric, password, patientId) {
-    const students = Store.get('hcms_students_auth', []);
-    if (students.find(s => s.matric.toLowerCase() === matric.toLowerCase())) return false;
-    students.push({ matric, password, patientId });
-    Store.set('hcms_students_auth', students);
-    return true;
+  logout() {
+    Auth.signOut('student-portal.html');
+  },
+  async register(details = {}) {
+    try {
+      const response = await fetch('/api/auth/student', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(details)
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) return { ok: false, message: body.message || 'Unable to create the student account.' };
+      return { ok: true, user: body.user };
+    } catch (error) {
+      return { ok: false, message: error.message || 'Unable to create the student account.' };
+    }
   }
 };
 
@@ -372,100 +433,72 @@ function staffRoleLabel(role) {
   return STAFF_ROLE_DEFINITIONS.find(item => item.value === role)?.label || 'Unassigned';
 }
 
-function saveStaffUser(user) {
-  const savedUsers = Store.get('hcms_staff_users', []);
-  const index = savedUsers.findIndex(item =>
-    item.username.toLowerCase() === user.username.toLowerCase()
-  );
-  const record = { ...user };
-  delete record.source;
-  if (index >= 0) savedUsers[index] = record;
-  else savedUsers.push(record);
-  Store.set('hcms_staff_users', savedUsers);
-  return Auth.find(user.username);
-}
-
 const StaffAdmin = {
   roles: STAFF_ROLE_DEFINITIONS,
+  cache: [],
+  async request(action, details = {}) {
+    const response = await fetch('/api/auth/staff', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${Auth.accessToken()}`
+      },
+      body: JSON.stringify({ action, ...details })
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body.message || 'Staff administration request failed.');
+    }
+    return body;
+  },
+  async refresh() {
+    const body = await this.request('list');
+    this.cache = body.staff || [];
+    return this.cache;
+  },
   listStaff() {
-    return Auth.allUsers().map(user => ({
-      ...user,
-      active: Auth.isActive(user),
-      roleLabel: user.role === 'admin' ? 'Administrator' : staffRoleLabel(user.role)
-    }));
+    return this.cache;
   },
-  createStaff(details = {}) {
+  async createStaff(details = {}) {
     if (!Auth.isAdmin()) return { ok: false, message: 'Only an administrator can create staff accounts.' };
-
-    const name = String(details.name || '').trim();
-    const username = String(details.username || '').trim();
-    const password = String(details.password || '');
-    const role = String(details.role || '');
-    if (!name || !username || !password || !validStaffRole(role)) {
-      return { ok: false, message: 'Enter a name, staff ID, password, and valid role.' };
+    try {
+      const body = await this.request('create', details);
+      await this.refresh();
+      return { ok: true, user: body.user };
+    } catch (error) {
+      return { ok: false, message: error.message };
     }
-    if (password.length < 6) {
-      return { ok: false, message: 'Staff passwords must be at least 6 characters.' };
-    }
-    if (Auth.find(username)) {
-      return { ok: false, message: 'That staff ID is already in use.' };
-    }
-
-    const user = saveStaffUser({
-      username,
-      password,
-      role,
-      name,
-      active: true,
-      createdOn: today()
-    });
-    return { ok: true, user };
   },
-  assignRole(username, role) {
+  async assignRole(username, role) {
     if (!Auth.isAdmin()) return { ok: false, message: 'Only an administrator can assign roles.' };
-    if (!validStaffRole(role)) return { ok: false, message: 'Select a valid staff role.' };
-
-    const user = Auth.find(username);
-    if (!user) return { ok: false, message: 'Staff account not found.' };
-    if (user.role === 'admin' || user.username.toLowerCase() === 'admin') {
-      return { ok: false, message: 'The administrator account is protected.' };
+    try {
+      const body = await this.request('assign-role', { username, role });
+      await this.refresh();
+      return { ok: true, user: body.user };
+    } catch (error) {
+      return { ok: false, message: error.message };
     }
-
-    const updated = saveStaffUser({
-      ...user,
-      role,
-      active: true,
-      revokedOn: null
-    });
-    return { ok: true, user: updated };
   },
-  revokeRole(username) {
+  async revokeRole(username) {
     if (!Auth.isAdmin()) return { ok: false, message: 'Only an administrator can revoke roles.' };
-
-    const user = Auth.find(username);
-    if (!user) return { ok: false, message: 'Staff account not found.' };
-    if (user.role === 'admin' || user.username.toLowerCase() === 'admin') {
-      return { ok: false, message: 'The administrator account is protected.' };
+    try {
+      const body = await this.request('revoke-role', { username });
+      await this.refresh();
+      const user = body.user;
+      const tasks = Store.get('hcms_staff_tasks', []);
+      let changed = false;
+      tasks.forEach(task => {
+        if (task.assigneeUsername === username && task.status !== 'revoked' && task.status !== 'completed') {
+          task.status = 'revoked';
+          task.revokedOn = today();
+          changed = true;
+        }
+      });
+      if (changed) Store.set('hcms_staff_tasks', tasks);
+      return { ok: true, user };
+    } catch (error) {
+      return { ok: false, message: error.message };
     }
-
-    saveStaffUser({
-      ...user,
-      role: 'unassigned',
-      active: false,
-      revokedOn: today()
-    });
-
-    const tasks = Store.get('hcms_staff_tasks', []);
-    let changed = false;
-    tasks.forEach(task => {
-      if (task.assigneeUsername === user.username && task.status !== 'revoked' && task.status !== 'completed') {
-        task.status = 'revoked';
-        task.revokedOn = today();
-        changed = true;
-      }
-    });
-    if (changed) Store.set('hcms_staff_tasks', tasks);
-    return { ok: true };
   },
   listTasks() {
     return Store.get('hcms_staff_tasks', []);
@@ -477,8 +510,10 @@ const StaffAdmin = {
     const description = String(details.description || '').trim();
     const assigneeUsername = String(details.assigneeUsername || '').trim();
     const dueDate = String(details.dueDate || '').trim();
-    const assignee = Auth.find(assigneeUsername);
-    if (!title || !assignee || !Auth.isActive(assignee) || assignee.role === 'admin') {
+    const assignee = this.listStaff().find(user =>
+      user.username.toLowerCase() === assigneeUsername.toLowerCase()
+    );
+    if (!title || !assignee || !assignee.active || assignee.role === 'admin') {
       return { ok: false, message: 'Choose an active staff member for this task.' };
     }
 

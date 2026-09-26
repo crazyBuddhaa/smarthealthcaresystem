@@ -245,7 +245,7 @@
           <span>I confirm that I am creating this account for my own student health-centre access.</span>
         </label>
 
-        <button class="btn btn-red btn-block" onclick="createStudentAccount()">
+        <button id="signup-submit" class="btn btn-red btn-block" onclick="createStudentAccount()">
           Create student account <i class="fa fa-arrow-right"></i>
         </button>
 
@@ -267,7 +267,7 @@
   <script>
     seedData();
 
-    function createStudentAccount() {
+    async function createStudentAccount() {
       const surname       = document.getElementById('signup-surname').value.trim();
       const firstName     = document.getElementById('signup-first-name').value.trim();
       const otherName     = document.getElementById('signup-other-name').value.trim();
@@ -308,9 +308,7 @@
       }
 
       const patients = Store.get('hcms_patients', []);
-      const authUsers = Store.get('hcms_students_auth', []);
-      const alreadyRegistered = patients.some(p => p.matric.toLowerCase() === matric.toLowerCase()) ||
-        authUsers.some(u => u.matric.toLowerCase() === matric.toLowerCase());
+      const alreadyRegistered = patients.some(p => p.matric.toLowerCase() === matric.toLowerCase());
 
       if (alreadyRegistered) {
         showSignupAlert(alert, 'warning', `Matric number <strong>${matric}</strong> is already registered. <a href="student-portal.html" style="color:inherit;text-decoration:underline">Login to your portal →</a>`);
@@ -335,10 +333,26 @@
       });
       Store.set('hcms_patients', patients);
 
-      if (!StudentAuth.register(matric, password, patientId)) {
+      const submit = document.getElementById('signup-submit');
+      if (submit) {
+        submit.disabled = true;
+        submit.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Creating account...';
+      }
+      const account = await StudentAuth.register({
+        matric,
+        password,
+        patientId,
+        name: fullName,
+        email
+      });
+      if (!account.ok) {
         patients.pop();
         Store.set('hcms_patients', patients);
-        showSignupAlert(alert, 'danger', 'This student account already exists. Please use the login page.');
+        if (submit) {
+          submit.disabled = false;
+          submit.innerHTML = '<i class="fa fa-user-plus"></i> Create Student Account';
+        }
+        showSignupAlert(alert, 'danger', account.message || 'Unable to create the student account.');
         return;
       }
 

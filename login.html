@@ -162,10 +162,11 @@
   <script>
     seedData();
 
-    if (Auth.current()) {
-      window.location.href = 'dashboard.html';
-    } else if (StudentAuth.current()) {
+    const existingUser = Auth.current();
+    if (existingUser?.role === 'student') {
       window.location.href = 'student-portal.html';
+    } else if (existingUser?.active && existingUser.role !== 'unassigned') {
+      window.location.href = 'dashboard.html';
     }
 
     const registered = new URLSearchParams(window.location.search).get('registered');
@@ -173,29 +174,32 @@
       showLoginAlert('success', 'Your student account has been created. Sign in to complete your Health Centre registration.');
     }
 
-    function doLogin(e) {
+    async function doLogin(e) {
       e.preventDefault();
       const username = document.getElementById('username').value.trim();
       const password = document.getElementById('password').value;
+      const submit = document.querySelector('#login-form button[type="submit"]');
 
       if (!document.getElementById('login-captcha').checked) {
         showLoginAlert('warning', 'Please complete the reCAPTCHA check.');
         return;
       }
 
-      const staff = Auth.login(username, password);
-      if (staff) {
+      submit.disabled = true;
+      submit.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Signing in...';
+      const user = await Auth.login(username, password);
+      if (user?.active && user.role === 'student') {
+        window.location.href = 'student-portal.html';
+        return;
+      }
+      if (user?.active && user.role !== 'unassigned') {
         window.location.href = 'dashboard.html';
         return;
       }
 
-      const student = StudentAuth.login(username, password);
-      if (student) {
-        window.location.href = 'student-portal.html';
-        return;
-      }
-
-      showLoginAlert('danger', 'Invalid username or password. Please try again.');
+      submit.disabled = false;
+      submit.innerHTML = '<i class="fa fa-sign-in"></i> Sign in';
+      showLoginAlert('danger', 'Invalid username or password, or your account does not have an active role.');
     }
 
     function togglePwd() {

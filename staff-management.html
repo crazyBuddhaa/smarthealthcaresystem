@@ -219,9 +219,20 @@
     accessAlert.innerHTML = '<i class="fa fa-lock"></i><div>Only an administrator can access staff and task management.</div>';
   } else {
     renderRoleOptions();
-    renderStaff();
-    renderTaskAssignees();
-    renderTasks();
+    loadStaffAdministration();
+  }
+
+  async function loadStaffAdministration() {
+    try {
+      await StaffAdmin.refresh();
+      renderStaff();
+      renderTaskAssignees();
+      renderTasks();
+    } catch (error) {
+      accessAlert.style.display = 'flex';
+      accessAlert.className = 'alert alert-danger';
+      accessAlert.innerHTML = `<i class="fa fa-exclamation-triangle"></i><div>${escapeHtml(error.message)}</div>`;
+    }
   }
 
   function renderRoleOptions() {
@@ -304,9 +315,9 @@
       }).join('');
   }
 
-  function createStaffAccount(event) {
+  async function createStaffAccount(event) {
     event.preventDefault();
-    const result = StaffAdmin.createStaff({
+    const result = await StaffAdmin.createStaff({
       name: document.getElementById('staff-name').value,
       username: document.getElementById('staff-username').value,
       password: document.getElementById('staff-password').value,
@@ -322,8 +333,8 @@
     toast(`${result.user.name} was created as a ${staffRoleLabel(result.user.role)}.`, 'success');
   }
 
-  function assignStaffRole(username, role) {
-    const result = StaffAdmin.assignRole(username, role);
+  async function assignStaffRole(username, role) {
+    const result = await StaffAdmin.assignRole(username, role);
     if (!result.ok) {
       toast(result.message, 'error');
       return;
@@ -333,10 +344,10 @@
     toast(`${result.user.name} now has the ${staffRoleLabel(role)} role.`, 'success');
   }
 
-  function revokeStaffRole(username) {
+  async function revokeStaffRole(username) {
     const user = StaffAdmin.listStaff().find(item => item.username === username);
     if (!user || !window.confirm(`Revoke ${user.name}'s role and active tasks?`)) return;
-    const result = StaffAdmin.revokeRole(username);
+    const result = await StaffAdmin.revokeRole(username);
     if (!result.ok) {
       toast(result.message, 'error');
       return;
