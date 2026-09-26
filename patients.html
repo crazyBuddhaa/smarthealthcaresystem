@@ -245,6 +245,21 @@
     document.getElementById('count-shown').textContent = filtered.length;
   }
 
+  function registrationDocumentActions(path, label) {
+    if (!path) return `<span class="text-muted">${label}: not available</span>`;
+    return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px">
+      <strong>${escapeHtml(label)}:</strong> <span>${escapeHtml(path.split('/').pop())}</span>
+      <button class="btn btn-sm btn-outline-teal" type="button" data-path="${escapeHtml(path)}"
+        onclick="openRegistrationDocument(this.dataset.path, 'view')">
+        <i class="fa fa-eye"></i> Open
+      </button>
+      <button class="btn btn-sm btn-gray" type="button" data-path="${escapeHtml(path)}"
+        onclick="openRegistrationDocument(this.dataset.path, 'download')">
+        <i class="fa fa-download"></i> Download
+      </button>
+    </div>`;
+  }
+
   function viewPatient(id) {
     const p = allPatients.find(x => x.id === id);
     if (!p) return;
@@ -253,6 +268,18 @@
     const workflow = getRegistrationWorkflow(id);
     const progress = registrationProgress(workflow);
     const nextStep = workflow && workflow.steps.find(step => step.status !== 'complete');
+    const documents = workflow?.documents || {};
+    const documentReviewActions = workflow && Auth.isAdmin() &&
+      ['awaiting-review', 'rejected'].includes(workflow.documentReviewStatus)
+      ? `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-sm btn-teal" onclick="markOnlineReview(${id}, 'approve-documents')">
+            <i class="fa fa-check-circle"></i> Accept documents &amp; schedule appointment
+          </button>
+          <button class="btn btn-sm btn-outline-red" onclick="markOnlineReview(${id}, 'reject-documents')">
+            <i class="fa fa-times-circle"></i> Reject documents
+          </button>
+        </div>`
+      : '';
     document.getElementById('view-modal-body').innerHTML = `
       <div class="alert alert-info" style="margin-bottom:16px">
         <i class="fa fa-user-circle fa-2x"></i>
@@ -262,6 +289,8 @@
         <i class="fa ${progress.complete === progress.total ? 'fa-check-circle' : 'fa-list-ol'}"></i>
         <div><strong>Registration journey:</strong> ${progress.complete}/${progress.total} steps complete.
         <br><span style="font-size:12px">Online status: <strong>${workflow.reviewStatus || 'Awaiting appointment'}</strong></span>
+        ${workflow.documentReviewStatus ? `<br><span style="font-size:12px">Document review: <strong>${escapeHtml(workflow.documentReviewStatus)}</strong></span>` : ''}
+        ${documentReviewActions}
         ${nextStep ? `<br><span style="font-size:12px">Next: ${REGISTRATION_STEP_DEFINITIONS.find(step => step.key === nextStep.key)?.label || 'Continue registration'}</span>` : '<br><span style="font-size:12px">Health Centre Card is activated.</span>'}
         ${workflow.reviewStatus === 'awaiting-appointment' && workflow.steps.find(step => step.key === 'appointment-booked')?.status === 'complete'
           ? `<div style="margin-top:10px"><button class="btn btn-sm btn-teal" onclick="markOnlineReview(${id}, 'appointment-completed')"><i class="fa fa-check"></i> Mark appointment completed</button></div>`
@@ -280,9 +309,9 @@
       ${workflow.documents && Object.keys(workflow.documents).length ? `<div class="alert alert-info" style="margin-bottom:16px">
         <i class="fa fa-cloud-upload"></i>
         <div><strong>Online documents submitted:</strong><br>
-          Health Centre receipt: ${workflow.documents.healthReceipt || 'Not provided'}<br>
-          School fees receipt: ${workflow.documents.schoolReceipt || 'Not provided'}<br>
-          Passport photograph: ${(workflow.documents.passportPhotos || []).join(', ') || 'Not provided'}
+           ${registrationDocumentActions(documents.healthReceiptPath, 'Health Centre receipt')}
+           ${registrationDocumentActions(documents.schoolReceiptPath, 'School fees receipt')}
+           ${registrationDocumentActions(documents.passportPhotoPaths?.[0], 'Passport photograph')}
         </div>
       </div>` : ''}` : ''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">
@@ -298,17 +327,26 @@
   }
 
   function markOnlineReview(id, decision) {
+    if (['approve-documents', 'reject-documents', 'approve', 'reject'].includes(decision) && !Auth.isAdmin()) {
+      toast('Only an administrator can review registration documents or activate a card.', 'error');
+      return;
+    }
     const result = reviewRegistrationWorkflow(id, decision);
     if (!result) {
       toast('The online registration cannot move to that status yet.', 'warning');
       return;
     }
-    toast(decision === 'approve'
+    const message = decision === 'approve'
       ? 'Registration approved and Health Centre Card activated.'
       : decision === 'reject'
         ? 'Registration marked as not approved.'
-        : 'Appointment marked as completed. The student can now check the portal for results.',
-      decision === 'reject' ? 'warning' : 'success',
+        : decision === 'approve-documents'
+          ? 'Documents accepted. An appointment was scheduled for the student.'
+          : decision === 'reject-documents'
+            ? 'Documents rejected. The student can upload corrected files.'
+            : 'Appointment marked as completed. The student can now check the portal for results.';
+    toast(message,
+      ['reject', 'reject-documents'].includes(decision) ? 'warning' : 'success',
       5000);
     render();
     viewPatient(id);

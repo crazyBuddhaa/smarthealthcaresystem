@@ -64,3 +64,17 @@ administration to Supabase Auth. The legacy `hcms_store` table still contains
 the application's domain data and currently has broad public RLS policies.
 Those policies must be replaced with user- and role-scoped policies before
 storing real medical records.
+
+## Registration document storage
+
+Apply the migration
+`supabase/migrations/20260926010000_add_registration_document_storage.sql`
+to create the private `hcms-registration-documents` bucket. Student
+registration receipts and passport photographs are uploaded directly to that
+bucket using the student's Supabase access token. The workflow stores only the
+object path and file metadata.
+
+Staff do not receive direct public bucket access. The
+`api/storage/registration.js` function verifies an active staff session and
+returns a five-minute signed URL so authorized staff can open a document or
+download it locally.

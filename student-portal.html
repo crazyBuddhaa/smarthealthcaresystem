@@ -449,7 +449,7 @@
           </div>
         </div>
 
-        <button class="btn btn-red btn-block" onclick="completeStudentSetup()">
+        <button class="btn btn-red btn-block" id="setup-submit" onclick="completeStudentSetup()">
           <i class="fa fa-cloud-upload"></i> Submit Online Registration
         </button>
       </div>
@@ -706,6 +706,19 @@
 
   let currentStudent = null;
 
+  function showAlert(el, type, message) {
+    if (!el) return;
+    const icons = {
+      danger: 'fa-times-circle',
+      warning: 'fa-exclamation-triangle',
+      success: 'fa-check-circle',
+      info: 'fa-info-circle'
+    };
+    el.style.display = 'flex';
+    el.className = `alert alert-${type}`;
+    el.innerHTML = `<i class="fa ${icons[type] || icons.info}"></i><div>${message}</div>`;
+  }
+
   function loadPortal(u) {
     currentStudent = u;
     document.getElementById('login-view').style.display  = 'none';
@@ -750,7 +763,7 @@
     const setup = document.getElementById('student-setup-card');
     if (!setup) return;
 
-    const incomplete = p.profileComplete === false;
+    const incomplete = p.profileComplete === false || p.registrationStatus === 'documents-rejected';
     setup.style.display = incomplete ? 'block' : 'none';
   }
 
@@ -759,7 +772,8 @@
     const panel = document.getElementById('tab-appointment');
     if (!tab || !panel) return;
 
-    const visible = p.profileComplete === true;
+    const visible = p.profileComplete === true &&
+      (!p.selfRegistered || p.registrationStatus === 'approved');
     tab.style.display = visible ? '' : 'none';
     if (!visible && panel.classList.contains('active')) {
       const overviewTab = document.querySelector('.portal-tab[onclick*="tab-overview"]');
@@ -767,7 +781,7 @@
     }
   }
 
-  function completeStudentSetup() {
+  async function completeStudentSetup() {
     if (!currentStudent) return;
 
     const patients = Store.get('hcms_patients', []);
@@ -795,6 +809,31 @@
     if (!healthReceipt || !schoolReceipt || !passportPhoto) {
       showAlert(alert, 'warning', 'Upload both receipts and one passport photograph before submitting online.');
       return;
+    }
+
+    const submit = document.getElementById('setup-submit');
+    if (submit) {
+      submit.disabled = true;
+      submit.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading documents...';
+    }
+
+    const uploads = [
+      ['healthReceipt', 'healthReceipt', healthReceipt],
+      ['schoolReceipt', 'schoolReceipt', schoolReceipt],
+      ['passportPhoto', 'passportPhoto', passportPhoto]
+    ];
+    const uploadedDocuments = {};
+    for (const [key, type, file] of uploads) {
+      const result = await window.uploadRegistrationDocument(p.id, type, file);
+      if (!result.ok) {
+        if (submit) {
+          submit.disabled = false;
+          submit.innerHTML = '<i class="fa fa-save"></i> Submit registration for review';
+        }
+        showAlert(alert, 'danger', result.message);
+        return;
+      }
+      uploadedDocuments[key] = result;
     }
 
     const faculty = document.getElementById('setup-faculty').value;
@@ -826,20 +865,25 @@
       onlineDocuments: {
         healthReceipt: healthReceipt.name,
         schoolReceipt: schoolReceipt.name,
-        passportPhotos: [passportPhoto.name]
+        passportPhotos: [passportPhoto.name],
+        healthReceiptPath: uploadedDocuments.healthReceipt.path,
+        schoolReceiptPath: uploadedDocuments.schoolReceipt.path,
+        passportPhotoPaths: [uploadedDocuments.passportPhoto.path]
       },
       profileComplete: true,
-      cardIssued: false
+      cardIssued: false,
+      registrationStatus: 'pending-document-review',
+      appointmentEligible: false
     };
     Store.set('hcms_patients', patients);
 
-    const appointment = scheduleNextAvailableAppointment(p.id);
     const workflows = Store.get('hcms_registration_workflows', []);
     const workflow = createRegistrationWorkflow(p.id, {
-      appointmentDate: appointment?.date || '',
-      appointmentTime: appointment?.time || '',
       formSubmitted: true,
-      documents: patients[patientIndex].onlineDocuments
+      documents: patients[patientIndex].onlineDocuments,
+      documentReviewStatus: 'awaiting-review',
+      reviewStatus: 'awaiting-document-review',
+      resultStatus: 'pending-review'
     });
     const workflowIndex = workflows.findIndex(item => item.patientId === p.id);
     if (workflowIndex >= 0) workflows[workflowIndex] = workflow;
@@ -859,13 +903,16 @@
     document.getElementById('mini-card-blood').textContent = blood;
     document.getElementById('mini-card-geno').textContent = genotype || 'Not available';
     document.getElementById('mini-card-no').textContent = cardNo;
-    toast(
-      appointment
-        ? `Registration complete. Your appointment is ${formatDate(appointment.date)} at ${appointment.time}.`
-        : 'Registration submitted. The next available appointment could not be assigned yet.',
-      appointment ? 'success' : 'warning',
-      5000
+    if (submit) {
+      submit.disabled = false;
+      submit.innerHTML = '<i class="fa fa-save"></i> Submit registration for review';
+    }
+    showAlert(
+      alert,
+      'success',
+      'Your documents were uploaded successfully. The Health Centre team must review them before an appointment is assigned.'
     );
+    toast('Registration submitted for document review.', 'success', 5000);
   }
 
   function renderRegistrationResult(workflow) {
@@ -873,6 +920,18 @@
     if (!panel || !workflow) return;
 
     const states = {
+      'awaiting-document-review': {
+        type: 'warning',
+        icon: 'fa-search',
+        title: 'Documents awaiting review',
+        message: 'Your receipts and passport photograph have been uploaded. An administrator must review them before your account can be scheduled for an appointment.'
+      },
+      'documents-rejected': {
+        type: 'danger',
+        icon: 'fa-exclamation-circle',
+        title: 'Documents need attention',
+        message: 'The Health Centre team could not accept the uploaded documents. Review the registration form, upload corrected documents, and submit again.'
+      },
       'awaiting-appointment': {
         type: 'info',
         icon: 'fa-calendar-check-o',
@@ -1113,6 +1172,15 @@
         You already have an active appointment for <strong>${formatDate(activeAppointment.date)}</strong> at
         <strong>${escapeHtml(activeAppointment.time)}</strong>. You can apply for another appointment after
         this visit is completed or cancelled.
+      </div>`;
+      return;
+    }
+
+    if (p.selfRegistered && p.registrationStatus !== 'approved') {
+      form.style.display = 'none';
+      alert.style.display = 'flex';
+      alert.innerHTML = `<i class="fa fa-clock-o"></i><div>
+        You can request another appointment after your registration documents are approved by the Health Centre team.
       </div>`;
       return;
     }

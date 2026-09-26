@@ -18,6 +18,8 @@ const supabaseStoreHeaders = supabaseConfig.anonKey
       'Content-Type': 'application/json'
     }
   : {};
+const SUPABASE_REGISTRATION_BUCKET = 'hcms-registration-documents';
+const REGISTRATION_DOCUMENT_MAX_SIZE = 10 * 1024 * 1024;
 
 const Store = {
   cache: Object.create(null),
@@ -244,6 +246,119 @@ const Auth = {
   }
 };
 
+// ── Registration document storage ────────────────────────────────────────────
+// Registration documents are uploaded directly to a private Supabase Storage
+// bucket. Only document metadata and the object path are kept in hcms_store.
+function storageObjectPath(path) {
+  return String(path || '').split('/').filter(Boolean).map(encodeURIComponent).join('/');
+}
+
+function registrationDocumentType(type) {
+  return type === 'passportPhoto'
+    ? { extensions: /\.(jpe?g|png)$/i, mimeTypes: ['image/jpeg', 'image/png'] }
+    : { extensions: /\.(pdf|jpe?g|png)$/i, mimeTypes: ['application/pdf', 'image/jpeg', 'image/png'] };
+}
+
+async function uploadRegistrationDocument(patientId, type, file) {
+  if (!supabaseConfig.url || !supabaseConfig.anonKey) {
+    return { ok: false, message: 'Supabase Storage is not configured.' };
+  }
+  if (!Auth.accessToken()) {
+    return { ok: false, message: 'Your session has expired. Sign in again before uploading documents.' };
+  }
+  if (!file) {
+    return { ok: false, message: 'Choose a document before uploading.' };
+  }
+  if (file.size > REGISTRATION_DOCUMENT_MAX_SIZE) {
+    return { ok: false, message: 'Registration documents must be 10 MB or smaller.' };
+  }
+
+  const accepted = registrationDocumentType(type);
+  if (!accepted.mimeTypes.includes(file.type) && !accepted.extensions.test(file.name || '')) {
+    return {
+      ok: false,
+      message: type === 'passportPhoto'
+        ? 'The passport photograph must be a JPG or PNG file.'
+        : 'Receipts must be a PDF, JPG, or PNG file.'
+    };
+  }
+
+  const safeName = String(file.name || 'document')
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'document';
+  const uniquePart = window.crypto?.randomUUID
+    ? window.crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const path = `registration/${Number(patientId)}/${type}-${uniquePart}-${safeName}`;
+  const url = `${supabaseConfig.url.replace(/\/$/, '')}/storage/v1/object/${SUPABASE_REGISTRATION_BUCKET}/${storageObjectPath(path)}`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        apikey: supabaseConfig.anonKey,
+        Authorization: `Bearer ${Auth.accessToken()}`,
+        'Content-Type': file.type || 'application/octet-stream',
+        'x-upsert': 'false'
+      },
+      body: file
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { ok: false, message: body.message || body.error || 'Unable to upload the document.' };
+    }
+
+    return {
+      ok: true,
+      path,
+      fileName: String(file.name || 'Registration document'),
+      fileType: file.type || 'application/octet-stream',
+      fileSize: file.size || 0
+    };
+  } catch (error) {
+    return { ok: false, message: error.message || 'Unable to upload the document.' };
+  }
+}
+
+async function openRegistrationDocument(path, mode = 'view') {
+  if (!path) {
+    toast('This document is not available yet.', 'warning');
+    return;
+  }
+
+  const popup = mode === 'view' ? window.open('about:blank', '_blank') : null;
+  try {
+    const download = mode === 'download';
+    const response = await fetch(
+      `/api/storage/registration?path=${encodeURIComponent(path)}&download=${download ? '1' : '0'}`,
+      {
+      headers: { Authorization: `Bearer ${Auth.accessToken()}` }
+      }
+    );
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || !body.url) {
+      popup?.close();
+      throw new Error(body.message || 'Unable to open the registration document.');
+    }
+
+    if (mode === 'download') {
+      const link = document.createElement('a');
+      link.href = body.url;
+      link.download = body.fileName || path.split('/').pop() || 'registration-document';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } else if (popup) {
+      popup.location.href = body.url;
+    } else {
+      window.open(body.url, '_blank');
+    }
+  } catch (error) {
+    toast(error.message || 'Unable to open the registration document.', 'error');
+  }
+}
+
 // ── Payment reference mock validator ─────────────────────────────────────────
 // In production, this would call the health-centre payment API
 const VALID_PAYMENT_PREFIXES = ['CARE', 'HCS', 'RRR', 'REMITA'];
@@ -373,8 +488,9 @@ function createRegistrationWorkflow(patientId, details = {}) {
     appointmentDate: details.appointmentDate || '',
     appointmentTime: details.appointmentTime || '',
     documents,
-    reviewStatus: 'awaiting-appointment',
-    resultStatus: 'scheduled',
+    documentReviewStatus: details.documentReviewStatus || 'awaiting-review',
+    reviewStatus: details.reviewStatus || 'awaiting-document-review',
+    resultStatus: details.resultStatus || 'pending-review',
     createdOn: today(),
     updatedOn: today(),
     steps
@@ -406,8 +522,12 @@ function getRegistrationWorkflow(patientId) {
         : (oldSteps.get(definition.key)?.completedOn || null)
     }));
     workflow.documents = workflow.documents || {};
-    workflow.reviewStatus = workflow.reviewStatus || 'awaiting-appointment';
-    workflow.resultStatus = workflow.resultStatus || 'scheduled';
+    workflow.documentReviewStatus = workflow.documentReviewStatus ||
+      (workflow.reviewStatus === 'awaiting-appointment' ? 'approved' : 'awaiting-review');
+    workflow.reviewStatus = workflow.reviewStatus ||
+      (workflow.documentReviewStatus === 'approved' ? 'awaiting-appointment' : 'awaiting-document-review');
+    workflow.resultStatus = workflow.resultStatus ||
+      (workflow.documentReviewStatus === 'approved' ? 'scheduled' : 'pending-review');
     if (!workflow.appointmentDate && appointment?.date) workflow.appointmentDate = appointment.date;
     if (!workflow.appointmentTime && appointment?.time) workflow.appointmentTime = appointment.time;
     workflow.steps = REGISTRATION_STEP_DEFINITIONS.map(definition =>
@@ -425,7 +545,10 @@ function getRegistrationWorkflow(patientId) {
     appointmentDate: appointment?.date || '',
     appointmentTime: appointment?.time || '',
     formSubmitted: Boolean(patient?.profileComplete),
-    documents: patient?.onlineDocuments || {}
+    documents: patient?.onlineDocuments || {},
+    documentReviewStatus: appointment ? 'approved' : 'awaiting-review',
+    reviewStatus: appointment ? 'awaiting-appointment' : 'awaiting-document-review',
+    resultStatus: appointment ? 'scheduled' : 'pending-review'
   });
 
   // Existing non-self-registered records are not part of this journey.
@@ -656,6 +779,8 @@ function scheduleNextAvailableAppointment(patientId, reason = 'Health Centre Reg
   const patients = Store.get('hcms_patients', []);
   const patient = patients.find(item => item.id === patientId);
   if (!patient?.profileComplete) return null;
+  if (patient.selfRegistered && patient.registrationStatus &&
+      patient.registrationStatus !== 'approved') return null;
 
   const appointments = Store.get('hcms_appointments', []);
   const existing = appointments.find(item =>
@@ -804,6 +929,9 @@ function updateRegistrationStep(patientId, stepKey, status = 'complete') {
 }
 
 function reviewRegistrationWorkflow(patientId, decision) {
+  if (['approve-documents', 'reject-documents', 'approve', 'reject'].includes(decision) &&
+      !Auth.isAdmin()) return null;
+
   const workflow = getRegistrationWorkflow(patientId);
   if (!workflow) return null;
 
@@ -815,12 +943,43 @@ function reviewRegistrationWorkflow(patientId, decision) {
     }
   };
 
-  if (decision === 'appointment-completed') {
+  if (decision === 'approve-documents' || decision === 'reject-documents') {
+    const patients = Store.get('hcms_patients', []);
+    const patientIndex = patients.findIndex(item => item.id === patientId);
+    if (patientIndex < 0) return null;
+
+    if (decision === 'reject-documents') {
+      workflow.documentReviewStatus = 'rejected';
+      workflow.reviewStatus = 'documents-rejected';
+      workflow.resultStatus = 'rejected';
+      patients[patientIndex].registrationStatus = 'documents-rejected';
+      patients[patientIndex].appointmentEligible = false;
+    } else {
+      workflow.documentReviewStatus = 'approved';
+      workflow.reviewStatus = 'awaiting-appointment';
+      workflow.resultStatus = 'scheduled';
+      patients[patientIndex].registrationStatus = 'approved';
+      patients[patientIndex].appointmentEligible = true;
+
+      const appointment = scheduleNextAvailableAppointment(patientId);
+      if (appointment) {
+        workflow.appointmentDate = appointment.date;
+        workflow.appointmentTime = appointment.time;
+        complete('appointment-booked');
+      } else {
+        workflow.resultStatus = 'pending-scheduling';
+      }
+    }
+
+    workflow.updatedOn = today();
+    Store.set('hcms_patients', patients);
+  } else if (decision === 'appointment-completed') {
     if (workflow.steps.find(step => step.key === 'appointment-booked')?.status !== 'complete') return null;
     complete('appointment-completed');
     workflow.reviewStatus = 'awaiting-review';
     workflow.resultStatus = 'awaiting-review';
   } else if (decision === 'approve') {
+    if (workflow.documentReviewStatus !== 'approved') return null;
     if (workflow.steps.find(step => step.key === 'appointment-completed')?.status !== 'complete') return null;
     complete('results-reviewed');
     complete('card-activated');
@@ -866,6 +1025,8 @@ function registrationProgress(workflow) {
 }
 
 window.StudentAuth      = StudentAuth;
+window.uploadRegistrationDocument = uploadRegistrationDocument;
+window.openRegistrationDocument = openRegistrationDocument;
 window.validatePaymentRef = validatePaymentRef;
 window.STAFF_ROLE_DEFINITIONS = STAFF_ROLE_DEFINITIONS;
 window.staffRoleLabel = staffRoleLabel;
