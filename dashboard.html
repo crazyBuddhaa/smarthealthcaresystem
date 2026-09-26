@@ -7,6 +7,49 @@
   <link rel="icon" href="assets/images/healthcare_favicon.svg"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
   <link rel="stylesheet" href="assets/css/style.css"/>
+  <style>
+    .dashboard-action-grid {
+      display:grid;
+      grid-template-columns:repeat(4, minmax(0, 1fr));
+      gap:12px;
+      margin-bottom:18px;
+    }
+    .dashboard-action {
+      display:flex;
+      gap:10px;
+      align-items:center;
+      min-height:72px;
+      padding:13px;
+      border:1px solid var(--eksu-border);
+      border-radius:8px;
+      background:#fff;
+      color:var(--eksu-text);
+      text-decoration:none;
+      transition:transform .15s ease, box-shadow .15s ease;
+    }
+    .dashboard-action:hover {
+      transform:translateY(-1px);
+      box-shadow:0 5px 16px rgba(15, 23, 42, .08);
+    }
+    .dashboard-action i {
+      width:34px;
+      height:34px;
+      display:grid;
+      place-items:center;
+      border-radius:50%;
+      background:var(--eksu-label-bg);
+      color:var(--eksu-red);
+      font-size:16px;
+    }
+    .dashboard-action strong { display:block; font-size:12px; }
+    .dashboard-action span { display:block; color:var(--eksu-muted); font-size:10px; margin-top:3px; }
+    @media (max-width: 900px) {
+      .dashboard-action-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 520px) {
+      .dashboard-action-grid { grid-template-columns:1fr; }
+    }
+  </style>
 </head>
 <body class="dashboard-page">
 
@@ -78,7 +121,7 @@
     <div class="dashboard-hero-copy">
       <div class="dashboard-kicker"><i class="fa fa-heartbeat"></i> CarePoint operations</div>
       <h2>Good evening, <span id="welcome-name"></span>.</h2>
-      <p>Keep today’s student flow, appointments, records, and payments moving from one calm workspace.</p>
+      <p id="welcome-copy">Keep today’s student flow, appointments, records, and payments moving from one calm workspace.</p>
       <div class="dashboard-date"><i class="fa fa-calendar-o"></i> <span>Today is <strong id="today-date"></strong></span></div>
     </div>
     <div class="dashboard-hero-status">
@@ -89,6 +132,9 @@
     </div>
   </div>
 
+  <!-- Role-specific workspace -->
+  <div class="dashboard-action-grid" id="role-actions"></div>
+
   <!-- Stats -->
   <div class="stats-grid" id="stats-grid"></div>
 
@@ -96,9 +142,9 @@
   <div class="dashboard-content-grid">
 
     <!-- Recent Students -->
-    <div class="card">
+    <div class="card" id="recent-students-card">
       <div class="card-header">
-        <h3><i class="fa fa-users"></i> Recent Students</h3>
+        <h3><i class="fa fa-users"></i> <span id="recent-students-title">Recent Students</span></h3>
         <a href="patients.html" class="btn btn-sm btn-teal">View All</a>
       </div>
       <div class="table-wrapper">
@@ -119,7 +165,7 @@
     <!-- Queue Status -->
     <div class="card">
       <div class="card-header">
-        <h3><i class="fa fa-list-ol"></i> Today's Queue</h3>
+        <h3><i class="fa fa-list-ol"></i> <span id="queue-preview-title">Today's Queue</span></h3>
         <a href="queue.html" class="btn btn-sm btn-teal">Manage</a>
       </div>
       <div class="table-wrapper">
@@ -140,7 +186,7 @@
   </div>
 
   <!-- Recent Bills -->
-  <div class="card mt-3">
+  <div class="card mt-3" id="recent-bills-card">
     <div class="card-header">
       <h3><i class="fa fa-money"></i> Recent Bills</h3>
       <a href="billing.html" class="btn btn-sm btn-teal">View All</a>
@@ -162,7 +208,7 @@
   </div>
 
   <div class="dashboard-content-grid mt-3">
-    <div class="card">
+    <div class="card" id="tasks-card">
       <div class="card-header">
         <h3><i class="fa fa-tasks"></i> My Assigned Tasks</h3>
         <a href="staff-management.html" class="btn btn-sm btn-teal" data-admin-only style="display:none">Manage</a>
@@ -189,24 +235,127 @@
 <script src="/api/config.js"></script>
 <script src="assets/js/app.js"></script>
 <script>
-  initPage();
+  const currentUser = initPage();
 
   const user = Auth.current();
   document.getElementById('welcome-name').textContent = user.name;
   document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-GB', {weekday:'long',day:'numeric',month:'long',year:'numeric'});
 
+  const DASHBOARD_ROLE_PROFILES = {
+    admin: {
+      kicker: 'CarePoint administration',
+      copy: 'See the whole centre at a glance, then adjust staff, queue policy, appointments, and payments from one workspace.',
+      recentTitle: 'Recently registered students',
+      queueTitle: 'Today’s queue',
+      actions: [
+        ['fa-user-secret', 'Staff & Tasks', 'Create accounts and delegate work', 'staff-management.html'],
+        ['fa-sliders', 'Queue Policy', 'Set routing, quotas, and overflow', 'queue-settings.html'],
+        ['fa-calendar', 'Appointments', 'Review the clinic schedule', 'appointment.html'],
+        ['fa-money', 'Billing', 'Review invoices and payments', 'billing.html']
+      ]
+    },
+    cashier: {
+      kicker: 'Cashier / reception desk',
+      copy: 'Keep arrivals, appointments, queue capacity, and payments moving without opening clinical workspaces.',
+      recentTitle: 'Recently registered students',
+      queueTitle: 'Reception queue',
+      actions: [
+        ['fa-list-ol', 'Reception Queue', 'Check in and call the next student', 'queue.html'],
+        ['fa-calendar-check-o', 'Appointments', 'Confirm arrivals and send to queue', 'appointment.html'],
+        ['fa-money', 'Billing', 'Record fees and receipts', 'billing.html'],
+        ['fa-user-plus', 'Register Student', 'Create a new student profile', 'register.html']
+      ]
+    },
+    doctor: {
+      kicker: 'Doctor clinical workspace',
+      copy: 'Start with the students waiting for care, today’s appointments, and the records needed for clinical decisions.',
+      recentTitle: 'Recent patients',
+      queueTitle: 'Care queue',
+      actions: [
+        ['fa-list-ol', 'Care Queue', 'See who is waiting and in consultation', 'queue.html'],
+        ['fa-file-text', 'Health Records', 'Review student clinical history', 'records.html'],
+        ['fa-calendar', 'Appointments', 'Open today’s clinic schedule', 'appointment.html'],
+        ['fa-users', 'Student Profiles', 'Find a patient profile', 'patients.html']
+      ]
+    },
+    nurse: {
+      kicker: 'Nursing clinical workspace',
+      copy: 'Track the care queue, prepare for appointments, and keep the student information needed at the point of care close by.',
+      recentTitle: 'Recent patients',
+      queueTitle: 'Care queue',
+      actions: [
+        ['fa-list-ol', 'Care Queue', 'See who is waiting and in consultation', 'queue.html'],
+        ['fa-file-text', 'Health Records', 'Review student clinical history', 'records.html'],
+        ['fa-calendar', 'Appointments', 'Open today’s clinic schedule', 'appointment.html'],
+        ['fa-users', 'Student Profiles', 'Find a patient profile', 'patients.html']
+      ]
+    }
+  };
+
+  function dashboardProfile() {
+    return DASHBOARD_ROLE_PROFILES[user.role] || DASHBOARD_ROLE_PROFILES.nurse;
+  }
+
+  function renderRoleWorkspace() {
+    const profile = dashboardProfile();
+    document.querySelector('.dashboard-kicker').innerHTML =
+      `<i class="fa fa-heartbeat"></i> ${escapeHtml(profile.kicker)}`;
+    document.getElementById('welcome-copy').textContent = profile.copy;
+    document.getElementById('recent-students-title').textContent = profile.recentTitle;
+    document.getElementById('queue-preview-title').textContent = profile.queueTitle;
+    document.getElementById('role-actions').innerHTML = profile.actions.map(action => `
+      <a class="dashboard-action" href="${action[3]}">
+        <i class="fa ${action[0]}"></i>
+        <span><strong>${escapeHtml(action[1])}</strong><span>${escapeHtml(action[2])}</span></span>
+      </a>`).join('');
+
+    const clinicalRole = ['doctor', 'nurse'].includes(user.role);
+    document.getElementById('recent-bills-card').style.display = clinicalRole ? 'none' : '';
+  }
+
   function renderDashboard() {
     const patients = Store.get('hcms_patients', []);
-    const queue    = Store.get('hcms_queue', []);
+    const queue    = queueEntriesForDate(today());
     const bills    = Store.get('hcms_bills', []);
     const records  = Store.get('hcms_records', []);
+    const appointments = Store.get('hcms_appointments', [])
+      .filter(appointment => appointment.date === today() && appointment.status !== 'cancelled');
+    const settings = getQueueSettings();
+    const capacity = queueCapacitySummary(queue, settings);
+    const pendingBills = bills.filter(bill => bill.status === 'pending');
+    const capacityLeft = !settings.dailyQuota
+      ? '∞'
+      : settings.quotaScope === 'group'
+        ? 'Per group'
+        : Math.max(capacity.remaining, 0);
 
-    const statsData = [
-      { label:'Total Students', value: patients.length, icon:'fa-users', color:'red', change:'+2 this week', dir:'up' },
-      { label:'Queue Today', value: queue.filter(q => q.status !== 'done').length, icon:'fa-list-ol', color:'amber', change:queue.filter(q => q.status === 'waiting').length + ' waiting', dir:'down' },
-      { label:'Pending Bills', value:bills.filter(b => b.status === 'pending').length, icon:'fa-money', color:'teal', change:'₦' + bills.filter(b => b.status === 'pending').reduce((sum, bill) => sum + bill.total, 0).toLocaleString() + ' outstanding', dir:'down' },
-      { label:'Health Records', value:records.length, icon:'fa-file-text', color:'green', change:'+1 today', dir:'up' },
-    ];
+    const statsByRole = {
+      admin: [
+        { label:'Total Students', value:patients.length, icon:'fa-users', color:'red', change:'Centre-wide directory', dir:'up' },
+        { label:'Queue Today', value:queue.filter(q => q.status !== 'done').length, icon:'fa-list-ol', color:'amber', change:queue.filter(q => q.status === 'waiting').length + ' waiting', dir:'down' },
+        { label:'Pending Bills', value:pendingBills.length, icon:'fa-money', color:'teal', change:'₦' + pendingBills.reduce((sum, bill) => sum + bill.total, 0).toLocaleString() + ' outstanding', dir:'down' },
+        { label:'Health Records', value:records.length, icon:'fa-file-text', color:'green', change:'Clinical records', dir:'up' }
+      ],
+      cashier: [
+        { label:'Waiting at Reception', value:queue.filter(q => q.status === 'waiting').length, icon:'fa-clock-o', color:'amber', change:'Ready to call', dir:'down' },
+        { label:'In Service', value:queue.filter(q => q.status === 'active').length, icon:'fa-stethoscope', color:'teal', change:'Currently active', dir:'up' },
+        { label:'Appointments Today', value:appointments.length, icon:'fa-calendar', color:'red', change:'Scheduled arrivals', dir:'up' },
+        { label:'Capacity Left', value:capacityLeft, icon:'fa-tasks', color:'green', change:settings.dailyQuota ? `${settings.dailyQuota} daily target` : 'No daily cap', dir:'up' }
+      ],
+      doctor: [
+        { label:'Waiting for Care', value:queue.filter(q => q.status === 'waiting').length, icon:'fa-clock-o', color:'amber', change:'Students waiting', dir:'down' },
+        { label:'In Consultation', value:queue.filter(q => q.status === 'active').length, icon:'fa-stethoscope', color:'teal', change:'Currently active', dir:'up' },
+        { label:'Appointments Today', value:appointments.length, icon:'fa-calendar', color:'red', change:'Scheduled visits', dir:'up' },
+        { label:'Health Records', value:records.length, icon:'fa-file-text', color:'green', change:'Available histories', dir:'up' }
+      ],
+      nurse: [
+        { label:'Waiting for Care', value:queue.filter(q => q.status === 'waiting').length, icon:'fa-clock-o', color:'amber', change:'Students waiting', dir:'down' },
+        { label:'In Consultation', value:queue.filter(q => q.status === 'active').length, icon:'fa-stethoscope', color:'teal', change:'Currently active', dir:'up' },
+        { label:'Appointments Today', value:appointments.length, icon:'fa-calendar', color:'red', change:'Scheduled visits', dir:'up' },
+        { label:'Health Records', value:records.length, icon:'fa-file-text', color:'green', change:'Available histories', dir:'up' }
+      ]
+    };
+    const statsData = statsByRole[user.role] || statsByRole.nurse;
 
     document.getElementById('stats-grid').innerHTML = statsData.map(stat => `
       <div class="stat-card ${stat.color}">
@@ -227,7 +376,7 @@
       </tr>`).join('');
 
     const statusMap = { waiting:'badge-pending', active:'badge-info', done:'badge-success' };
-    document.getElementById('queue-preview').innerHTML = queue.map(item => `
+    document.getElementById('queue-preview').innerHTML = sortQueueEntries(queue, settings).slice(0, 8).map(item => `
       <tr>
         <td class="text-bold text-red">${escapeHtml(item.token)}</td>
         <td>${escapeHtml(item.name)}</td>
@@ -279,6 +428,7 @@
     renderMyTasks();
   }
 
+  renderRoleWorkspace();
   renderDashboard();
   renderMyTasks();
 
