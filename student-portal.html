@@ -820,8 +820,10 @@
     const panel = document.getElementById('tab-appointment');
     if (!tab || !panel) return;
 
-    const visible = p.profileComplete === true &&
-      (!p.selfRegistered || p.registrationStatus === 'approved');
+    // Keep the appointment workspace visible throughout registration. Students
+    // need to see their appointment status and history while documents are
+    // awaiting review; loadAppointment() supplies the appropriate next step.
+    const visible = Boolean(p);
     tab.style.display = visible ? '' : 'none';
     if (!visible && panel.classList.contains('active')) {
       const overviewTab = document.querySelector('.portal-tab[onclick*="tab-overview"]');
