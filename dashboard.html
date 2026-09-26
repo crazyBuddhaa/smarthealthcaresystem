@@ -53,6 +53,97 @@
     #staff-login-view .login-brand { justify-content: center; }
     #staff-login-view .login-body { padding: 22px 24px 18px; }
     #staff-login-view .login-footer { text-align: center; }
+    .dashboard-section-heading {
+      display:flex;
+      align-items:end;
+      justify-content:space-between;
+      gap:16px;
+      margin:2px 0 10px;
+    }
+    .dashboard-section-heading strong {
+      display:block;
+      color:var(--eksu-text);
+      font-size:12px;
+      letter-spacing:.45px;
+      text-transform:uppercase;
+    }
+    .dashboard-section-heading span {
+      display:block;
+      color:var(--eksu-muted);
+      font-size:11px;
+      margin-top:3px;
+    }
+    .admin-overview {
+      display:none;
+      margin-bottom:21px;
+    }
+    .admin-overview .card-header {
+      align-items:flex-start;
+      gap:14px;
+    }
+    .admin-overview-heading p {
+      color:var(--eksu-muted);
+      font-size:11px;
+      line-height:1.45;
+      margin-top:4px;
+    }
+    .admin-overview-grid {
+      display:grid;
+      grid-template-columns:repeat(4, minmax(0, 1fr));
+    }
+    .admin-overview-item {
+      min-width:0;
+      padding:15px 17px 16px;
+      border-right:1px solid var(--eksu-border);
+    }
+    .admin-overview-item:last-child { border-right:0; }
+    .admin-overview-item-label {
+      display:flex;
+      align-items:center;
+      gap:7px;
+      color:var(--eksu-muted);
+      font-size:10px;
+      font-weight:700;
+      letter-spacing:.45px;
+      text-transform:uppercase;
+    }
+    .admin-overview-item-label i { color:var(--eksu-red); }
+    .admin-overview-item strong {
+      display:block;
+      color:var(--eksu-text);
+      font-size:16px;
+      margin-top:8px;
+    }
+    .admin-overview-item small {
+      display:block;
+      min-height:30px;
+      color:var(--eksu-muted);
+      font-size:11px;
+      line-height:1.45;
+      margin-top:3px;
+    }
+    .admin-overview-item a {
+      display:inline-flex;
+      align-items:center;
+      gap:5px;
+      color:var(--eksu-red);
+      font-size:11px;
+      font-weight:700;
+      margin-top:9px;
+    }
+    .admin-overview-item a:hover { color:var(--eksu-red-dark); }
+    @media (max-width: 900px) {
+      .admin-overview-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+      .admin-overview-item:nth-child(even) { border-right:0; }
+      .admin-overview-item:nth-child(-n+2) { border-bottom:1px solid var(--eksu-border); }
+    }
+    @media (max-width: 520px) {
+      .dashboard-section-heading { align-items:flex-start; flex-direction:column; gap:2px; }
+      .admin-overview-grid { grid-template-columns:1fr; }
+      .admin-overview-item,
+      .admin-overview-item:nth-child(2) { border-right:0; border-bottom:1px solid var(--eksu-border); }
+      .admin-overview-item:last-child { border-bottom:0; }
+    }
   </style>
 </head>
 <body class="dashboard-page">
@@ -185,11 +276,29 @@
     </div>
   </div>
 
-  <!-- Role-specific workspace -->
-  <div class="dashboard-action-grid" id="role-actions"></div>
-
   <!-- Stats -->
   <div class="stats-grid" id="stats-grid"></div>
+
+  <!-- Admin-only operational snapshot -->
+  <section class="card admin-overview" id="admin-overview" aria-labelledby="admin-overview-title">
+    <div class="card-header">
+      <div class="admin-overview-heading">
+        <h3 id="admin-overview-title"><i class="fa fa-eye"></i> Admin overview</h3>
+        <p>One quick read of the areas most likely to need attention today.</p>
+      </div>
+      <span class="badge badge-success" id="admin-overview-badge">Everything steady</span>
+    </div>
+    <div class="admin-overview-grid" id="admin-overview-grid"></div>
+  </section>
+
+  <!-- Role-specific workspace -->
+  <div class="dashboard-section-heading">
+    <div>
+      <strong>Quick access</strong>
+      <span>Open the workspace you need without leaving the dashboard.</span>
+    </div>
+  </div>
+  <div class="dashboard-action-grid" id="role-actions"></div>
 
   <!-- Two-column lower section -->
   <div class="dashboard-content-grid">
@@ -376,6 +485,74 @@
     document.getElementById('recent-bills-card').style.display = clinicalRole ? 'none' : '';
   }
 
+  function renderAdminOverview(queue, bills, appointments) {
+    const overview = document.getElementById('admin-overview');
+    if (user.role !== 'admin') {
+      overview.style.display = 'none';
+      return;
+    }
+
+    const pendingBills = bills.filter(bill => bill.status === 'pending');
+    const waiting = queue.filter(item => item.status === 'waiting').length;
+    const active = queue.filter(item => item.status === 'active').length;
+    const tasks = StaffAdmin.listTasks()
+      .filter(task => task.status !== 'completed' && task.status !== 'revoked');
+    const overdueTasks = tasks.filter(task => task.dueDate && task.dueDate < today()).length;
+    const outstanding = pendingBills.reduce((sum, bill) => sum + Number(bill.total || 0), 0);
+    const attentionCount = waiting + pendingBills.length + overdueTasks;
+
+    document.getElementById('admin-overview-badge').className =
+      `badge ${attentionCount ? 'badge-pending' : 'badge-success'}`;
+    document.getElementById('admin-overview-badge').textContent =
+      attentionCount
+        ? `${attentionCount} item${attentionCount === 1 ? '' : 's'} to review`
+        : 'Everything steady';
+
+    const overviewItems = [
+      {
+        icon: 'fa-list-ol',
+        label: 'Queue',
+        value: waiting ? `${waiting} waiting` : 'Queue is clear',
+        detail: `${active} currently in service`,
+        href: 'queue.html',
+        action: 'Open queue'
+      },
+      {
+        icon: 'fa-money',
+        label: 'Billing',
+        value: `${pendingBills.length} pending bill${pendingBills.length === 1 ? '' : 's'}`,
+        detail: `${formatNaira(outstanding)} outstanding`,
+        href: 'billing.html',
+        action: 'Review billing'
+      },
+      {
+        icon: 'fa-calendar',
+        label: 'Appointments',
+        value: `${appointments.length} scheduled today`,
+        detail: appointments.length ? 'Keep an eye on arrivals' : 'No arrivals on the schedule',
+        href: 'appointment.html',
+        action: 'View schedule'
+      },
+      {
+        icon: 'fa-tasks',
+        label: 'Team tasks',
+        value: `${tasks.length} active task${tasks.length === 1 ? '' : 's'}`,
+        detail: overdueTasks ? `${overdueTasks} overdue — needs review` : 'No overdue tasks',
+        href: 'staff-management.html',
+        action: 'Manage tasks'
+      }
+    ];
+
+    document.getElementById('admin-overview-grid').innerHTML = overviewItems.map(item => `
+      <div class="admin-overview-item">
+        <div class="admin-overview-item-label"><i class="fa ${item.icon}"></i>${item.label}</div>
+        <strong>${escapeHtml(item.value)}</strong>
+        <small>${escapeHtml(item.detail)}</small>
+        <a href="${item.href}">${item.action} <i class="fa fa-arrow-right"></i></a>
+      </div>`).join('');
+    overview.style.display = 'block';
+  }
+
   function renderDashboard() {
     const patients = Store.get('hcms_patients', []);
     const queue    = queueEntriesForDate(today());
@@ -391,6 +568,7 @@
       : settings.quotaScope === 'group'
         ? 'Per group'
         : Math.max(capacity.remaining, 0);
+    renderAdminOverview(queue, bills, appointments);
 
     const statsByRole = {
       admin: [
