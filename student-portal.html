@@ -487,10 +487,13 @@
       <button class="portal-tab" id="appointment-tab" style="display:none" onclick="showTab('tab-appointment',this)">
         <i class="fa fa-calendar"></i> My Appointment
       </button>
+      <button class="portal-tab" onclick="showTab('tab-billing',this)">
+        <i class="fa fa-money"></i> My Billing
+      </button>
       <button class="portal-tab" onclick="showTab('tab-records',this)">
         <i class="fa fa-file-text"></i> My Health Records
       </button>
-      <button class="portal-tab" onclick="showTab('tab-card',this)">
+      <button class="portal-tab" id="card-tab" onclick="showTab('tab-card',this)">
         <i class="fa fa-id-card-o"></i> My Card
       </button>
       <button class="portal-tab" onclick="showTab('tab-profile',this)">
@@ -532,6 +535,28 @@
         </div>
       </div>
 
+      <!-- Request another appointment -->
+      <div class="card" id="follow-up-card">
+        <div class="card-header"><h3><i class="fa fa-plus-circle"></i> Apply for Another Appointment</h3></div>
+        <div class="card-body">
+          <div id="follow-up-alert" class="alert alert-info" style="display:none;margin:0 0 14px"></div>
+          <form id="follow-up-form" onsubmit="requestFollowUpAppointment(event)">
+            <p style="font-size:13px;color:var(--eksu-muted);margin-bottom:14px">
+              Need care again after your current visit? Tell the Health Centre briefly what you would like help with.
+              The system will assign the next available clinic slot, and the Health Centre team will confirm the request.
+            </p>
+            <div class="form-group">
+              <label for="follow-up-reason">Reason for visit <span class="req">*</span></label>
+              <textarea class="form-control" id="follow-up-reason" rows="3" maxlength="240"
+                placeholder="For example: follow-up for recurring headaches or a new consultation" required></textarea>
+            </div>
+            <button class="btn btn-red" id="follow-up-submit" type="submit">
+              <i class="fa fa-calendar-plus-o"></i> Apply for Appointment
+            </button>
+          </form>
+        </div>
+      </div>
+
       <!-- Reschedule -->
       <div class="card" id="reschedule-card" style="display:none">
         <div class="card-header"><h3><i class="fa fa-calendar"></i> Request Reschedule</h3></div>
@@ -562,6 +587,48 @@
           <button class="btn btn-red" style="margin-top:12px" onclick="requestReschedule()">
             <i class="fa fa-paper-plane"></i> Submit Request
           </button>
+        </div>
+      </div>
+
+      <!-- Appointment history -->
+      <div class="card">
+        <div class="card-header"><h3><i class="fa fa-history"></i> Appointment History</h3></div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Date</th><th>Time</th><th>Reason</th><th>Status</th></tr>
+            </thead>
+            <tbody id="appointment-history-tbody">
+              <tr><td colspan="4" class="text-center text-muted" style="padding:24px">No previous appointments yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Billing tab -->
+    <div class="tab-panel" id="tab-billing">
+      <div class="stats-grid" id="student-billing-stats" style="margin-bottom:20px"></div>
+      <div class="card">
+        <div class="card-header">
+          <h3><i class="fa fa-money"></i> My Bills</h3>
+          <span class="badge badge-secondary" id="student-bills-count">0 bills</span>
+        </div>
+        <div class="card-body" style="padding-bottom:10px">
+          <div class="alert alert-info" style="margin:0">
+            <i class="fa fa-info-circle"></i>
+            <div>When you have paid a bill, upload your payment receipt below. The Health Centre team will verify it and update your payment status.</div>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Invoice</th><th>Date</th><th>Items</th><th>Amount</th><th>Status</th><th>Payment Receipt</th></tr>
+            </thead>
+            <tbody id="student-bills-tbody">
+              <tr><td colspan="6" class="text-center text-muted" style="padding:30px">No bills have been issued to you.</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -616,6 +683,7 @@
           </div>
         </div>
       </div>
+
     </div>
 
     <!-- Profile tab -->
@@ -669,6 +737,7 @@
     }
     updateAppointmentVisibility(p);
     loadAppointment(p);
+    loadBills(p);
     loadRecords(p);
     loadProfile(p);
     loadStats(p);
@@ -822,7 +891,7 @@
         icon: 'fa-check-circle',
         title: 'Registration approved, card activated',
         message: 'Your Health Centre registration was approved. Your digital Health Centre Card is now available.',
-        action: '<button class="btn btn-sm btn-teal" onclick="showTab(\'tab-card\', document.querySelectorAll(\'.portal-tab\')[3])"><i class="fa fa-id-card-o"></i> View card</button>'
+         action: '<button class="btn btn-sm btn-teal" onclick="showTab(\'tab-card\', document.getElementById(\'card-tab\'))"><i class="fa fa-id-card-o"></i> View card</button>'
       },
       rejected: {
         type: 'danger',
@@ -962,16 +1031,26 @@
 
   function loadAppointment(p) {
     const appts = Store.get('hcms_appointments',[]);
-    const appt  = appts.find(a => a.patientId === p.id && a.status !== 'cancelled');
+    const patientAppointments = appts
+      .filter(a => a.patientId === p.id)
+      .sort((a, b) => `${b.date || ''}${b.time || ''}${b.id || ''}`.localeCompare(`${a.date || ''}${a.time || ''}${a.id || ''}`));
+    const appt = patientAppointments.find(appointmentIsActive);
 
     const body  = document.getElementById('appt-details-body');
     const badge = document.getElementById('appt-status-badge');
+    const rescheduleCard = document.getElementById('reschedule-card');
 
     if (!appt) {
+      badge.innerHTML = '<span class="badge badge-secondary">No active appointment</span>';
       body.innerHTML = `<div class="text-center text-muted" style="padding:30px">
         <i class="fa fa-calendar-o fa-2x" style="margin-bottom:10px;opacity:0.4"></i>
-        <p>Your appointment will appear here after the Health Centre schedules it.</p>
+        <p>You do not have an active appointment. Use the form below when you need another visit.</p>
       </div>`;
+      rescheduleCard.style.display = 'none';
+      const reminder = document.getElementById('appt-reminder');
+      if (reminder) reminder.style.display = 'none';
+      updateFollowUpAppointmentState(p, null);
+      renderAppointmentHistory(patientAppointments);
       return;
     }
 
@@ -1005,12 +1084,14 @@
       </div>`;
 
     // Reschedule card
-    if (appt.status !== 'cancelled') {
-      document.getElementById('reschedule-card').style.display = 'block';
+    if (appt.status !== 'cancelled' && appt.status !== 'completed') {
+      rescheduleCard.style.display = 'block';
       const minD = new Date(); minD.setDate(minD.getDate()+1);
       document.getElementById('r-date').min   = minD.toISOString().split('T')[0];
       document.getElementById('r-date').value = minD.toISOString().split('T')[0];
     }
+    updateFollowUpAppointmentState(p, appt);
+    renderAppointmentHistory(patientAppointments);
 
     // Appointment reminder on overview tab
     const reminder = document.getElementById('appt-reminder');
@@ -1018,6 +1099,89 @@
     document.getElementById('appt-reminder-text').innerHTML =
       `<strong>Upcoming Appointment:</strong> ${formatDate(appt.date)} at ${appt.time}, ${appt.reason}.
        Your forms and documents are already submitted online. Check the portal after the appointment for your result.`;
+  }
+
+  function updateFollowUpAppointmentState(p, activeAppointment) {
+    const form = document.getElementById('follow-up-form');
+    const alert = document.getElementById('follow-up-alert');
+    if (!form || !alert) return;
+
+    if (activeAppointment) {
+      form.style.display = 'none';
+      alert.style.display = 'flex';
+      alert.innerHTML = `<i class="fa fa-info-circle"></i><div>
+        You already have an active appointment for <strong>${formatDate(activeAppointment.date)}</strong> at
+        <strong>${escapeHtml(activeAppointment.time)}</strong>. You can apply for another appointment after
+        this visit is completed or cancelled.
+      </div>`;
+      return;
+    }
+
+    form.style.display = 'block';
+    alert.style.display = 'none';
+    alert.innerHTML = '';
+  }
+
+  function renderAppointmentHistory(appointments) {
+    const tbody = document.getElementById('appointment-history-tbody');
+    if (!tbody) return;
+    if (!appointments.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted" style="padding:24px">No previous appointments yet.</td></tr>';
+      return;
+    }
+
+    const statusMap = {
+      confirmed: 'badge-success',
+      pending: 'badge-pending',
+      rescheduled: 'badge-info',
+      cancelled: 'badge-danger',
+      completed: 'badge-secondary'
+    };
+    tbody.innerHTML = appointments.map(appointment => `
+      <tr>
+        <td>${formatDate(appointment.date)}</td>
+        <td>${escapeHtml(appointment.time || 'Not scheduled')}</td>
+        <td>${escapeHtml(appointment.reason || 'Health Centre visit')}</td>
+        <td><span class="badge ${statusMap[appointment.status] || 'badge-secondary'}">${escapeHtml(appointment.status || 'unknown')}</span></td>
+      </tr>
+    `).join('');
+  }
+
+  function requestFollowUpAppointment(event) {
+    event.preventDefault();
+    if (!currentStudent) return;
+
+    const reasonInput = document.getElementById('follow-up-reason');
+    const submit = document.getElementById('follow-up-submit');
+    const reason = reasonInput.value.trim();
+    if (!reason) {
+      toast('Please enter a reason for the appointment.', 'error');
+      return;
+    }
+
+    submit.disabled = true;
+    submit.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Applying...';
+    const result = window.createFollowUpAppointment(currentStudent.patientId, reason);
+    submit.disabled = false;
+    submit.innerHTML = '<i class="fa fa-calendar-plus-o"></i> Apply for Appointment';
+
+    if (!result.ok) {
+      toast(result.message, 'warning');
+      return;
+    }
+
+    reasonInput.value = '';
+    const patient = Store.get('hcms_patients', [])
+      .find(item => item.id === currentStudent.patientId);
+    if (patient) {
+      loadAppointment(patient);
+      loadStats(patient);
+    }
+    toast(
+      `Appointment request submitted for ${formatDate(result.appointment.date)} at ${result.appointment.time}.`,
+      'success',
+      5000
+    );
   }
 
   function loadRecords(p) {
@@ -1034,6 +1198,79 @@
         <td>${r.doctor}</td>
       </tr>`;
     });
+  }
+
+  function loadBills(p) {
+    const bills = Store.get('hcms_bills', [])
+      .filter(bill => bill.patientId === p.id)
+      .sort((a, b) => `${b.date || ''}${b.id || ''}`.localeCompare(`${a.date || ''}${a.id || ''}`));
+    const tbody = document.getElementById('student-bills-tbody');
+    const count = document.getElementById('student-bills-count');
+    const stats = document.getElementById('student-billing-stats');
+    if (!tbody || !count || !stats) return;
+
+    const pending = bills.filter(bill => bill.status === 'pending');
+    const paid = bills.filter(bill => bill.status === 'paid');
+    const pendingTotal = pending.reduce((sum, bill) => sum + Number(bill.total || 0), 0);
+    const paidTotal = paid.reduce((sum, bill) => sum + Number(bill.total || 0), 0);
+
+    count.textContent = `${bills.length} bill${bills.length === 1 ? '' : 's'}`;
+    stats.innerHTML = `
+      <div class="stat-card amber"><div class="stat-icon"><i class="fa fa-clock-o"></i></div>
+        <div class="stat-info"><div class="stat-value">${pending.length}</div><div class="stat-label">Outstanding Bills</div>
+        <div class="stat-change down">${formatNaira(pendingTotal)}</div></div></div>
+      <div class="stat-card green"><div class="stat-icon"><i class="fa fa-check-circle"></i></div>
+        <div class="stat-info"><div class="stat-value">${paid.length}</div><div class="stat-label">Paid Bills</div>
+        <div class="stat-change up">${formatNaira(paidTotal)}</div></div></div>
+      <div class="stat-card teal"><div class="stat-icon"><i class="fa fa-file-text-o"></i></div>
+        <div class="stat-info"><div class="stat-value">${bills.length}</div><div class="stat-label">Total Bills</div></div></div>`;
+
+    if (!bills.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding:30px">No bills have been issued to you.</td></tr>';
+      return;
+    }
+
+    const statusMap = { pending: 'badge-warning', paid: 'badge-success' };
+    tbody.innerHTML = bills.map(bill => {
+      const invoice = `INV-${String(bill.id).padStart(4, '0')}`;
+      const receipt = bill.receipt;
+      const receiptLabel = receipt
+        ? `<span class="badge ${receipt.status === 'verified' ? 'badge-success' : 'badge-info'}">
+            ${receipt.status === 'verified' ? 'Verified' : 'Submitted'}
+          </span><div style="font-size:11px;color:var(--eksu-muted);margin-top:4px">${escapeHtml(receipt.fileName)}</div>`
+        : `<div style="min-width:190px">
+            <input type="file" id="student-receipt-${bill.id}" accept=".pdf,.jpg,.jpeg,.png"
+              style="width:100%;font-size:11px;margin-bottom:6px"/>
+            <button class="btn btn-sm btn-teal" type="button" onclick="uploadStudentBillReceipt(${bill.id})">
+              <i class="fa fa-upload"></i> Upload receipt
+            </button>
+          </div>`;
+
+      return `<tr>
+        <td><strong class="text-red">${invoice}</strong></td>
+        <td>${formatDate(bill.date)}</td>
+        <td style="font-size:12px">${bill.items.map(item => escapeHtml(item.desc || 'Service')).join(', ')}</td>
+        <td class="text-bold">${formatNaira(bill.total)}</td>
+        <td><span class="badge ${statusMap[bill.status] || 'badge-secondary'}">${escapeHtml(bill.status || 'pending')}</span></td>
+        <td>${receiptLabel}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function uploadStudentBillReceipt(billId) {
+    if (!currentStudent) return;
+    const input = document.getElementById(`student-receipt-${billId}`);
+    const file = input?.files?.[0];
+    const result = window.submitBillReceipt(currentStudent.patientId, billId, file);
+    if (!result.ok) {
+      toast(result.message, 'error');
+      return;
+    }
+
+    const patient = Store.get('hcms_patients', [])
+      .find(item => item.id === currentStudent.patientId);
+    if (patient) loadBills(patient);
+    toast('Payment receipt submitted for Health Centre verification.', 'success', 5000);
   }
 
   function loadProfile(p) {
@@ -1117,21 +1354,25 @@
     currentStudent = null;
   }
 
-  // Keep the open portal in sync when this page changes an appointment.
+  // Keep the open portal in sync when staff update appointments or bills.
   window.addEventListener('hcms-data-changed', event => {
-    if (event.detail?.key !== 'hcms_appointments' || !currentStudent) return;
+    if (!currentStudent || !['hcms_appointments', 'hcms_bills'].includes(event.detail?.key)) return;
 
     const patient = Store.get('hcms_patients', [])
       .find(item => item.id === currentStudent.patientId);
     if (!patient) return;
 
-    const studentAppointment = Store.get('hcms_appointments', [])
-      .find(item => item.patientId === patient.id);
-    if (!studentAppointment) return;
-
-    loadAppointment(patient);
-    loadStats(patient);
-    toast('Your appointment was updated by the Health Centre.', 'info', 5000);
+    if (event.detail.key === 'hcms_appointments') {
+      const studentAppointment = Store.get('hcms_appointments', [])
+        .find(item => item.patientId === patient.id);
+      if (!studentAppointment) return;
+      loadAppointment(patient);
+      loadStats(patient);
+      toast('Your appointment was updated by the Health Centre.', 'info', 5000);
+    } else {
+      loadBills(patient);
+      loadStats(patient);
+    }
   });
 
   // The shared login page owns authentication for both students and staff.

@@ -648,6 +648,10 @@ function findNextAvailableAppointmentSlot() {
   return null;
 }
 
+function appointmentIsActive(appointment) {
+  return Boolean(appointment) && !['cancelled', 'completed'].includes(appointment.status);
+}
+
 function scheduleNextAvailableAppointment(patientId, reason = 'Health Centre Registration & General Check-up') {
   const patients = Store.get('hcms_patients', []);
   const patient = patients.find(item => item.id === patientId);
@@ -678,6 +682,90 @@ function scheduleNextAvailableAppointment(patientId, reason = 'Health Centre Reg
   appointments.push(appointment);
   Store.set('hcms_appointments', appointments);
   return appointment;
+}
+
+function createFollowUpAppointment(patientId, reason = '') {
+  const patients = Store.get('hcms_patients', []);
+  const patient = patients.find(item => item.id === patientId);
+  const trimmedReason = String(reason || '').trim();
+
+  if (!patient?.profileComplete) {
+    return { ok: false, message: 'Complete your Health Centre profile before requesting another appointment.' };
+  }
+  if (trimmedReason.length < 3) {
+    return { ok: false, message: 'Please tell us briefly why you need another appointment.' };
+  }
+
+  const appointments = Store.get('hcms_appointments', []);
+  const activeAppointment = appointments.find(item =>
+    item.patientId === patientId && appointmentIsActive(item)
+  );
+  if (activeAppointment) {
+    return {
+      ok: false,
+      message: 'You already have an active appointment. Complete or cancel it before requesting another one.',
+      appointment: activeAppointment
+    };
+  }
+
+  const slot = findNextAvailableAppointmentSlot();
+  if (!slot) {
+    return { ok: false, message: 'No clinic appointment slots are available at the moment. Please try again later.' };
+  }
+
+  const appointment = {
+    id: Store.nextId('hcms_appointments'),
+    patientId,
+    matric: patient.matric,
+    name: patient.name,
+    dept: patient.dept,
+    date: slot.date,
+    time: slot.time,
+    reason: trimmedReason,
+    appointmentType: 'follow-up',
+    requestedOn: today(),
+    status: 'pending',
+    paymentRef: '',
+    cardNo: patient.cardNo || ''
+  };
+
+  appointments.push(appointment);
+  Store.set('hcms_appointments', appointments);
+  return { ok: true, appointment };
+}
+
+function submitBillReceipt(patientId, billId, file) {
+  const bill = Store.get('hcms_bills', []).find(item =>
+    item.id === billId && item.patientId === patientId
+  );
+
+  if (!bill) {
+    return { ok: false, message: 'That bill could not be found.' };
+  }
+  if (!file) {
+    return { ok: false, message: 'Choose a receipt file before submitting.' };
+  }
+
+  const acceptedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+  const acceptedExtensions = /\.(pdf|jpe?g|png)$/i;
+  if (!acceptedTypes.includes(file.type) && !acceptedExtensions.test(file.name || '')) {
+    return { ok: false, message: 'Receipt must be a PDF, JPG, or PNG file.' };
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    return { ok: false, message: 'Receipt files must be 10 MB or smaller.' };
+  }
+
+  // The current project has no document-storage bucket yet, so retain the
+  // submission metadata without putting the binary file into hcms_store.
+  bill.receipt = {
+    fileName: String(file.name || 'Payment receipt'),
+    fileType: file.type || 'application/octet-stream',
+    fileSize: file.size || 0,
+    status: 'submitted',
+    submittedOn: today()
+  };
+  Store.set('hcms_bills', Store.get('hcms_bills', []));
+  return { ok: true, bill };
 }
 
 function updateRegistrationStep(patientId, stepKey, status = 'complete') {
@@ -786,6 +874,9 @@ window.REGISTRATION_STEP_DEFINITIONS = REGISTRATION_STEP_DEFINITIONS;
 window.createRegistrationWorkflow = createRegistrationWorkflow;
 window.getRegistrationWorkflow = getRegistrationWorkflow;
 window.scheduleNextAvailableAppointment = scheduleNextAvailableAppointment;
+window.appointmentIsActive = appointmentIsActive;
+window.createFollowUpAppointment = createFollowUpAppointment;
+window.submitBillReceipt = submitBillReceipt;
 window.updateRegistrationStep = updateRegistrationStep;
 window.reviewRegistrationWorkflow = reviewRegistrationWorkflow;
 window.registrationProgress = registrationProgress;

@@ -301,7 +301,11 @@
     }
 
     // Get appointment
-    const appt = Store.get('hcms_appointments',[]).find(a => a.patientId === p.id && a.status !== 'cancelled');
+    const patientAppointments = Store.get('hcms_appointments',[])
+      .filter(a => a.patientId === p.id)
+      .sort((a, b) => `${b.date || ''}${b.time || ''}${b.id || ''}`.localeCompare(`${a.date || ''}${a.time || ''}${a.id || ''}`));
+    const appt = patientAppointments.find(appointmentIsActive) ||
+      patientAppointments.find(a => a.status !== 'cancelled');
 
     // Populate front
     document.getElementById('fc-name').textContent    = p.name;
