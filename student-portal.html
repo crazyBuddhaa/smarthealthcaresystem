@@ -281,19 +281,40 @@
         <div class="login-brand-title"><i class="fa fa-lock"></i> SIGN-IN</div>
       </div>
       <div class="login-body">
-        <div class="notice-box" style="margin-bottom:16px">
-          <div class="notice-icon" style="font-size:26px"><i class="fa fa-info-circle"></i></div>
-          <div class="notice-content">
-            <h5>Shared sign-in</h5>
-            <p>Students and staff use the same sign-in page. Student accounts use the matric number as the username.</p>
-          </div>
-        </div>
-        <p class="text-center text-muted" style="font-size:13px;padding:16px 0">
-          Redirecting you to the shared sign-in page…
+        <div id="student-login-alert" style="display:none;margin-bottom:12px"></div>
+        <p class="text-center text-muted" style="font-size:13px;margin:0 0 16px">
+          Sign in with your matric number to open your student health dashboard.
         </p>
-        <a href="login.html" class="btn btn-red btn-block">
-          <i class="fa fa-sign-in"></i> Go to Sign In
-        </a>
+        <form id="student-login-form" class="auth-form" onsubmit="studentPortalLogin(event)">
+          <div class="field-group">
+            <div class="field-label"><i class="fa fa-user"></i> Matric number</div>
+            <input
+              type="text"
+              id="student-username"
+              placeholder="Enter your matric number"
+              autocomplete="username"
+              maxlength="30"
+              required
+            />
+          </div>
+          <div class="field-group">
+            <div class="field-label"><i class="fa fa-key"></i> Password</div>
+            <input
+              type="password"
+              id="student-password"
+              placeholder="Enter your password"
+              autocomplete="current-password"
+              required
+            />
+          </div>
+          <button type="submit" id="student-login-submit" class="btn btn-red btn-block">
+            <i class="fa fa-sign-in"></i> Sign in to student portal
+          </button>
+        </form>
+        <p class="text-center text-muted" style="font-size:12px;margin:14px 0 0">
+          Staff member?
+          <a href="login.html" style="color:var(--eksu-red);font-weight:700">Use staff sign in</a>
+        </p>
       </div>
       <div class="login-footer">CarePoint Health Centre &copy; 2026</div>
     </div>
@@ -717,6 +738,33 @@
     el.style.display = 'flex';
     el.className = `alert alert-${type}`;
     el.innerHTML = `<i class="fa ${icons[type] || icons.info}"></i><div>${message}</div>`;
+  }
+
+  async function studentPortalLogin(event) {
+    event.preventDefault();
+
+    const matric = document.getElementById('student-username').value.trim();
+    const password = document.getElementById('student-password').value;
+    const submit = document.getElementById('student-login-submit');
+    const alert = document.getElementById('student-login-alert');
+
+    if (!matric || !password) {
+      showAlert(alert, 'warning', 'Enter your matric number and password to continue.');
+      return;
+    }
+
+    submit.disabled = true;
+    submit.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Signing in...';
+    const user = await StudentAuth.login(matric, password);
+
+    if (user) {
+      loadPortal(user);
+      return;
+    }
+
+    submit.disabled = false;
+    submit.innerHTML = '<i class="fa fa-sign-in"></i> Sign in to student portal';
+    showAlert(alert, 'danger', 'Invalid matric number or password.');
   }
 
   function loadPortal(u) {
@@ -1443,12 +1491,15 @@
     }
   });
 
-  // The shared login page owns authentication for both students and staff.
+  // Keep each role on its own entry point. Students can sign in directly here;
+  // staff who open this URL are sent to their staff dashboard.
   const s = StudentAuth.current();
   if (s) {
     loadPortal(s);
+  } else if (Auth.current()?.active && Auth.current().role !== 'unassigned') {
+    window.location.href = 'dashboard.html';
   } else {
-    window.location.href = 'index.html';
+    document.getElementById('login-view').style.display = 'block';
   }
 </script>
 </body>
