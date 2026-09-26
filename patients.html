@@ -57,7 +57,10 @@
   <div class="card">
     <div class="card-header">
       <h3><i class="fa fa-list"></i> All Registered Students</h3>
-      <a href="register.html" class="btn btn-sm btn-red"><i class="fa fa-plus"></i> Register Student</a>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span id="document-review-count" class="badge badge-pending" style="display:none"></span>
+        <a href="register.html" class="btn btn-sm btn-red"><i class="fa fa-plus"></i> Register Student</a>
+      </div>
     </div>
     <div class="card-body" style="padding-bottom:0">
       <!-- Toolbar -->
@@ -73,6 +76,12 @@
           <option value="">All Genders</option>
           <option>Male</option>
           <option>Female</option>
+        </select>
+        <select class="form-control" id="registration-filter" onchange="filterTable()" style="max-width:220px">
+          <option value="">All Registration Statuses</option>
+          <option value="awaiting-review">Awaiting document review</option>
+          <option value="rejected">Rejected documents</option>
+          <option value="approved">Documents approved</option>
         </select>
         <button class="btn btn-outline-teal btn-sm" onclick="exportCSV()"><i class="fa fa-download"></i> Export</button>
       </div>
@@ -90,6 +99,7 @@
             <th>Blood Group</th>
             <th>Phone</th>
             <th>Allergies</th>
+            <th>Registration</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -196,19 +206,65 @@
       depts.forEach(d => { const o=document.createElement('option'); o.textContent=d; df.appendChild(o); });
     }
     document.getElementById('count-total').textContent = allPatients.length;
+    const awaitingReview = allPatients.filter(p => registrationReviewStatus(p) === 'awaiting-review').length;
+    const reviewCount = document.getElementById('document-review-count');
+    if (awaitingReview) {
+      reviewCount.style.display = '';
+      reviewCount.innerHTML = `<i class="fa fa-exclamation-circle"></i> ${awaitingReview} document review${awaitingReview === 1 ? '' : 's'} pending`;
+    } else {
+      reviewCount.style.display = 'none';
+    }
     filterTable();
+  }
+
+  function registrationReviewStatus(p) {
+    if (!p?.selfRegistered) return 'not-applicable';
+    if (p.profileComplete !== true && !p.registrationStatus) return 'not-applicable';
+    const workflow = getRegistrationWorkflow(p.id);
+    if (p.registrationStatus === 'documents-rejected' || workflow?.documentReviewStatus === 'rejected') {
+      return 'rejected';
+    }
+    if (workflow?.documentReviewStatus === 'awaiting-review') return 'awaiting-review';
+    if (workflow?.documentReviewStatus === 'approved' || p.registrationStatus === 'approved') {
+      return 'approved';
+    }
+    return 'awaiting-review';
+  }
+
+  function registrationReviewLabel(status) {
+    return ({
+      'awaiting-review': 'Awaiting document review',
+      rejected: 'Documents rejected',
+      approved: 'Documents approved',
+      'not-applicable': 'Staff-created record'
+    })[status] || 'Not reviewed';
+  }
+
+  function registrationReviewBadge(status) {
+    const classes = {
+      'awaiting-review': 'badge-pending',
+      rejected: 'badge-danger',
+      approved: 'badge-success',
+      'not-applicable': 'badge-secondary'
+    };
+    return `<span class="badge ${classes[status] || 'badge-secondary'}">${registrationReviewLabel(status)}</span>`;
   }
 
   function filterTable() {
     const q = document.getElementById('search-input').value.toLowerCase();
     const dept = document.getElementById('dept-filter').value;
     const gender = document.getElementById('gender-filter').value;
+    const registration = document.getElementById('registration-filter').value;
 
-    const filtered = allPatients.filter(p =>
+    const filtered = allPatients.filter(p => {
+      const reviewStatus = registrationReviewStatus(p);
+      return (
       (!q || p.name.toLowerCase().includes(q) || p.matric.toLowerCase().includes(q)) &&
       (!dept || p.dept === dept) &&
-      (!gender || p.gender === gender)
-    );
+      (!gender || p.gender === gender) &&
+      (!registration || reviewStatus === registration)
+      );
+    });
 
     const tbody = document.getElementById('patients-tbody');
     tbody.innerHTML = '';
@@ -222,6 +278,7 @@
         <td><span class="badge badge-secondary">${p.blood}</span></td>
         <td>${p.phone}</td>
         <td>${p.allergies||'None'}</td>
+        <td>${registrationReviewBadge(registrationReviewStatus(p))}</td>
         <td>
           <div class="action-menu">
             <button class="action-menu-toggle" type="button" aria-label="Open actions for ${escapeHtml(p.name)}" aria-expanded="false" onclick="toggleActionMenu(this)">
