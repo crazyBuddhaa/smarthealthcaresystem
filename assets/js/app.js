@@ -163,12 +163,23 @@ async function supabaseAuthRequest(path, options = {}) {
   return body;
 }
 
-function authEmailForIdentifier(identifier) {
+function authEmailForIdentifier(identifier, accountType) {
   const value = String(identifier || '').trim();
   if (value.includes('@')) return value.toLowerCase();
   const normalized = value.toLowerCase().replace(/[^a-z0-9._/-]/g, '').replace(/\//g, '-');
-  const isStudent = /^(stu|student)([-/_]|$)/i.test(value);
-  return `${normalized}@${isStudent ? 'student' : 'staff'}.carepoint.local`;
+  return `${normalized}@${accountType}.carepoint.local`;
+}
+
+function authEmailCandidatesForIdentifier(identifier) {
+  const value = String(identifier || '').trim();
+  if (value.includes('@')) return [value.toLowerCase()];
+
+  const normalizedValue = value.toLowerCase();
+  const knownStudent = Store.get('hcms_patients', []).some(patient =>
+    String(patient.matric || '').trim().toLowerCase() === normalizedValue
+  );
+  const accountTypes = knownStudent ? ['student', 'staff'] : ['staff', 'student'];
+  return accountTypes.map(accountType => authEmailForIdentifier(value, accountType));
 }
 
 const Auth = {
@@ -183,21 +194,23 @@ const Auth = {
     return readAuthSession()?.access_token || '';
   },
   async login(identifier, password) {
-    try {
-      const session = await supabaseAuthRequest('/token?grant_type=password', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: authEmailForIdentifier(identifier),
-          password
-        })
-      });
-      if (!session.user || !session.access_token) return null;
-      writeAuthSession(session);
-      return normalizedAuthUser(session.user);
-    } catch (error) {
-      console.warn('Supabase Auth sign-in failed.', error);
-      return null;
+    const candidates = authEmailCandidatesForIdentifier(identifier);
+    for (const email of candidates) {
+      try {
+        const session = await supabaseAuthRequest('/token?grant_type=password', {
+          method: 'POST',
+          body: JSON.stringify({ email, password })
+        });
+        if (!session.user || !session.access_token) continue;
+        writeAuthSession(session);
+        return normalizedAuthUser(session.user);
+      } catch (error) {
+        // A non-email identifier may be either a matric number or a staff ID.
+        // Try the other internal alias before reporting a failed sign-in.
+        console.warn(`Supabase Auth sign-in failed for ${email}.`, error);
+      }
     }
+    return null;
   },
   async signOut(redirectTo = 'index.html') {
     const token = this.accessToken();
