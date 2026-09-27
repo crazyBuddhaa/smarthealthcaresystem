@@ -130,26 +130,6 @@ const QUEUE_OVERFLOW_POLICIES = [
   { value: 'continue', label: 'Continue beyond the quota', description: 'Treat the quota as a target and allow reception to keep serving.' }
 ];
 
-const FACULTY_OPTIONS = [
-  'Arts',
-  'Education',
-  'Engineering and Technology',
-  'Environmental Sciences',
-  'Law',
-  'Life Sciences',
-  'Management Sciences',
-  'Medical Sciences',
-  'Physical Sciences',
-  'Social Sciences'
-];
-
-const DEFAULT_FACULTY_SCHEDULE = {
-  version: 1,
-  blocks: [],
-  updatedOn: null,
-  updatedBy: ''
-};
-
 function getQueueSettings() {
   const saved = Store.get('hcms_queue_settings', {});
   const settings = { ...DEFAULT_QUEUE_SETTINGS, ...(saved && typeof saved === 'object' ? saved : {}) };
@@ -175,64 +155,6 @@ function saveQueueSettings(details = {}) {
   };
   Store.set('hcms_queue_settings', settings);
   return settings;
-}
-
-function normalizeFaculty(value) {
-  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
-function getFacultySchedule() {
-  const saved = Store.get('hcms_faculty_schedule', DEFAULT_FACULTY_SCHEDULE);
-  const blocks = Array.isArray(saved) ? saved : saved?.blocks;
-  return (Array.isArray(blocks) ? blocks : [])
-    .filter(block => block && block.faculty && block.startDate && block.endDate)
-    .map(block => ({
-      ...block,
-      id: block.id || `${block.startDate}-${block.endDate}-${normalizeFaculty(block.faculty)}`,
-      faculty: String(block.faculty).trim(),
-      startDate: String(block.startDate),
-      endDate: String(block.endDate)
-    }))
-    .sort((a, b) => `${a.startDate}${a.endDate}`.localeCompare(`${b.startDate}${b.endDate}`));
-}
-
-function saveFacultySchedule(blocks = []) {
-  if (!Auth.isAdmin()) return { ok: false, message: 'Only an administrator can change the faculty clinic calendar.' };
-  const cleanBlocks = (Array.isArray(blocks) ? blocks : [])
-    .filter(block => block && block.faculty && block.startDate && block.endDate)
-    .map(block => ({
-      id: block.id || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      faculty: String(block.faculty).trim(),
-      startDate: String(block.startDate),
-      endDate: String(block.endDate),
-      note: String(block.note || '').trim()
-    }))
-    .sort((a, b) => `${a.startDate}${a.endDate}`.localeCompare(`${b.startDate}${b.endDate}`));
-  const value = {
-    ...DEFAULT_FACULTY_SCHEDULE,
-    blocks: cleanBlocks,
-    updatedOn: today(),
-    updatedBy: Auth.current()?.name || Auth.current()?.username || 'Administrator'
-  };
-  Store.set('hcms_faculty_schedule', value);
-  return { ok: true, schedule: value };
-}
-
-function facultyScheduleForDate(dateValue) {
-  return getFacultySchedule().find(block =>
-    dateValue >= block.startDate && dateValue <= block.endDate
-  ) || null;
-}
-
-function facultyEligibleOnDate(faculty, dateValue) {
-  const blocks = getFacultySchedule();
-  // An empty calendar keeps the existing general clinic behaviour.
-  if (!blocks.length) return true;
-  // Students created before faculty scheduling was enabled, or profiles with
-  // no faculty selected yet, can still use any configured clinic block.
-  if (!normalizeFaculty(faculty)) return true;
-  const block = facultyScheduleForDate(dateValue);
-  return Boolean(block && normalizeFaculty(block.faculty) === normalizeFaculty(faculty));
 }
 
 function queueDateForEntry(entry) {
@@ -556,8 +478,10 @@ async function uploadRegistrationDocument(patientId, type, file) {
   }
 }
 
-async function openRegistrationDocument(path, mode = 'view') {
-  if (!path) {
+async function openRegistrationDocument(path, mode = 'view', lookup = {}) {
+  const hasLookup = /^\d+$/.test(String(lookup.patientId || '')) &&
+    ['healthReceipt', 'schoolReceipt', 'passportPhoto'].includes(lookup.type);
+  if (!path && !hasLookup) {
     toast('This document is not available yet.', 'warning');
     return;
   }
@@ -565,8 +489,11 @@ async function openRegistrationDocument(path, mode = 'view') {
   const popup = mode === 'view' ? window.open('about:blank', '_blank') : null;
   try {
     const download = mode === 'download';
+    const query = path
+      ? `path=${encodeURIComponent(path)}`
+      : `patientId=${encodeURIComponent(lookup.patientId)}&type=${encodeURIComponent(lookup.type)}`;
     const response = await fetch(
-      `/api/storage/registration?path=${encodeURIComponent(path)}&download=${download ? '1' : '0'}`,
+      `/api/storage/registration?${query}&download=${download ? '1' : '0'}`,
       {
       headers: { Authorization: `Bearer ${Auth.accessToken()}` }
       }
@@ -580,7 +507,7 @@ async function openRegistrationDocument(path, mode = 'view') {
     if (mode === 'download') {
       const link = document.createElement('a');
       link.href = body.url;
-      link.download = body.fileName || path.split('/').pop() || 'registration-document';
+      link.download = body.fileName || path?.split('/').pop() || 'registration-document';
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -734,6 +661,7 @@ function createRegistrationWorkflow(patientId, details = {}) {
 
 function getRegistrationWorkflow(patientId) {
   const workflows = Store.get('hcms_registration_workflows', []);
+  const patient = Store.get('hcms_patients', []).find(item => item.id === patientId);
   let workflow = workflows.find(item => item.patientId === patientId);
   if (workflow) {
     // Migrate an older checklist record to the current online journey format.
@@ -756,7 +684,12 @@ function getRegistrationWorkflow(patientId) {
         ? (oldSteps.get(definition.key)?.completedOn || today())
         : (oldSteps.get(definition.key)?.completedOn || null)
     }));
-    workflow.documents = workflow.documents || {};
+    // Keep document paths added to the patient record available when an older
+    // workflow snapshot only retained the original file names.
+    workflow.documents = {
+      ...(workflow.documents || {}),
+      ...(patient?.onlineDocuments || {})
+    };
     workflow.documentReviewStatus = workflow.documentReviewStatus ||
       (workflow.reviewStatus === 'awaiting-appointment' ? 'approved' : 'awaiting-review');
     workflow.reviewStatus = workflow.reviewStatus ||
@@ -772,7 +705,6 @@ function getRegistrationWorkflow(patientId) {
     return workflow;
   }
 
-  const patient = Store.get('hcms_patients', []).find(item => item.id === patientId);
   const appointment = Store.get('hcms_appointments', [])
     .find(item => item.patientId === patientId && item.status !== 'cancelled');
   workflow = createRegistrationWorkflow(patientId, {
@@ -963,7 +895,7 @@ function dateAfterDays(days) {
   return localDateKey(date);
 }
 
-function findNextAvailableAppointmentSlot(faculty = '') {
+function findNextAvailableAppointmentSlot() {
   const appointments = Store.get('hcms_appointments', []);
   const queue = Store.get('hcms_queue', []);
   const currentDate = localDateKey(new Date());
@@ -973,7 +905,6 @@ function findNextAvailableAppointmentSlot(faculty = '') {
     const date = dateAfterDays(offset);
     const weekday = new Date(`${date}T00:00:00`).getDay();
     if (weekday === 0 || weekday === 6) continue;
-    if (!facultyEligibleOnDate(faculty, date)) continue;
 
     const occupiedTimes = appointments
       .filter(item => item.date === date && item.status !== 'cancelled')
@@ -1024,7 +955,7 @@ function scheduleNextAvailableAppointment(patientId, reason = 'Health Centre Reg
   );
   if (existing) return existing;
 
-  const slot = findNextAvailableAppointmentSlot(patient.faculty);
+  const slot = findNextAvailableAppointmentSlot();
   if (!slot) return null;
 
   const appointment = {
@@ -1033,7 +964,6 @@ function scheduleNextAvailableAppointment(patientId, reason = 'Health Centre Reg
     matric: patient.matric,
     name: patient.name,
     dept: patient.dept,
-    faculty: patient.faculty || '',
     date: slot.date,
     time: slot.time,
     reason,
@@ -1070,7 +1000,7 @@ function createFollowUpAppointment(patientId, reason = '') {
     };
   }
 
-  const slot = findNextAvailableAppointmentSlot(patient.faculty);
+  const slot = findNextAvailableAppointmentSlot();
   if (!slot) {
     return { ok: false, message: 'No clinic appointment slots are available at the moment. Please try again later.' };
   }
@@ -1081,7 +1011,6 @@ function createFollowUpAppointment(patientId, reason = '') {
     matric: patient.matric,
     name: patient.name,
     dept: patient.dept,
-    faculty: patient.faculty || '',
     date: slot.date,
     time: slot.time,
     reason: trimmedReason,
@@ -1270,15 +1199,8 @@ window.STAFF_ROLE_DEFINITIONS = STAFF_ROLE_DEFINITIONS;
 window.DEFAULT_QUEUE_SETTINGS = DEFAULT_QUEUE_SETTINGS;
 window.QUEUE_CRITERIA = QUEUE_CRITERIA;
 window.QUEUE_OVERFLOW_POLICIES = QUEUE_OVERFLOW_POLICIES;
-window.FACULTY_OPTIONS = FACULTY_OPTIONS;
-window.DEFAULT_FACULTY_SCHEDULE = DEFAULT_FACULTY_SCHEDULE;
-window.normalizeFaculty = normalizeFaculty;
 window.getQueueSettings = getQueueSettings;
 window.saveQueueSettings = saveQueueSettings;
-window.getFacultySchedule = getFacultySchedule;
-window.saveFacultySchedule = saveFacultySchedule;
-window.facultyScheduleForDate = facultyScheduleForDate;
-window.facultyEligibleOnDate = facultyEligibleOnDate;
 window.queueDateForEntry = queueDateForEntry;
 window.nextClinicDate = nextClinicDate;
 window.queueGroupForEntry = queueGroupForEntry;
