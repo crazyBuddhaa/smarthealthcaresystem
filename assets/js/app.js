@@ -11,13 +11,28 @@ const supabaseConfig = window.SUPABASE_CONFIG || {};
 const supabaseStoreUrl = supabaseConfig.url
   ? `${supabaseConfig.url.replace(/\/$/, '')}/rest/v1/${SUPABASE_STORE_TABLE}`
   : '';
-const supabaseStoreHeaders = supabaseConfig.anonKey
-  ? {
-      apikey: supabaseConfig.anonKey,
-      Authorization: `Bearer ${supabaseConfig.anonKey}`,
-      'Content-Type': 'application/json'
-    }
-  : {};
+// Data requests are sent with the signed-in user's access token so that the
+// Row Level Security policies on hcms_store can apply role-based rules.
+function storeAccessToken() {
+  try {
+    const session = JSON.parse(sessionStorage.getItem('carepoint_auth_session') || 'null');
+    const token = session?.access_token || '';
+    if (!token) return '';
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return payload?.exp && payload.exp * 1000 <= Date.now() ? '' : token;
+  } catch {
+    return '';
+  }
+}
+
+function supabaseStoreHeaders() {
+  if (!supabaseConfig.anonKey) return {};
+  return {
+    apikey: supabaseConfig.anonKey,
+    Authorization: `Bearer ${storeAccessToken() || supabaseConfig.anonKey}`,
+    'Content-Type': 'application/json'
+  };
+}
 const SUPABASE_REGISTRATION_BUCKET = 'hcms-registration-documents';
 const REGISTRATION_DOCUMENT_MAX_SIZE = 10 * 1024 * 1024;
 
@@ -33,6 +48,9 @@ const Store = {
       console.warn('HCMS data is not connected to Supabase.', this.lastError);
       return;
     }
+    // Visitors who are not signed in have no data access; public pages such
+    // as the login and sign-up screens do not need the shared store.
+    if (!storeAccessToken()) return;
 
     // The existing multi-page UI uses synchronous Store.get calls during
     // script startup. Load the small key/value snapshot before those scripts
@@ -40,7 +58,7 @@ const Store = {
     try {
       const request = new XMLHttpRequest();
       request.open('GET', `${supabaseStoreUrl}?select=key,value`, false);
-      Object.entries(supabaseStoreHeaders).forEach(([key, value]) => request.setRequestHeader(key, value));
+      Object.entries(supabaseStoreHeaders()).forEach(([key, value]) => request.setRequestHeader(key, value));
       request.send();
       if (request.status < 200 || request.status >= 300) {
         throw new Error(`Supabase returned HTTP ${request.status}.`);
@@ -68,7 +86,7 @@ const Store = {
       .catch(() => {})
       .then(() => fetch(`${supabaseStoreUrl}?on_conflict=key`, {
         method: 'POST',
-        headers: { ...supabaseStoreHeaders, Prefer: 'resolution=merge-duplicates,return=minimal' },
+        headers: { ...supabaseStoreHeaders(), Prefer: 'resolution=merge-duplicates,return=minimal' },
         body: JSON.stringify([{ key, value: val }]),
         keepalive: true
       }))
@@ -258,6 +276,82 @@ function carryQueueOverflowForward(dateValue = today()) {
   return moved;
 }
 
+// ── Faculty clinic calendar ──────────────────────────────────────────────────
+// The administrator can reserve clinic days for one faculty at a time. While
+// at least one current or future block exists, appointments and check-in are
+// limited to the faculty scheduled for that day. When every block is in the
+// past (or none exist), general scheduling applies.
+const FACULTY_OPTIONS = [
+  'Arts',
+  'Education',
+  'Engineering and Technology',
+  'Environmental Sciences',
+  'Law',
+  'Life Sciences',
+  'Management Sciences',
+  'Medical Sciences',
+  'Physical Sciences',
+  'Social Sciences'
+];
+
+function normalizeFaculty(value) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function validFacultyBlock(block) {
+  return Boolean(block) &&
+    typeof block.faculty === 'string' && block.faculty.trim() &&
+    /^\d{4}-\d{2}-\d{2}$/.test(String(block.startDate || '')) &&
+    /^\d{4}-\d{2}-\d{2}$/.test(String(block.endDate || '')) &&
+    block.startDate <= block.endDate;
+}
+
+function getFacultySchedule() {
+  const saved = Store.get('hcms_faculty_schedules', []);
+  return (Array.isArray(saved) ? saved : [])
+    .filter(validFacultyBlock)
+    .sort((a, b) => a.startDate.localeCompare(b.startDate));
+}
+
+function saveFacultySchedule(blocks) {
+  if (!Auth.isAdmin()) {
+    return { ok: false, message: 'Only an administrator can change the faculty clinic calendar.' };
+  }
+  if (!Array.isArray(blocks) || !blocks.every(validFacultyBlock)) {
+    return { ok: false, message: 'Each faculty block needs a faculty and a valid date range.' };
+  }
+  const sorted = [...blocks].sort((a, b) => a.startDate.localeCompare(b.startDate));
+  for (let index = 1; index < sorted.length; index += 1) {
+    if (sorted[index].startDate <= sorted[index - 1].endDate) {
+      return { ok: false, message: 'Faculty clinic blocks cannot overlap.' };
+    }
+  }
+  Store.set('hcms_faculty_schedules', sorted.map(block => ({
+    id: block.id,
+    faculty: block.faculty.trim(),
+    startDate: block.startDate,
+    endDate: block.endDate,
+    note: String(block.note || '').trim()
+  })));
+  return { ok: true, blocks: sorted };
+}
+
+function facultyScheduleForDate(dateValue) {
+  return getFacultySchedule().find(block =>
+    block.startDate <= dateValue && block.endDate >= dateValue
+  ) || null;
+}
+
+function facultyCalendarActive(fromDate = today()) {
+  return getFacultySchedule().some(block => block.endDate >= fromDate);
+}
+
+function facultyEligibleOnDate(faculty, dateValue) {
+  if (!facultyCalendarActive()) return true;
+  const block = facultyScheduleForDate(dateValue);
+  return Boolean(block) && normalizeFaculty(block.faculty) === normalizeFaculty(faculty);
+}
+
 function readAuthSession() {
   try {
     return JSON.parse(sessionStorage.getItem(SUPABASE_AUTH_SESSION_KEY) || 'null');
@@ -289,22 +383,25 @@ function normalizedAuthUser(user) {
   const metadata = user.user_metadata || {};
   const appMetadata = user.app_metadata || {};
   const username = metadata.username || metadata.matric || user.email || '';
-  const declaredRole = metadata.role || appMetadata.role || metadata.userRole || '';
+  // app_metadata can only be written by the server, so it is the trusted
+  // source of the role, account status and patient link.
+  const declaredRole = appMetadata.role || metadata.role || '';
   const normalizedRole = String(declaredRole).trim().toLowerCase();
-  const role = ['admin', 'administrator'].includes(normalizedRole) ||
-      String(username).trim().toLowerCase() === 'admin'
+  const role = ['admin', 'administrator'].includes(normalizedRole)
     ? 'admin'
     : normalizedRole || 'student';
-  const active = metadata.active !== false &&
-    String(metadata.active).toLowerCase() !== 'false' &&
+  const activeValue = appMetadata.active !== undefined ? appMetadata.active : metadata.active;
+  const active = activeValue !== false &&
+    String(activeValue).toLowerCase() !== 'false' &&
     role !== 'unassigned';
+  const patientId = appMetadata.patientId || metadata.patientId;
   return {
     id: user.id,
     email: user.email || '',
     username,
     name: metadata.name || metadata.full_name || metadata.matric || user.email || 'CarePoint user',
     role,
-    patientId: metadata.patientId ? parseInt(metadata.patientId) : null,
+    patientId: patientId ? parseInt(patientId) : null,
     matric: metadata.matric || '',
     active
   };
@@ -427,6 +524,10 @@ function registrationDocumentType(type) {
 }
 
 async function uploadRegistrationDocument(patientId, type, file) {
+  return uploadPrivateDocument('registration', patientId, type, file);
+}
+
+async function uploadPrivateDocument(folder, patientId, type, file) {
   if (!supabaseConfig.url || !supabaseConfig.anonKey) {
     return { ok: false, message: 'Supabase Storage is not configured.' };
   }
@@ -457,7 +558,7 @@ async function uploadRegistrationDocument(patientId, type, file) {
   const uniquePart = window.crypto?.randomUUID
     ? window.crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const path = `registration/${Number(patientId)}/${type}-${uniquePart}-${safeName}`;
+  const path = `${folder}/${Number(patientId)}/${type}-${uniquePart}-${safeName}`;
   const url = `${supabaseConfig.url.replace(/\/$/, '')}/storage/v1/object/${SUPABASE_REGISTRATION_BUCKET}/${storageObjectPath(path)}`;
 
   try {
@@ -529,16 +630,6 @@ async function openRegistrationDocument(path, mode = 'view', lookup = {}) {
   } catch (error) {
     toast(error.message || 'Unable to open the registration document.', 'error');
   }
-}
-
-// ── Payment reference mock validator ─────────────────────────────────────────
-// In production, this would call the health-centre payment API
-const VALID_PAYMENT_PREFIXES = ['CARE', 'HCS', 'RRR', 'REMITA'];
-function validatePaymentRef(ref) {
-  if (!ref || ref.trim().length < 6) return false;
-  const upper = ref.trim().toUpperCase();
-  // Accept any ref starting with known health-centre/Remita prefixes, or any 10+ digit number
-  return VALID_PAYMENT_PREFIXES.some(p => upper.startsWith(p)) || /^\d{10,}$/.test(upper);
 }
 
 // ── Student authentication helpers ───────────────────────────────────────────
@@ -905,7 +996,7 @@ function dateAfterDays(days) {
   return localDateKey(date);
 }
 
-function findNextAvailableAppointmentSlot() {
+function findNextAvailableAppointmentSlot(faculty = '') {
   const appointments = Store.get('hcms_appointments', []);
   const queue = Store.get('hcms_queue', []);
   const currentDate = localDateKey(new Date());
@@ -915,6 +1006,7 @@ function findNextAvailableAppointmentSlot() {
     const date = dateAfterDays(offset);
     const weekday = new Date(`${date}T00:00:00`).getDay();
     if (weekday === 0 || weekday === 6) continue;
+    if (!facultyEligibleOnDate(faculty, date)) continue;
 
     const occupiedTimes = appointments
       .filter(item => item.date === date && item.status !== 'cancelled')
@@ -965,7 +1057,7 @@ function scheduleNextAvailableAppointment(patientId, reason = 'Health Centre Reg
   );
   if (existing) return existing;
 
-  const slot = findNextAvailableAppointmentSlot();
+  const slot = findNextAvailableAppointmentSlot(patient.faculty);
   if (!slot) return null;
 
   const appointment = {
@@ -1010,7 +1102,7 @@ function createFollowUpAppointment(patientId, reason = '') {
     };
   }
 
-  const slot = findNextAvailableAppointmentSlot();
+  const slot = findNextAvailableAppointmentSlot(patient.faculty);
   if (!slot) {
     return { ok: false, message: 'No clinic appointment slots are available at the moment. Please try again later.' };
   }
@@ -1036,37 +1128,36 @@ function createFollowUpAppointment(patientId, reason = '') {
   return { ok: true, appointment };
 }
 
-function submitBillReceipt(patientId, billId, file) {
-  const bill = Store.get('hcms_bills', []).find(item =>
+async function submitBillReceipt(patientId, billId, file) {
+  const bills = Store.get('hcms_bills', []);
+  const bill = bills.find(item =>
     item.id === billId && item.patientId === patientId
   );
 
   if (!bill) {
     return { ok: false, message: 'That bill could not be found.' };
   }
+  if (bill.status === 'paid') {
+    return { ok: false, message: 'This bill has already been paid.' };
+  }
   if (!file) {
     return { ok: false, message: 'Choose a receipt file before submitting.' };
   }
 
-  const acceptedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
-  const acceptedExtensions = /\.(pdf|jpe?g|png)$/i;
-  if (!acceptedTypes.includes(file.type) && !acceptedExtensions.test(file.name || '')) {
-    return { ok: false, message: 'Receipt must be a PDF, JPG, or PNG file.' };
-  }
-  if (file.size > 10 * 1024 * 1024) {
-    return { ok: false, message: 'Receipt files must be 10 MB or smaller.' };
-  }
+  // The receipt is uploaded to the student's folder in the private bucket;
+  // only its path and details are stored with the bill.
+  const upload = await uploadPrivateDocument('receipts', patientId, `bill-${Number(billId)}`, file);
+  if (!upload.ok) return upload;
 
-  // The current project has no document-storage bucket yet, so retain the
-  // submission metadata without putting the binary file into hcms_store.
   bill.receipt = {
-    fileName: String(file.name || 'Payment receipt'),
-    fileType: file.type || 'application/octet-stream',
-    fileSize: file.size || 0,
+    path: upload.path,
+    fileName: upload.fileName,
+    fileType: upload.fileType,
+    fileSize: upload.fileSize,
     status: 'submitted',
     submittedOn: today()
   };
-  Store.set('hcms_bills', Store.get('hcms_bills', []));
+  Store.set('hcms_bills', bills);
   return { ok: true, bill };
 }
 
@@ -1204,7 +1295,13 @@ function registrationProgress(workflow) {
 window.StudentAuth      = StudentAuth;
 window.uploadRegistrationDocument = uploadRegistrationDocument;
 window.openRegistrationDocument = openRegistrationDocument;
-window.validatePaymentRef = validatePaymentRef;
+window.submitBillReceipt = submitBillReceipt;
+window.FACULTY_OPTIONS = FACULTY_OPTIONS;
+window.getFacultySchedule = getFacultySchedule;
+window.saveFacultySchedule = saveFacultySchedule;
+window.facultyScheduleForDate = facultyScheduleForDate;
+window.facultyEligibleOnDate = facultyEligibleOnDate;
+window.normalizeFaculty = normalizeFaculty;
 window.STAFF_ROLE_DEFINITIONS = STAFF_ROLE_DEFINITIONS;
 window.DEFAULT_QUEUE_SETTINGS = DEFAULT_QUEUE_SETTINGS;
 window.QUEUE_CRITERIA = QUEUE_CRITERIA;
@@ -1558,6 +1655,10 @@ function seedData() {
     toast('Supabase is not configured. Add SUPABASE_ANON_KEY in Vercel and redeploy.', 'error', 8000);
     return;
   }
+  // Demonstration data is only written by signed-in staff; pages used by
+  // students or visitors never seed the shared store.
+  const seedUser = Auth.current();
+  if (!seedUser || seedUser.role === 'student') return;
   if (Store.get('hcms_seeded', false)) {
     ensureSyntheticStudentSeed();
     ensureSyntheticOperationalSeed();
@@ -1711,7 +1812,7 @@ function renderTopnavUser() {
 }
 
 // ── Date/time utils ───────────────────────────────────────────────────────────
-function today() { return new Date().toISOString().split('T')[0]; }
+function today() { return localDateKey(new Date()); }
 function nowTime() { return new Date().toTimeString().slice(0,5); }
 function formatDate(d) {
   if (!d) return 'Not available';

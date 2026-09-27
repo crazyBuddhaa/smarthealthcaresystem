@@ -2,24 +2,22 @@
  * Server-side staff administration for Supabase Auth.
  *
  * The browser never receives the service-role key. Every action verifies the
- * caller's bearer token and requires the current Auth user to have role=admin.
+ * caller's bearer token and requires an active administrator. Roles are kept
+ * in app_metadata so that users cannot change their own role.
  */
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://zuufspuvmssicerrnfug.supabase.co';
-const ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const {
+  SERVICE_ROLE_KEY,
+  SUPABASE_URL,
+  json,
+  readBody,
+  serviceHeaders,
+  trustedAccess,
+  verifyRole
+} = require('../_lib/supabase');
+
 const VALID_ROLES = new Set(['doctor', 'nurse', 'cashier']);
-
-function json(res, status, body) {
-  res.statusCode = status;
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-store, max-age=0');
-  res.end(JSON.stringify(body));
-}
-
-function requestToken(req) {
-  const header = req.headers.authorization || '';
-  return header.startsWith('Bearer ') ? header.slice(7).trim() : '';
-}
+const ADMIN_ONLY = new Set(['admin']);
+const STAFF_LIST_ROLES = new Set(['admin', 'doctor', 'nurse', 'cashier', 'unassigned']);
 
 function authEmailForUsername(username) {
   return `${String(username).toLowerCase().replace(/[^a-z0-9._/-]/g, '').replace(/\//g, '-')}@staff.carepoint.local`;
@@ -36,32 +34,10 @@ function roleLabel(role) {
 }
 
 async function supabaseAdmin(path, options = {}) {
-  return fetch(`${SUPABASE_URL.replace(/\/$/, '')}/auth/v1${path}`, {
+  return fetch(`${SUPABASE_URL}/auth/v1${path}`, {
     ...options,
-    headers: {
-      apikey: SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-      'Content-Type': 'application/json',
-      ...(options.headers || {})
-    }
+    headers: serviceHeaders(options.headers || {})
   });
-}
-
-async function verifyAdmin(req) {
-  const token = requestToken(req);
-  if (!token || !SERVICE_ROLE_KEY) return null;
-
-  const response = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/auth/v1/user`, {
-    headers: {
-      apikey: ANON_KEY || SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${token}`
-    }
-  });
-  if (!response.ok) return null;
-
-  const user = await response.json().catch(() => null);
-  const metadata = user?.user_metadata || {};
-  return metadata.role === 'admin' && metadata.active !== false ? user : null;
 }
 
 async function listUsers() {
@@ -75,7 +51,8 @@ async function listUsers() {
 
 function asStaffUser(user) {
   const metadata = user.user_metadata || {};
-  const role = metadata.role || 'unassigned';
+  const app = user.app_metadata || {};
+  const role = app.role || 'unassigned';
   return {
     id: user.id,
     username: metadata.username || user.email || '',
@@ -83,9 +60,9 @@ function asStaffUser(user) {
     email: user.email || '',
     role,
     roleLabel: roleLabel(role),
-    active: metadata.active !== false && role !== 'unassigned',
-    createdOn: metadata.createdOn || user.created_at || null,
-    revokedOn: metadata.revokedOn || null
+    active: trustedAccess(user).active,
+    createdOn: app.createdOn || metadata.createdOn || user.created_at || null,
+    revokedOn: app.revokedOn || null
   };
 }
 
@@ -96,10 +73,10 @@ function findStaff(users, username) {
   );
 }
 
-async function updateUser(user, metadata) {
+async function updateAccess(user, appMetadata) {
   const response = await supabaseAdmin(`/admin/users/${encodeURIComponent(user.id)}`, {
     method: 'PUT',
-    body: JSON.stringify({ user_metadata: metadata })
+    body: JSON.stringify({ app_metadata: appMetadata })
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -117,12 +94,12 @@ module.exports = async function staffAuthHandler(req, res) {
     return json(res, 503, { message: 'Staff authentication is not configured on the server.' });
   }
 
-  const caller = await verifyAdmin(req);
+  const caller = await verifyRole(req, ADMIN_ONLY);
   if (!caller) return json(res, 403, { message: 'Administrator authorization is required.' });
 
   let details;
   try {
-    details = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+    details = readBody(req);
   } catch {
     return json(res, 400, { message: 'Invalid request body.' });
   }
@@ -130,11 +107,7 @@ module.exports = async function staffAuthHandler(req, res) {
 
   try {
     const users = await listUsers();
-    const staffUsers = users.filter(user => {
-      const role = user.user_metadata?.role;
-      return role === 'admin' || role === 'doctor' || role === 'nurse' ||
-        role === 'cashier' || role === 'unassigned';
-    });
+    const staffUsers = users.filter(user => STAFF_LIST_ROLES.has(user.app_metadata?.role));
 
     if (action === 'list') {
       return json(res, 200, { staff: staffUsers.map(asStaffUser) });
@@ -151,7 +124,7 @@ module.exports = async function staffAuthHandler(req, res) {
       if (password.length < 6) {
         return json(res, 400, { message: 'Staff passwords must be at least 6 characters.' });
       }
-      if (findStaff(staffUsers, username)) {
+      if (findStaff(users, username)) {
         return json(res, 409, { message: 'That staff ID is already in use.' });
       }
 
@@ -161,13 +134,12 @@ module.exports = async function staffAuthHandler(req, res) {
           email: authEmailForUsername(username),
           password,
           email_confirm: true,
-          user_metadata: {
-            username,
-            name,
+          app_metadata: {
             role,
             active: true,
             createdOn: new Date().toISOString().slice(0, 10)
-          }
+          },
+          user_metadata: { username, name }
         })
       });
       const body = await response.json().catch(() => ({}));
@@ -181,26 +153,26 @@ module.exports = async function staffAuthHandler(req, res) {
 
     const user = findStaff(staffUsers, details.username);
     if (!user) return json(res, 404, { message: 'Staff account not found.' });
-    const metadata = { ...(user.user_metadata || {}) };
-    if (metadata.role === 'admin' || metadata.username?.toLowerCase() === 'admin') {
+    const access = { ...(user.app_metadata || {}) };
+    if (access.role === 'admin') {
       return json(res, 400, { message: 'The administrator account is protected.' });
     }
 
     if (action === 'assign-role') {
       const role = String(details.role || '');
       if (!VALID_ROLES.has(role)) return json(res, 400, { message: 'Select a valid staff role.' });
-      metadata.role = role;
-      metadata.active = true;
-      delete metadata.revokedOn;
+      access.role = role;
+      access.active = true;
+      access.revokedOn = null;
     } else if (action === 'revoke-role') {
-      metadata.role = 'unassigned';
-      metadata.active = false;
-      metadata.revokedOn = new Date().toISOString().slice(0, 10);
+      access.role = 'unassigned';
+      access.active = false;
+      access.revokedOn = new Date().toISOString().slice(0, 10);
     } else {
       return json(res, 400, { message: 'Unknown staff administration action.' });
     }
 
-    const updated = await updateUser(user, metadata);
+    const updated = await updateAccess(user, access);
     return json(res, 200, { user: asStaffUser(updated) });
   } catch (error) {
     return json(res, 502, { message: error.message || 'Unable to complete the staff administration request.' });

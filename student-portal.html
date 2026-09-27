@@ -439,7 +439,8 @@
               <option value="">-- Select --</option>
               <option>Arts</option><option>Education</option>
               <option>Engineering and Technology</option><option>Environmental Sciences</option>
-              <option>Law</option><option>Management Sciences</option>
+              <option>Law</option><option>Life Sciences</option>
+              <option>Management Sciences</option>
               <option>Medical Sciences</option><option>Physical Sciences</option>
               <option>Social Sciences</option>
             </select>
@@ -516,7 +517,7 @@
           </div>
         </div>
 
-        <button class="btn btn-red btn-block" onclick="completeStudentSetup()">
+        <button class="btn btn-red btn-block" id="setup-submit" onclick="completeStudentSetup()">
           <i class="fa fa-cloud-upload"></i> Submit Online Registration
         </button>
       </div>
@@ -559,6 +560,9 @@
       </button>
       <button class="portal-tab" onclick="showTab('tab-card',this)">
         <i class="fa fa-id-card-o"></i> My Card
+      </button>
+      <button class="portal-tab" onclick="showTab('tab-bills',this)">
+        <i class="fa fa-money"></i> My Bills
       </button>
       <button class="portal-tab" onclick="showTab('tab-profile',this)">
         <i class="fa fa-user-circle"></i> My Profile
@@ -685,6 +689,27 @@
       </div>
     </div>
 
+    <!-- Bills tab -->
+    <div class="tab-panel" id="tab-bills">
+      <div class="card">
+        <div class="card-header"><h3><i class="fa fa-money"></i> My Bills</h3></div>
+        <div class="card-body" style="font-size:13px;padding-bottom:0">
+          Pay pending bills at the bursary or by bank transfer, then upload your payment receipt here.
+          The health centre will verify the receipt and mark the bill as paid.
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Date</th><th>Items</th><th>Total</th><th>Status</th><th>Payment receipt</th></tr>
+            </thead>
+            <tbody id="student-bills-tbody">
+              <tr><td colspan="5" class="text-center text-muted" style="padding:30px">You have no bills.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- Profile tab -->
     <div class="tab-panel" id="tab-profile">
       <div class="card">
@@ -701,8 +726,6 @@
 <script src="/api/config.js"></script>
 <script src="assets/js/app.js"></script>
 <script>
-  seedData();
-
   let currentStudent = null;
 
   function loadPortal(u) {
@@ -737,6 +760,7 @@
     updateAppointmentVisibility(p);
     loadAppointment(p);
     loadRecords(p);
+    loadBills(p);
     loadProfile(p);
     loadStats(p);
     loadRegistrationJourney(p);
@@ -765,7 +789,19 @@
     }
   }
 
-  function completeStudentSetup() {
+  function showAlert(el, type, msg) {
+    if (!el) {
+      toast(msg.replace(/<[^>]+>/g, ''), type === 'danger' ? 'error' : type);
+      return;
+    }
+    const icons = { danger:'fa-times-circle', warning:'fa-exclamation-triangle', success:'fa-check-circle', info:'fa-info-circle' };
+    el.style.display = 'flex';
+    el.className = `alert alert-${type}`;
+    el.innerHTML = `<i class="fa ${icons[type] || icons.info}"></i> <div>${msg}</div>`;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  async function completeStudentSetup() {
     if (!currentStudent) return;
 
     const patients = Store.get('hcms_patients', []);
@@ -805,6 +841,37 @@
     const notes = document.getElementById('setup-notes').value.trim();
     const cardNo = p.cardNo || `HC-${p.matric.replace(/[^0-9]/g, '').slice(-8) || p.id}`;
 
+    // Upload the three documents to the student's private storage folder
+    // before the registration is saved.
+    const submit = document.getElementById('setup-submit');
+    const submitLabel = submit ? submit.innerHTML : '';
+    if (submit) {
+      submit.disabled = true;
+      submit.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading documents...';
+    }
+    const uploads = [];
+    for (const [type, file] of [
+      ['healthReceipt', healthReceipt],
+      ['schoolReceipt', schoolReceipt],
+      ['passportPhoto', passportPhoto]
+    ]) {
+      const result = await uploadRegistrationDocument(p.id, type, file);
+      if (!result.ok) {
+        if (submit) {
+          submit.disabled = false;
+          submit.innerHTML = submitLabel;
+        }
+        showAlert(alert, 'danger', `Document upload failed: ${result.message}`);
+        return;
+      }
+      uploads.push(result);
+    }
+    const [healthUpload, schoolUpload, photoUpload] = uploads;
+    if (submit) {
+      submit.disabled = false;
+      submit.innerHTML = submitLabel;
+    }
+
     patients[patientIndex] = {
       ...p,
       gender,
@@ -822,9 +889,12 @@
       notes,
       cardNo,
       onlineDocuments: {
-        healthReceipt: healthReceipt.name,
-        schoolReceipt: schoolReceipt.name,
-        passportPhotos: [passportPhoto.name]
+        healthReceipt: healthUpload.fileName,
+        healthReceiptPath: healthUpload.path,
+        schoolReceipt: schoolUpload.fileName,
+        schoolReceiptPath: schoolUpload.path,
+        passportPhotos: [photoUpload.fileName],
+        passportPhotoPaths: [photoUpload.path]
       },
       profileComplete: true,
       cardIssued: false
@@ -1101,6 +1171,66 @@
         <td>${r.doctor}</td>
       </tr>`;
     });
+  }
+
+  function loadBills(p) {
+    const bills = Store.get('hcms_bills', []).filter(b => b.patientId === p.id);
+    const tbody = document.getElementById('student-bills-tbody');
+    if (!tbody) return;
+    if (!bills.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted" style="padding:30px">You have no bills.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = [...bills].reverse().map(b => {
+      const items = (b.items || []).map(item => escapeHtml(item.desc)).join(', ');
+      const statusBadge = b.status === 'paid'
+        ? '<span class="badge badge-success">Paid</span>'
+        : '<span class="badge badge-pending">Pending</span>';
+      let receipt;
+      if (b.status === 'paid') {
+        receipt = b.ref ? `Receipt no. ${escapeHtml(b.ref)}` : 'Verified';
+      } else if (b.receipt?.status === 'submitted') {
+        receipt = `<span class="badge badge-info">Awaiting verification</span>
+          <div class="text-muted" style="font-size:11px;margin-top:3px">${escapeHtml(b.receipt.fileName)}</div>`;
+      } else {
+        receipt = `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <input type="file" id="bill-receipt-${b.id}" accept=".pdf,.jpg,.jpeg,.png" style="font-size:11px;max-width:190px"/>
+          <button class="btn btn-sm btn-teal" type="button" id="bill-receipt-btn-${b.id}" onclick="uploadBillReceipt(${b.id})">
+            <i class="fa fa-upload"></i> Upload
+          </button>
+        </div>`;
+      }
+      return `<tr>
+        <td>${formatDate(b.date)}</td>
+        <td style="font-size:12px">${items || '—'}</td>
+        <td><strong>${formatNaira(b.total || 0)}</strong></td>
+        <td>${statusBadge}</td>
+        <td>${receipt}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  async function uploadBillReceipt(billId) {
+    if (!currentStudent) return;
+    const input = document.getElementById(`bill-receipt-${billId}`);
+    const button = document.getElementById(`bill-receipt-btn-${billId}`);
+    const file = input?.files?.[0];
+    if (!file) {
+      toast('Choose your payment receipt first.', 'warning');
+      return;
+    }
+    if (button) {
+      button.disabled = true;
+      button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading';
+    }
+    const result = await submitBillReceipt(currentStudent.patientId, billId, file);
+    const patient = Store.get('hcms_patients', []).find(item => item.id === currentStudent.patientId);
+    if (patient) {
+      loadBills(patient);
+      loadStats(patient);
+    }
+    toast(result.ok ? 'Receipt uploaded. The health centre will verify it shortly.' : result.message,
+      result.ok ? 'success' : 'error', 5000);
   }
 
   function loadProfile(p) {

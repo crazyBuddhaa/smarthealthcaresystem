@@ -265,7 +265,6 @@
   <script src="/api/config.js"></script>
   <script src="assets/js/app.js"></script>
   <script>
-    seedData();
 
     async function createStudentAccount() {
       const surname       = document.getElementById('signup-surname').value.trim();
@@ -307,52 +306,32 @@
         return;
       }
 
-      const patients = Store.get('hcms_patients', []);
-      const alreadyRegistered = patients.some(p => p.matric.toLowerCase() === matric.toLowerCase());
-
-      if (alreadyRegistered) {
-        showSignupAlert(alert, 'warning', `Matric number <strong>${matric}</strong> is already registered. <a href="student-portal.html" style="color:inherit;text-decoration:underline">Login to your portal →</a>`);
-        return;
-      }
-
-      const patientId = Store.nextId('hcms_patients');
       const fullName = [surname, firstName, otherName].filter(Boolean).join(' ');
-      patients.push({
-        id: patientId,
-        matric,
-        name: fullName,
-        surname,
-        firstName,
-        otherName,
-        email,
-        registeredOn: today(),
-        selfRegistered: true,
-        profileComplete: false,
-        cardNo: `HC-${matric.replace(/[^0-9]/g, '').slice(-8) || patientId}`,
-        cardIssued: false
-      });
-      Store.set('hcms_patients', patients);
-
       const submit = document.getElementById('signup-submit');
       if (submit) {
         submit.disabled = true;
         submit.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Creating account...';
       }
+      // The server checks the matric number, creates the sign-in account and
+      // the student profile together.
       const account = await StudentAuth.register({
         matric,
         password,
-        patientId,
+        surname,
+        firstName,
+        otherName,
         name: fullName,
         email
       });
       if (!account.ok) {
-        patients.pop();
-        Store.set('hcms_patients', patients);
         if (submit) {
           submit.disabled = false;
           submit.innerHTML = '<i class="fa fa-user-plus"></i> Create Student Account';
         }
-        showSignupAlert(alert, 'danger', account.message || 'Unable to create the student account.');
+        const duplicate = /already/i.test(account.message || '');
+        showSignupAlert(alert, duplicate ? 'warning' : 'danger', duplicate
+          ? `Matric number <strong>${escapeHtml(matric)}</strong> is already registered. <a href="student-portal.html" style="color:inherit;text-decoration:underline">Login to your portal →</a>`
+          : escapeHtml(account.message || 'Unable to create the student account.'));
         return;
       }
 

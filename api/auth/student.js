@@ -1,22 +1,34 @@
 /**
- * Creates a student in Supabase Auth without exposing the service-role key.
+ * Creates a student account and the matching student profile.
  *
- * Student login still uses the matric number in the UI. The Auth account uses
- * a deterministic internal email alias, while the student's real email is
- * retained as metadata for contact purposes.
+ * Student login uses the matric number in the UI. The Auth account uses a
+ * deterministic internal email alias, while the student's real email is kept
+ * as contact metadata. The profile record is written by the server so that
+ * visitors who are not signed in never need write access to the data store.
  */
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://zuufspuvmssicerrnfug.supabase.co';
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-function json(res, status, body) {
-  res.statusCode = status;
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-store, max-age=0');
-  res.end(JSON.stringify(body));
-}
+const {
+  SUPABASE_URL,
+  SERVICE_ROLE_KEY,
+  json,
+  readBody,
+  serviceHeaders,
+  readStoreValue,
+  writeStoreValue
+} = require('../_lib/supabase');
 
 function authEmailForMatric(matric) {
   return `${String(matric).toLowerCase().replace(/[^a-z0-9._/-]/g, '').replace(/\//g, '-')}@student.carepoint.local`;
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function deleteAuthUser(id) {
+  await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: serviceHeaders()
+  }).catch(() => {});
 }
 
 module.exports = async function studentAuthHandler(req, res) {
@@ -24,24 +36,25 @@ module.exports = async function studentAuthHandler(req, res) {
     res.setHeader('Allow', 'POST');
     return json(res, 405, { message: 'Method not allowed.' });
   }
-
   if (!SERVICE_ROLE_KEY) {
     return json(res, 503, { message: 'Student authentication is not configured on the server.' });
   }
 
   let details;
   try {
-    details = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+    details = readBody(req);
   } catch {
     return json(res, 400, { message: 'Invalid request body.' });
   }
   const matric = String(details.matric || '').trim().toUpperCase();
   const password = String(details.password || '');
-  const name = String(details.name || '').trim();
+  const surname = String(details.surname || '').trim();
+  const firstName = String(details.firstName || '').trim();
+  const otherName = String(details.otherName || '').trim();
+  const name = String(details.name || [surname, firstName, otherName].filter(Boolean).join(' ')).trim();
   const contactEmail = String(details.email || '').trim().toLowerCase();
-  const patientId = Number(details.patientId);
 
-  if (!matric || !name || !contactEmail || !Number.isInteger(patientId) || patientId < 1) {
+  if (!/^[A-Z0-9/._-]{4,40}$/.test(matric) || !name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
     return json(res, 400, { message: 'Student account details are incomplete.' });
   }
   if (password.length < 6) {
@@ -49,26 +62,22 @@ module.exports = async function studentAuthHandler(req, res) {
   }
 
   try {
-    const response = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/auth/v1/admin/users`, {
+    const patients = await readStoreValue('hcms_patients', []);
+    const list = Array.isArray(patients) ? patients : [];
+    if (list.some(patient => String(patient.matric || '').toUpperCase() === matric)) {
+      return json(res, 409, { message: 'A student with that matric number is already registered.' });
+    }
+    const patientId = list.reduce((max, patient) => Math.max(max, Number(patient.id) || 0), 0) + 1;
+
+    const response = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
       method: 'POST',
-      headers: {
-        apikey: SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-        'Content-Type': 'application/json'
-      },
+      headers: serviceHeaders(),
       body: JSON.stringify({
         email: authEmailForMatric(matric),
         password,
         email_confirm: true,
-        user_metadata: {
-          role: 'student',
-          username: matric,
-          matric,
-          patientId,
-          name,
-          contactEmail,
-          active: true
-        }
+        app_metadata: { role: 'student', active: true, patientId },
+        user_metadata: { username: matric, matric, name, contactEmail }
       })
     });
     const body = await response.json().catch(() => ({}));
@@ -80,17 +89,32 @@ module.exports = async function studentAuthHandler(req, res) {
       });
     }
 
+    try {
+      list.push({
+        id: patientId,
+        matric,
+        name,
+        surname,
+        firstName,
+        otherName,
+        email: contactEmail,
+        registeredOn: today(),
+        selfRegistered: true,
+        profileComplete: false,
+        cardNo: `HC-${matric.replace(/[^0-9]/g, '').slice(-8) || patientId}`,
+        cardIssued: false
+      });
+      await writeStoreValue('hcms_patients', list);
+    } catch (error) {
+      await deleteAuthUser(body.id);
+      throw error;
+    }
+
     return json(res, 201, {
       ok: true,
-      user: {
-        id: body.id,
-        email: body.email,
-        username: matric,
-        role: 'student',
-        patientId
-      }
+      user: { id: body.id, username: matric, role: 'student', patientId }
     });
   } catch (error) {
-    return json(res, 502, { message: error.message || 'Unable to reach Supabase Auth.' });
+    return json(res, 502, { message: error.message || 'Unable to reach Supabase.' });
   }
 };

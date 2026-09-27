@@ -508,7 +508,9 @@
     const p = patients.find(x => x.id === patientId);
     if (!p) return;
 
-    if (!facultyEligibleOnDate(p.faculty, today())) {
+    // Urgent cases are always seen, whatever the faculty clinic calendar says.
+    const urgent = document.getElementById('q-priority').value === 'urgent';
+    if (!urgent && !facultyEligibleOnDate(p.faculty, today())) {
       const block = facultyScheduleForDate(today());
       toast(
         block

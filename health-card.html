@@ -498,23 +498,28 @@
 <script src="/api/config.js"></script>
 <script src="assets/js/app.js"></script>
 <script>
-  seedData();
-
   function loadCard() {
     // Check URL param first. A newly issued card is represented in Supabase.
     const params   = new URLSearchParams(window.location.search);
     const matricP  = params.get('matric');
 
     let p = null;
+    const viewer = Auth.current();
+    const staffViewing = Boolean(viewer) && viewer.role !== 'student';
 
-    if (matricP) {
-      p = Store.get('hcms_patients',[]).find(x => x.matric.toLowerCase() === matricP.toLowerCase());
-    }
-
-    // Staff viewing a student card
-    if (!p && Auth.current()) {
+    if (viewer?.role === 'student') {
+      // Students can only open their own card.
+      p = Store.get('hcms_patients',[]).find(x => x.id === viewer.patientId);
+    } else if (staffViewing) {
       const pidParam = params.get('id');
-      if (pidParam) p = Store.get('hcms_patients',[]).find(x => x.id === parseInt(pidParam));
+      if (matricP) {
+        p = Store.get('hcms_patients',[]).find(x => x.matric.toLowerCase() === matricP.toLowerCase());
+      } else if (pidParam) {
+        p = Store.get('hcms_patients',[]).find(x => x.id === parseInt(pidParam));
+      }
+    } else {
+      window.location.href = 'login.html';
+      return;
     }
 
     if (!p) {
@@ -528,12 +533,15 @@
 
     const workflow = getRegistrationWorkflow(p.id);
     const cardIssued = !workflow || (p.cardIssued === true && workflow.reviewStatus === 'approved');
-    const staffViewing = !!Auth.current();
     if (workflow && !cardIssued && !staffViewing) {
+      // The card becomes available only after final approval.
+      document.getElementById('card-subtitle').textContent = 'Your card has not been activated yet.';
       document.getElementById('card-notice').style.display = 'flex';
       document.getElementById('card-notice-text').innerHTML =
-        '<strong>Preview only:</strong> this card is not activated yet. Check your student portal after the appointment for the approval result.';
-      document.querySelector('.card-actions button').innerHTML = '<i class="fa fa-eye"></i> Print Preview';
+        'Your Health Centre Card will be available here after your registration is approved. Check your student portal for the result.';
+      document.querySelector('.cards-wrapper').style.display = 'none';
+      document.querySelector('.card-actions button').style.display = 'none';
+      return;
     }
 
     // Get appointment

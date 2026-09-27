@@ -326,7 +326,8 @@
          <td style="font-size:11px">
            ${b.receipt
              ? `<span class="badge ${b.receipt.status === 'verified' ? 'badge-success' : 'badge-info'}">${b.receipt.status === 'verified' ? 'Verified' : 'Submitted'}</span>
-                <div style="color:var(--eksu-muted);margin-top:3px">${escapeHtml(b.receipt.fileName)}</div>`
+                <div style="color:var(--eksu-muted);margin-top:3px">${escapeHtml(b.receipt.fileName)}</div>
+                ${b.receipt.path ? `<button class="btn btn-sm btn-outline-teal" style="margin-top:4px" type="button" data-path="${escapeHtml(b.receipt.path)}" onclick="openRegistrationDocument(this.dataset.path, 'view')"><i class="fa fa-eye"></i> Open</button>` : ''}`
              : '<span class="text-muted">Not submitted</span>'}
          </td>
         <td>
@@ -378,7 +379,7 @@
       </table>
       <div style="display:flex;justify-content:space-between;font-size:13px">
         <div><strong>Status:</strong> <span class="badge ${b.status==='paid'?'badge-success':'badge-warning'}">${b.status.toUpperCase()}</span></div>
-         ${b.ref ? `<div><strong>Receipt Ref:</strong> ${escapeHtml(b.ref)}</div>` : ''}
+         ${b.ref ? `<div><strong>Receipt Ref:</strong> ${escapeHtml(b.ref)}${b.method ? ` · ${escapeHtml(b.method)}` : ''}</div>` : ''}
          ${b.receipt ? `<div style="margin-top:8px"><strong>Uploaded receipt:</strong> ${escapeHtml(b.receipt.fileName)}<br>
            <span style="font-size:11px;color:var(--eksu-muted)">${b.receipt.status === 'verified' ? 'Verified' : 'Awaiting verification'} · ${formatDate(b.receipt.submittedOn)}</span>
          </div>` : ''}
@@ -397,7 +398,10 @@
     document.getElementById('pay-info').innerHTML = `
       <div class="alert alert-info" style="margin:0">
         <i class="fa fa-info-circle"></i>
-        <div>Recording payment for <strong>${b.name}</strong>. Invoice amount: <strong>${formatNaira(b.total)}</strong></div>
+        <div>Recording payment for <strong>${b.name}</strong>. Invoice amount: <strong>${formatNaira(b.total)}</strong>
+          ${b.receipt?.path ? `<div style="margin-top:6px">The student uploaded a receipt (${escapeHtml(b.receipt.fileName)}).
+            <button class="btn btn-sm btn-outline-teal" type="button" data-path="${escapeHtml(b.receipt.path)}" onclick="openRegistrationDocument(this.dataset.path, 'view')"><i class="fa fa-eye"></i> Check receipt</button></div>` : ''}
+        </div>
       </div>`;
     document.getElementById('pay-ref').value = '';
     document.getElementById('pay-method').value = '';
@@ -408,12 +412,16 @@
     e.preventDefault();
     const id  = parseInt(document.getElementById('pay-bill-id').value);
     const ref = document.getElementById('pay-ref').value.trim();
+    const method = document.getElementById('pay-method').value;
+    if (!method) { toast('Please select the payment method.', 'error'); return; }
     if (!ref) { toast('Please enter a receipt/reference number.', 'error'); return; }
     const bills = Store.get('hcms_bills', []);
     const b = bills.find(x => x.id === id);
     if (!b) return;
     b.status = 'paid';
     b.ref    = ref;
+    b.method = method;
+    b.paidOn = today();
     if (b.receipt) b.receipt.status = 'verified';
     Store.set('hcms_bills', bills);
     closeModal('pay-modal');

@@ -1,44 +1,20 @@
 /**
- * Returns a short-lived signed URL for a registration document.
+ * Returns a short-lived signed URL for a registration document or a bill
+ * payment receipt uploaded by a student.
  *
  * The bucket remains private. The browser sends the current Supabase Auth
  * access token, this function verifies that the caller is active staff, and
  * only then asks Supabase Storage for a temporary URL.
  */
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://zuufspuvmssicerrnfug.supabase.co';
-const ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const {
+  SUPABASE_URL,
+  SERVICE_ROLE_KEY,
+  STAFF_ROLES,
+  json,
+  verifyRole
+} = require('../_lib/supabase');
+
 const BUCKET = 'hcms-registration-documents';
-const STAFF_ROLES = new Set(['admin', 'doctor', 'nurse', 'cashier']);
-
-function json(res, status, body) {
-  res.statusCode = status;
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-store, max-age=0');
-  res.end(JSON.stringify(body));
-}
-
-function requestToken(req) {
-  const header = req.headers.authorization || '';
-  return header.startsWith('Bearer ') ? header.slice(7).trim() : '';
-}
-
-async function verifyStaff(req) {
-  const token = requestToken(req);
-  if (!token || !SERVICE_ROLE_KEY) return null;
-
-  const response = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/auth/v1/user`, {
-    headers: {
-      apikey: ANON_KEY || SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${token}`
-    }
-  });
-  if (!response.ok) return null;
-
-  const user = await response.json().catch(() => null);
-  const metadata = user?.user_metadata || {};
-  return metadata.active !== false && STAFF_ROLES.has(metadata.role) ? user : null;
-}
 
 function storagePath(path) {
   return String(path || '')
@@ -63,7 +39,7 @@ function signedUrlFromResponse(body) {
 
 function absoluteStorageUrl(value) {
   if (value.startsWith('http://') || value.startsWith('https://')) return value;
-  const base = SUPABASE_URL.replace(/\/$/, '');
+  const base = SUPABASE_URL;
   return value.startsWith('/storage/v1/')
     ? `${base}${value}`
     : `${base}/storage/v1${value.startsWith('/') ? value : `/${value}`}`;
@@ -71,7 +47,7 @@ function absoluteStorageUrl(value) {
 
 async function findDocumentPath(patientId, type) {
   const response = await fetch(
-    `${SUPABASE_URL.replace(/\/$/, '')}/storage/v1/object/list/${encodeURIComponent(BUCKET)}`,
+    `${SUPABASE_URL}/storage/v1/object/list/${encodeURIComponent(BUCKET)}`,
     {
       method: 'POST',
       headers: {
@@ -108,7 +84,7 @@ module.exports = async function registrationStorageHandler(req, res) {
     return json(res, 503, { message: 'Registration document storage is not configured on the server.' });
   }
 
-  const caller = await verifyStaff(req);
+  const caller = await verifyRole(req, STAFF_ROLES);
   if (!caller) return json(res, 403, { message: 'Active staff authorization is required.' });
 
   const requestUrl = new URL(req.url || '/', 'http://localhost');
@@ -127,14 +103,14 @@ module.exports = async function registrationStorageHandler(req, res) {
     }
     if (!path) return json(res, 404, { message: 'The uploaded document could not be found in storage.' });
   }
-  if (!/^registration\/\d+\/[a-z0-9._-]+$/i.test(path) || path.includes('..')) {
-    return json(res, 400, { message: 'Invalid registration document path.' });
+  if (!/^(registration|receipts)\/\d+\/[a-z0-9._-]+$/i.test(path) || path.includes('..')) {
+    return json(res, 400, { message: 'Invalid document path.' });
   }
 
   const fileName = path.split('/').pop() || 'registration-document';
   try {
     const response = await fetch(
-      `${SUPABASE_URL.replace(/\/$/, '')}/storage/v1/object/sign/${encodeURIComponent(BUCKET)}`,
+      `${SUPABASE_URL}/storage/v1/object/sign/${encodeURIComponent(BUCKET)}`,
       {
         method: 'POST',
         headers: {
