@@ -49,10 +49,6 @@
     @media (max-width: 520px) {
       .dashboard-action-grid { grid-template-columns:1fr; }
     }
-    #staff-login-view .login-card { max-width: 500px; }
-    #staff-login-view .login-brand { justify-content: center; }
-    #staff-login-view .login-body { padding: 22px 24px 18px; }
-    #staff-login-view .login-footer { text-align: center; }
     .dashboard-section-heading {
       display:flex;
       align-items:end;
@@ -148,54 +144,6 @@
 </head>
 <body class="dashboard-page">
 
-<div id="staff-login-view" class="login-page" style="display:none">
-  <div class="login-bg"></div>
-  <div class="login-bg-overlay"></div>
-  <div class="login-card">
-    <div class="login-brand">
-      <a href="index.html"><img src="assets/images/healthcare_logo.svg" alt="CarePoint Health Centre"/></a>
-      <div class="login-brand-title"><i class="fa fa-lock"></i> STAFF SIGN-IN</div>
-    </div>
-    <div class="login-body">
-      <div id="staff-login-alert" style="display:none;margin-bottom:12px"></div>
-      <p class="text-center text-muted" style="font-size:13px;margin:0 0 16px">
-        Sign in with your staff ID to open your CarePoint operations dashboard.
-      </p>
-      <form id="staff-login-form" class="auth-form" onsubmit="staffDashboardLogin(event)">
-        <div class="field-group">
-          <div class="field-label"><i class="fa fa-user"></i> Staff ID</div>
-          <input
-            type="text"
-            id="staff-dashboard-username"
-            placeholder="Enter your staff ID"
-            autocomplete="username"
-            maxlength="50"
-            required
-          />
-        </div>
-        <div class="field-group">
-          <div class="field-label"><i class="fa fa-key"></i> Password</div>
-          <input
-            type="password"
-            id="staff-dashboard-password"
-            placeholder="Enter your password"
-            autocomplete="current-password"
-            required
-          />
-        </div>
-        <button type="submit" id="staff-login-submit" class="btn btn-red btn-block">
-          <i class="fa fa-sign-in"></i> Sign in to dashboard
-        </button>
-      </form>
-      <p class="text-center text-muted" style="font-size:12px;margin:14px 0 0">
-        Student?
-        <a href="student-portal.html" style="color:var(--eksu-red);font-weight:700">Use student sign in</a>
-      </p>
-    </div>
-    <div class="login-footer">CarePoint Health Centre &copy; 2026</div>
-  </div>
-</div>
-
 <div id="dashboard-app" style="display:none">
 <!-- Top Navigation -->
 <nav class="topnav">
@@ -289,20 +237,6 @@
       <span class="badge badge-success" id="admin-overview-badge">Everything steady</span>
     </div>
     <div class="admin-overview-grid" id="admin-overview-grid"></div>
-  </section>
-
-  <!-- Admin faculty calendar and direct appointment actions -->
-  <section class="card" id="faculty-schedule-dashboard" style="display:none;margin-top:18px" aria-labelledby="faculty-schedule-dashboard-title">
-    <div class="card-header">
-      <div>
-        <h3 id="faculty-schedule-dashboard-title"><i class="fa fa-calendar"></i> Faculty clinic plan</h3>
-        <p class="text-muted" style="font-size:12px;margin:4px 0 0">
-          See which faculty is scheduled and move upcoming appointments without leaving the admin workspace.
-        </p>
-      </div>
-      <a href="queue-settings.html" class="btn btn-sm btn-teal"><i class="fa fa-sliders"></i> Manage calendar</a>
-    </div>
-    <div class="card-body" id="faculty-schedule-dashboard-body"></div>
   </section>
 
   <!-- Role-specific workspace -->
@@ -420,12 +354,6 @@
     existingUser.role !== 'student' &&
     existingUser.role !== 'unassigned'
   );
-
-  if (isAuthenticatedStaff) {
-    currentUser = initPage();
-    user = currentUser;
-    document.getElementById('dashboard-app').style.display = 'block';
-  }
 
   const DASHBOARD_ROLE_PROFILES = {
     admin: {
@@ -567,77 +495,6 @@
     overview.style.display = 'block';
   }
 
-  function renderAdminFacultyCalendar() {
-    const section = document.getElementById('faculty-schedule-dashboard');
-    const body = document.getElementById('faculty-schedule-dashboard-body');
-    if (user.role !== 'admin') {
-      section.style.display = 'none';
-      return;
-    }
-
-    const todayValue = today();
-    const blocks = getFacultySchedule()
-      .filter(block => block.endDate >= todayValue)
-      .slice(0, 8);
-    const upcomingAppointments = Store.get('hcms_appointments', [])
-      .filter(appointment =>
-        appointment.date >= todayValue &&
-        !['cancelled', 'completed'].includes(appointment.status)
-      )
-      .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))
-      .slice(0, 8);
-
-    const blocksMarkup = blocks.length
-      ? blocks.map(block => `
-          <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border-bottom:1px solid var(--eksu-border);padding:9px 0">
-            <div>
-              <strong style="font-size:13px">${escapeHtml(block.faculty)}</strong>
-              <div style="font-size:11px;color:var(--eksu-muted);margin-top:3px">
-                ${formatDate(block.startDate)}${block.startDate !== block.endDate ? ` – ${formatDate(block.endDate)}` : ''}
-              </div>
-            </div>
-            <span class="badge badge-info">${escapeHtml(block.note || 'Clinic block')}</span>
-          </div>`).join('')
-      : '<p class="text-muted" style="font-size:12px;margin:0">No faculty blocks configured. General appointment scheduling is active.</p>';
-
-    const appointmentsMarkup = upcomingAppointments.length
-      ? `<div class="table-wrapper"><table>
-          <thead><tr><th>Date</th><th>Student</th><th>Faculty</th><th>Time</th><th>Action</th></tr></thead>
-          <tbody>${upcomingAppointments.map(appointment => {
-            const patient = Store.get('hcms_patients', []).find(item => item.id === appointment.patientId);
-            const faculty = appointment.faculty || patient?.faculty || 'Not provided';
-            return `<tr>
-              <td>${formatDate(appointment.date)}</td>
-              <td>${escapeHtml(appointment.name || 'Student')}</td>
-              <td>${escapeHtml(faculty)}</td>
-              <td>${escapeHtml(appointment.time || '—')}</td>
-              <td><a class="btn btn-sm btn-outline-red" href="appointment.html?reschedule=${encodeURIComponent(appointment.id)}">
-                <i class="fa fa-calendar"></i> Reschedule
-              </a></td>
-            </tr>`;
-          }).join('')}</tbody>
-        </table></div>`
-      : '<p class="text-muted" style="font-size:12px;margin:0">No upcoming active appointments need attention.</p>';
-
-    body.innerHTML = `
-      <div class="dashboard-content-grid" style="margin:0 0 18px">
-        <div>
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--eksu-muted);margin-bottom:4px">Upcoming faculty blocks</div>
-          ${blocksMarkup}
-        </div>
-        <div>
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--eksu-muted);margin-bottom:4px">Scheduling rule</div>
-          <p style="font-size:12px;line-height:1.5;margin:0">
-            Students are automatically offered appointment dates that match their faculty.
-            A one-day block can be used when faculties rotate daily; a Monday–Friday block can be used for a full faculty week.
-          </p>
-        </div>
-      </div>
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--eksu-muted);margin-bottom:4px">Upcoming appointments</div>
-      ${appointmentsMarkup}`;
-    section.style.display = 'block';
-  }
-
   function renderDashboard() {
     const patients = Store.get('hcms_patients', []);
     const queue    = queueEntriesForDate(today());
@@ -654,7 +511,6 @@
         ? 'Per group'
         : Math.max(capacity.remaining, 0);
     renderAdminOverview(queue, bills, appointments);
-    renderAdminFacultyCalendar();
 
     const statsByRole = {
       admin: [
@@ -775,9 +631,7 @@
       'hcms_queue',
       'hcms_bills',
       'hcms_records',
-      'hcms_staff_tasks',
-      'hcms_appointments',
-      'hcms_faculty_schedule'
+      'hcms_staff_tasks'
     ]);
 
     window.addEventListener('hcms-data-changed', event => {
@@ -795,61 +649,13 @@
     });
   }
 
-  async function staffDashboardLogin(event) {
-    event.preventDefault();
-
-    const username = document.getElementById('staff-dashboard-username').value.trim();
-    const password = document.getElementById('staff-dashboard-password').value;
-    const submit = document.getElementById('staff-login-submit');
-    const alert = document.getElementById('staff-login-alert');
-
-    if (!username || !password) {
-      showStaffLoginAlert('warning', 'Enter your staff ID and password to continue.');
-      return;
-    }
-
-    submit.disabled = true;
-    submit.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Signing in...';
-    const loggedInUser = await Auth.login(username, password);
-
-    if (loggedInUser?.role === 'student') {
-      window.location.href = 'student-portal.html';
-      return;
-    }
-
-    if (loggedInUser?.active && loggedInUser.role !== 'unassigned') {
-      user = loggedInUser;
-      currentUser = initPage();
-      document.getElementById('staff-login-view').style.display = 'none';
-      document.getElementById('dashboard-app').style.display = 'block';
-      initializeDashboard();
-      return;
-    }
-
-    submit.disabled = false;
-    submit.innerHTML = '<i class="fa fa-sign-in"></i> Sign in to dashboard';
-    showStaffLoginAlert('danger', 'Invalid staff ID or password, or your staff role is inactive.');
-  }
-
-  function showStaffLoginAlert(type, message) {
-    const alert = document.getElementById('staff-login-alert');
-    const icons = {
-      danger: 'fa-times-circle',
-      warning: 'fa-exclamation-triangle',
-      success: 'fa-check-circle',
-      info: 'fa-info-circle'
-    };
-    alert.style.display = 'flex';
-    alert.className = `alert alert-${type}`;
-    alert.innerHTML = `<i class="fa ${icons[type] || icons.info}"></i><div>${message}</div>`;
-  }
-
   if (isAuthenticatedStaff) {
+    currentUser = initPage();
+    user = currentUser;
+    document.getElementById('dashboard-app').style.display = 'block';
     initializeDashboard();
-  } else if (existingUser?.role === 'student') {
-    window.location.href = 'student-portal.html';
   } else {
-    document.getElementById('staff-login-view').style.display = 'flex';
+    window.location.replace('login.html');
   }
 </script>
 </body>
