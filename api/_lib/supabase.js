@@ -39,7 +39,8 @@ function serviceHeaders(extra = {}) {
 
 function trustedAccess(user) {
   const app = user?.app_metadata || {};
-  const role = String(app.role || '').toLowerCase();
+  const declared = String(app.role || '').trim().toLowerCase();
+  const role = declared === 'administrator' ? 'admin' : declared;
   return {
     role,
     active: app.active !== false && role !== '' && role !== 'unassigned',

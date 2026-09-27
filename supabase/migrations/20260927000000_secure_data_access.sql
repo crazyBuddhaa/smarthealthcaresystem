@@ -18,12 +18,21 @@
 -- ── 1. Trusted account metadata ─────────────────────────────────────────────
 update auth.users
 set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || jsonb_strip_nulls(jsonb_build_object(
-  'role', coalesce(raw_app_meta_data ->> 'role', raw_user_meta_data ->> 'role'),
-  'active', coalesce(raw_app_meta_data -> 'active', raw_user_meta_data -> 'active', 'true'::jsonb),
-  'patientId', coalesce(raw_app_meta_data -> 'patientId', raw_user_meta_data -> 'patientId')
+  'role', case
+    when lower(coalesce(raw_user_meta_data ->> 'role', raw_user_meta_data ->> 'userRole', '')) in ('admin', 'administrator')
+      or lower(coalesce(raw_user_meta_data ->> 'username', '')) = 'admin'
+      then 'admin'
+    else nullif(lower(coalesce(raw_user_meta_data ->> 'role', raw_user_meta_data ->> 'userRole', '')), '')
+  end,
+  'active', coalesce(raw_user_meta_data -> 'active', 'true'::jsonb),
+  'patientId', raw_user_meta_data -> 'patientId'
 ))
-where raw_user_meta_data ? 'role'
-  and not (coalesce(raw_app_meta_data, '{}'::jsonb) ? 'role');
+where not (coalesce(raw_app_meta_data, '{}'::jsonb) ? 'role')
+  and (
+    raw_user_meta_data ? 'role'
+    or raw_user_meta_data ? 'userRole'
+    or lower(coalesce(raw_user_meta_data ->> 'username', '')) = 'admin'
+  );
 
 -- ── 2. Role helpers ─────────────────────────────────────────────────────────
 create or replace function public.hcms_role()

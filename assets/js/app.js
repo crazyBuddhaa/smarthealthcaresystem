@@ -385,9 +385,12 @@ function normalizedAuthUser(user) {
   const username = metadata.username || metadata.matric || user.email || '';
   // app_metadata can only be written by the server, so it is the trusted
   // source of the role, account status and patient link.
-  const declaredRole = appMetadata.role || metadata.role || '';
+  // Older accounts may carry the role as user_metadata.role or .userRole, or
+  // be identified by the admin username; keep accepting those for display.
+  const declaredRole = appMetadata.role || metadata.role || metadata.userRole || '';
   const normalizedRole = String(declaredRole).trim().toLowerCase();
-  const role = ['admin', 'administrator'].includes(normalizedRole)
+  const role = ['admin', 'administrator'].includes(normalizedRole) ||
+      String(username).trim().toLowerCase() === 'admin'
     ? 'admin'
     : normalizedRole || 'student';
   const activeValue = appMetadata.active !== undefined ? appMetadata.active : metadata.active;
