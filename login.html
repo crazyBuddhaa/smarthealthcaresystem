@@ -199,7 +199,12 @@
 
       submit.disabled = false;
       submit.innerHTML = '<i class="fa fa-sign-in"></i> Sign in';
-      showLoginAlert('danger', 'Invalid username or password, or your account does not have an active role.');
+      showLoginAlert(
+        'danger',
+        user
+          ? 'Your account was recognized, but it does not have an active CarePoint role. Ask an administrator to activate the account.'
+          : 'Invalid username or password. Use your matric number, staff ID, or account email.'
+      );
     }
 
     function togglePwd() {
