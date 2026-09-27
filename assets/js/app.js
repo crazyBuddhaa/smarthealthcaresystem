@@ -287,16 +287,26 @@ function decodeJwtPayload(token) {
 function normalizedAuthUser(user) {
   if (!user) return null;
   const metadata = user.user_metadata || {};
-  const role = metadata.role || 'student';
+  const appMetadata = user.app_metadata || {};
+  const username = metadata.username || metadata.matric || user.email || '';
+  const declaredRole = metadata.role || appMetadata.role || metadata.userRole || '';
+  const normalizedRole = String(declaredRole).trim().toLowerCase();
+  const role = ['admin', 'administrator'].includes(normalizedRole) ||
+      String(username).trim().toLowerCase() === 'admin'
+    ? 'admin'
+    : normalizedRole || 'student';
+  const active = metadata.active !== false &&
+    String(metadata.active).toLowerCase() !== 'false' &&
+    role !== 'unassigned';
   return {
     id: user.id,
     email: user.email || '',
-    username: metadata.username || metadata.matric || user.email || '',
+    username,
     name: metadata.name || metadata.full_name || metadata.matric || user.email || 'CarePoint user',
     role,
     patientId: metadata.patientId ? parseInt(metadata.patientId) : null,
     matric: metadata.matric || '',
-    active: metadata.active !== false && role !== 'unassigned'
+    active
   };
 }
 
