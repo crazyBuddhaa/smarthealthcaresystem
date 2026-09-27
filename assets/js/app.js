@@ -33,6 +33,17 @@ function supabaseStoreHeaders() {
     'Content-Type': 'application/json'
   };
 }
+// Students have no direct access to hcms_store. Their portal reads and changes
+// only their own records through the api/student/data.js server function.
+function storeSessionRole() {
+  try {
+    const session = JSON.parse(sessionStorage.getItem('carepoint_auth_session') || 'null');
+    return String(session?.user?.app_metadata?.role || '').trim().toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
 const SUPABASE_REGISTRATION_BUCKET = 'hcms-registration-documents';
 const REGISTRATION_DOCUMENT_MAX_SIZE = 10 * 1024 * 1024;
 
@@ -41,6 +52,7 @@ const Store = {
   remote: Boolean(supabaseStoreUrl && supabaseConfig.anonKey),
   writeQueue: Promise.resolve(),
   lastError: null,
+  studentMode: false,
 
   bootstrap() {
     if (!this.remote) {
@@ -51,6 +63,12 @@ const Store = {
     // Visitors who are not signed in have no data access; public pages such
     // as the login and sign-up screens do not need the shared store.
     if (!storeAccessToken()) return;
+
+    if (storeSessionRole() === 'student') {
+      this.studentMode = true;
+      this.bootstrapStudent();
+      return;
+    }
 
     // The existing multi-page UI uses synchronous Store.get calls during
     // script startup. Load the small key/value snapshot before those scripts
@@ -73,6 +91,30 @@ const Store = {
     }
   },
 
+  // Loads only the signed-in student's own records from the server function.
+  bootstrapStudent() {
+    try {
+      const request = new XMLHttpRequest();
+      request.open('GET', '/api/student/data', false);
+      request.setRequestHeader('Authorization', `Bearer ${storeAccessToken()}`);
+      request.send();
+      if (request.status < 200 || request.status >= 300) {
+        throw new Error(`Student data request returned HTTP ${request.status}.`);
+      }
+      this.applySnapshot(JSON.parse(request.responseText || '{}').data);
+    } catch (error) {
+      this.lastError = error;
+      console.error('Unable to load student data.', error);
+    }
+  },
+
+  applySnapshot(data) {
+    if (!data || typeof data !== 'object') return;
+    Object.entries(data).forEach(([key, value]) => {
+      this.cache[key] = value;
+    });
+  },
+
   get(key, def = []) {
     return Object.prototype.hasOwnProperty.call(this.cache, key) ? this.cache[key] : def;
   },
@@ -81,7 +123,8 @@ const Store = {
     this.cache[key] = val;
     window.dispatchEvent(new CustomEvent('hcms-data-changed', { detail: { key, value: val } }));
 
-    if (!this.remote) return;
+    // Student changes are made through StudentData on the server.
+    if (!this.remote || this.studentMode) return;
     this.writeQueue = this.writeQueue
       .catch(() => {})
       .then(() => fetch(`${supabaseStoreUrl}?on_conflict=key`, {
@@ -294,17 +337,10 @@ const FACULTY_OPTIONS = [
   'Social Sciences'
 ];
 
-function normalizeFaculty(value) {
-  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
-function validFacultyBlock(block) {
-  return Boolean(block) &&
-    typeof block.faculty === 'string' && block.faculty.trim() &&
-    /^\d{4}-\d{2}-\d{2}$/.test(String(block.startDate || '')) &&
-    /^\d{4}-\d{2}-\d{2}$/.test(String(block.endDate || '')) &&
-    block.startDate <= block.endDate;
-}
+// The calendar rules live in assets/js/scheduling.js so the server applies
+// the same rules when it schedules a student's appointment.
+const normalizeFaculty = CarePointScheduling.normalizeFaculty;
+const validFacultyBlock = CarePointScheduling.validFacultyBlock;
 
 function getFacultySchedule() {
   const saved = Store.get('hcms_faculty_schedules', []);
@@ -347,9 +383,7 @@ function facultyCalendarActive(fromDate = today()) {
 }
 
 function facultyEligibleOnDate(faculty, dateValue) {
-  if (!facultyCalendarActive()) return true;
-  const block = facultyScheduleForDate(dateValue);
-  return Boolean(block) && normalizeFaculty(block.faculty) === normalizeFaculty(faculty);
+  return CarePointScheduling.facultyEligibleOnDate(getFacultySchedule(), faculty, dateValue, today());
 }
 
 function readAuthSession() {
@@ -664,6 +698,46 @@ const StudentAuth = {
   }
 };
 
+// ── Student data requests ────────────────────────────────────────────────────
+// Every change a student makes goes through api/student/data.js, which checks
+// the student's token and changes only that student's own entries. The reply
+// carries the student's refreshed records, which replace the local copy.
+const StudentData = {
+  async request(action, payload = {}) {
+    try {
+      const response = await fetch('/api/student/data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${Auth.accessToken()}`
+        },
+        body: JSON.stringify({ ...payload, action })
+      });
+      const body = await response.json().catch(() => ({}));
+      if (body.data) Store.applySnapshot(body.data);
+      if (!response.ok) return { ok: false, message: body.message || 'The request could not be completed.' };
+      return { ok: true, appointment: body.appointment || null };
+    } catch (error) {
+      return { ok: false, message: error.message || 'Unable to reach the server.' };
+    }
+  },
+  completeProfile(profile, documents) {
+    return this.request('complete-profile', { profile, documents });
+  },
+  ensureAppointment() {
+    return this.request('ensure-appointment');
+  },
+  submitBillReceipt(billId, receipt) {
+    return this.request('submit-bill-receipt', { billId, receipt });
+  },
+  requestReschedule(date, time, reason) {
+    return this.request('request-reschedule', { date, time, reason });
+  },
+  requestFollowUp(reason) {
+    return this.request('request-follow-up', { reason });
+  }
+};
+
 // ── Student health-centre registration journey ───────────────────────────────
 // Online submissions are persisted through the Supabase Store layer. A
 // production deployment should still add server-side document storage rules.
@@ -727,40 +801,7 @@ const REGISTRATION_STEP_DEFINITIONS = [
 ];
 
 function createRegistrationWorkflow(patientId, details = {}) {
-  const steps = REGISTRATION_STEP_DEFINITIONS.map(step => ({
-    key: step.key,
-    status: 'pending',
-    completedOn: null
-  }));
-
-  const documents = details.documents || {};
-  const completeKeys = [
-    details.paymentRef || documents.healthReceipt ? 'fee-paid' : null,
-    documents.healthReceipt && documents.schoolReceipt ? 'documents-uploaded' : null,
-    documents.passportPhotos?.length ? 'passport-photos-uploaded' : null,
-    details.formSubmitted ? 'form-submitted' : null,
-    details.appointmentDate && details.appointmentTime ? 'appointment-booked' : null
-  ].filter(Boolean);
-
-  completeKeys.forEach(key => {
-    const step = steps.find(item => item.key === key);
-    step.status = 'complete';
-    step.completedOn = today();
-  });
-
-  return {
-    patientId,
-    paymentRef: details.paymentRef || '',
-    appointmentDate: details.appointmentDate || '',
-    appointmentTime: details.appointmentTime || '',
-    documents,
-    documentReviewStatus: details.documentReviewStatus || 'awaiting-review',
-    reviewStatus: details.reviewStatus || 'awaiting-document-review',
-    resultStatus: details.resultStatus || 'pending-review',
-    createdOn: today(),
-    updatedOn: today(),
-    steps
-  };
+  return CarePointScheduling.buildRegistrationWorkflow(patientId, details, today());
 }
 
 function getRegistrationWorkflow(patientId) {
@@ -973,17 +1014,8 @@ const StaffAdmin = {
   }
 };
 
-const AUTOMATIC_APPOINTMENT_SLOTS = [
-  '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
-  '11:00', '11:30', '12:00', '14:00', '14:30', '15:00'
-];
-
-function timeToMinutes(value) {
-  const [hours, minutes] = String(value || '').split(':').map(Number);
-  return Number.isFinite(hours) && Number.isFinite(minutes)
-    ? hours * 60 + minutes
-    : null;
-}
+const AUTOMATIC_APPOINTMENT_SLOTS = CarePointScheduling.AUTOMATIC_APPOINTMENT_SLOTS;
+const timeToMinutes = CarePointScheduling.timeToMinutes;
 
 function localDateKey(date) {
   const year = date.getFullYear();
@@ -999,48 +1031,18 @@ function dateAfterDays(days) {
   return localDateKey(date);
 }
 
+// Staff pages schedule in the browser with the full data set. Students never
+// hold the full appointment list; their scheduling runs in api/student/data.js
+// with the same rules from assets/js/scheduling.js.
 function findNextAvailableAppointmentSlot(faculty = '') {
-  const appointments = Store.get('hcms_appointments', []);
-  const queue = Store.get('hcms_queue', []);
-  const currentDate = localDateKey(new Date());
-  const currentTime = timeToMinutes(nowTime());
-
-  for (let offset = 0; offset <= 60; offset += 1) {
-    const date = dateAfterDays(offset);
-    const weekday = new Date(`${date}T00:00:00`).getDay();
-    if (weekday === 0 || weekday === 6) continue;
-    if (!facultyEligibleOnDate(faculty, date)) continue;
-
-    const occupiedTimes = appointments
-      .filter(item => item.date === date && item.status !== 'cancelled')
-      .map(item => item.time);
-
-    // Queue entries represent today's clinic load; future dates have no queue yet.
-    if (date === currentDate) {
-      occupiedTimes.push(
-        ...queue
-          .filter(item => item.status !== 'done')
-          .map(item => item.time)
-      );
-    }
-
-    const isBusy = slot => occupiedTimes.some(occupied => {
-      const occupiedMinutes = timeToMinutes(occupied);
-      const slotMinutes = timeToMinutes(slot);
-      return occupiedMinutes !== null &&
-        slotMinutes !== null &&
-        Math.abs(occupiedMinutes - slotMinutes) < 30;
-    });
-
-    for (const slot of AUTOMATIC_APPOINTMENT_SLOTS) {
-      if (date === currentDate && currentTime !== null && timeToMinutes(slot) <= currentTime) {
-        continue;
-      }
-      if (!isBusy(slot)) return { date, time: slot };
-    }
-  }
-
-  return null;
+  return CarePointScheduling.findNextAvailableSlot({
+    appointments: Store.get('hcms_appointments', []),
+    queue: Store.get('hcms_queue', []),
+    facultyBlocks: getFacultySchedule(),
+    faculty,
+    todayKey: today(),
+    nowMinutes: timeToMinutes(nowTime())
+  });
 }
 
 function appointmentIsActive(appointment) {
@@ -1050,9 +1052,7 @@ function appointmentIsActive(appointment) {
 function scheduleNextAvailableAppointment(patientId, reason = 'Health Centre Registration & General Check-up') {
   const patients = Store.get('hcms_patients', []);
   const patient = patients.find(item => item.id === patientId);
-  if (!patient?.profileComplete) return null;
-  if (patient.selfRegistered && patient.registrationStatus &&
-      patient.registrationStatus !== 'approved') return null;
+  if (!CarePointScheduling.canScheduleRegistrationAppointment(patient)) return null;
 
   const appointments = Store.get('hcms_appointments', []);
   const existing = appointments.find(item =>
@@ -1151,6 +1151,15 @@ async function submitBillReceipt(patientId, billId, file) {
   // only its path and details are stored with the bill.
   const upload = await uploadPrivateDocument('receipts', patientId, `bill-${Number(billId)}`, file);
   if (!upload.ok) return upload;
+
+  if (Store.studentMode) {
+    return StudentData.submitBillReceipt(billId, {
+      path: upload.path,
+      fileName: upload.fileName,
+      fileType: upload.fileType,
+      fileSize: upload.fileSize
+    });
+  }
 
   bill.receipt = {
     path: upload.path,
@@ -1658,10 +1667,11 @@ function seedData() {
     toast('Supabase is not configured. Add SUPABASE_ANON_KEY in Vercel and redeploy.', 'error', 8000);
     return;
   }
-  // Demonstration data is only written by signed-in staff; pages used by
-  // students or visitors never seed the shared store.
+  // Demonstration data is only written by the administrator, the one role
+  // the database allows to write every collection. Other staff, students and
+  // visitors never seed the shared store.
   const seedUser = Auth.current();
-  if (!seedUser || seedUser.role === 'student') return;
+  if (!seedUser || seedUser.role !== 'admin') return;
   if (Store.get('hcms_seeded', false)) {
     ensureSyntheticStudentSeed();
     ensureSyntheticOperationalSeed();
@@ -1837,9 +1847,35 @@ function initSidebarToggle() {
 }
 
 // ── Shared layout init (called on every inner page) ───────────────────────────
+// Pages limited to particular staff roles. The database policies apply the
+// same limits to the collections these pages change (see the migrations).
+const PAGE_ROLES = {
+  'billing.html': ['admin', 'cashier'],
+  'records.html': ['admin', 'doctor', 'nurse'],
+  'staff-management.html': ['admin'],
+  'queue-settings.html': ['admin']
+};
+
+function pageAllowedForRole(page, role) {
+  const roles = PAGE_ROLES[page];
+  return !roles || roles.includes(role);
+}
+
+function hideLinksOutsideRole(role) {
+  document.querySelectorAll('.sidebar-item a[href]').forEach(link => {
+    const page = link.getAttribute('href').split('?')[0];
+    if (!pageAllowedForRole(page, role)) link.closest('.sidebar-item').style.display = 'none';
+  });
+}
+
 function initPage() {
   const user = Auth.require();
   if (!user) return null;
+  const page = (window.location.pathname.split('/').pop() || 'dashboard.html').replace(/^([^.]+)$/, '$1.html');
+  if (!pageAllowedForRole(page, user.role)) {
+    window.location.href = 'dashboard.html';
+    return null;
+  }
   seedData();
   setActiveNav();
   renderTopnavUser();
@@ -1847,11 +1883,13 @@ function initPage() {
   document.querySelectorAll('[data-admin-only]').forEach(item => {
     item.style.display = user.role === 'admin' ? '' : 'none';
   });
+  hideLinksOutsideRole(user.role);
   return user;
 }
 
 // ── Export (for inline scripts) ───────────────────────────────────────────────
 window.Store    = Store;
+window.StudentData = StudentData;
 window.Auth     = Auth;
 window.toast    = toast;
 window.openModal  = openModal;

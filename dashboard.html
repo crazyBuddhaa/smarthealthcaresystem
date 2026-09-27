@@ -212,7 +212,7 @@
   <div class="dashboard-hero" id="welcome-msg">
     <div class="dashboard-hero-copy">
       <div class="dashboard-kicker"><i class="fa fa-heartbeat"></i> CarePoint operations</div>
-      <h2>Good evening, <span id="welcome-name"></span>.</h2>
+      <h2><span id="welcome-greeting">Welcome</span>, <span id="welcome-name"></span>.</h2>
       <p id="welcome-copy">Keep today’s student flow, appointments, records, and payments moving from one calm workspace.</p>
       <div class="dashboard-date"><i class="fa fa-calendar-o"></i> <span>Today is <strong id="today-date"></strong></span></div>
     </div>
@@ -344,6 +344,7 @@
 </div>
 
 <script src="/api/config.js"></script>
+<script src="assets/js/scheduling.js"></script>
 <script src="assets/js/app.js"></script>
 <script>
   let currentUser = null;
@@ -612,6 +613,10 @@
   }
 
   function initializeDashboard() {
+    document.getElementById('welcome-greeting').textContent = (() => {
+      const hour = new Date().getHours();
+      return hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    })();
     document.getElementById('welcome-name').textContent = user.name;
     document.getElementById('today-date').textContent =
       new Date().toLocaleDateString('en-GB', {
