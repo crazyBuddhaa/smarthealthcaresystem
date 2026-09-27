@@ -76,47 +76,6 @@
     .tab-panel { display:none; }
     .tab-panel.active { display:block; }
 
-    /* Login overlay for student portal */
-    .student-login-card {
-      max-width: 420px;
-      margin: 60px auto;
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: var(--eksu-shadow);
-      overflow: hidden;
-    }
-
-    .student-login-background {
-      min-height: 100vh;
-      position: relative;
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      background: #0b3b53;
-    }
-    .student-login-background::before {
-      content: '';
-      position: absolute;
-      inset: -18px;
-      background:
-        linear-gradient(135deg, rgba(8,47,73,0.58), rgba(15,118,110,0.42)),
-        url('assets/images/health-centre-bg.jpeg') center / cover no-repeat;
-      filter: blur(7px);
-      transform: scale(1.04);
-    }
-    .student-login-background::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: rgba(8,47,73,0.22);
-    }
-    .student-login-background > * {
-      position: relative;
-      z-index: 1;
-    }
-
     .student-setup-card {
       margin-bottom: 24px;
       border: 2px solid var(--eksu-red);
@@ -272,55 +231,6 @@
 </head>
 <body class="student-portal-page">
 
-<!-- Login state (shown before auth) -->
-<div id="login-view">
-  <div class="student-login-background">
-    <div class="student-login-card">
-      <div class="login-brand">
-        <a href="index.html"><img src="assets/images/healthcare_logo.svg" alt="CarePoint Health Centre"/></a>
-        <div class="login-brand-title"><i class="fa fa-lock"></i> SIGN-IN</div>
-      </div>
-      <div class="login-body">
-        <div id="student-login-alert" style="display:none;margin-bottom:12px"></div>
-        <p class="text-center text-muted" style="font-size:13px;margin:0 0 16px">
-          Sign in with your matric number to open your student health dashboard.
-        </p>
-        <form id="student-login-form" class="auth-form" onsubmit="studentPortalLogin(event)">
-          <div class="field-group">
-            <div class="field-label"><i class="fa fa-user"></i> Matric number</div>
-            <input
-              type="text"
-              id="student-username"
-              placeholder="Enter your matric number"
-              autocomplete="username"
-              maxlength="30"
-              required
-            />
-          </div>
-          <div class="field-group">
-            <div class="field-label"><i class="fa fa-key"></i> Password</div>
-            <input
-              type="password"
-              id="student-password"
-              placeholder="Enter your password"
-              autocomplete="current-password"
-              required
-            />
-          </div>
-          <button type="submit" id="student-login-submit" class="btn btn-red btn-block">
-            <i class="fa fa-sign-in"></i> Sign in to student portal
-          </button>
-        </form>
-        <p class="text-center text-muted" style="font-size:12px;margin:14px 0 0">
-          Staff member?
-          <a href="login.html" style="color:var(--eksu-red);font-weight:700">Use staff sign in</a>
-        </p>
-      </div>
-      <div class="login-footer">CarePoint Health Centre &copy; 2026</div>
-    </div>
-  </div>
-</div>
-
 <!-- Portal (shown after auth) -->
 <div id="portal-view" style="display:none">
 
@@ -393,7 +303,7 @@
               <option value="">-- Select --</option>
               <option>Arts</option><option>Education</option>
               <option>Engineering and Technology</option><option>Environmental Sciences</option>
-              <option>Law</option><option>Life Sciences</option><option>Management Sciences</option>
+              <option>Law</option><option>Management Sciences</option>
               <option>Medical Sciences</option><option>Physical Sciences</option>
               <option>Social Sciences</option>
             </select>
@@ -740,36 +650,8 @@
     el.innerHTML = `<i class="fa ${icons[type] || icons.info}"></i><div>${message}</div>`;
   }
 
-  async function studentPortalLogin(event) {
-    event.preventDefault();
-
-    const matric = document.getElementById('student-username').value.trim();
-    const password = document.getElementById('student-password').value;
-    const submit = document.getElementById('student-login-submit');
-    const alert = document.getElementById('student-login-alert');
-
-    if (!matric || !password) {
-      showAlert(alert, 'warning', 'Enter your matric number and password to continue.');
-      return;
-    }
-
-    submit.disabled = true;
-    submit.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Signing in...';
-    const user = await StudentAuth.login(matric, password);
-
-    if (user) {
-      loadPortal(user);
-      return;
-    }
-
-    submit.disabled = false;
-    submit.innerHTML = '<i class="fa fa-sign-in"></i> Sign in to student portal';
-    showAlert(alert, 'danger', 'Invalid matric number or password.');
-  }
-
   function loadPortal(u) {
     currentStudent = u;
-    document.getElementById('login-view').style.display  = 'none';
     document.getElementById('portal-view').style.display = 'block';
 
     const p = Store.get('hcms_patients',[]).find(x => x.id === u.patientId);
@@ -1181,7 +1063,6 @@
           </div>
         </div>
         <div style="grid-column:1/-1">
-           <strong>Faculty clinic:</strong> ${escapeHtml(appt.faculty || p.faculty || 'General clinic schedule')}<br>
           <strong>Reason:</strong> ${appt.reason}<br>
           <strong>Location:</strong> CarePoint Health Centre, Ado-Ekiti<br>
           <strong>Payment Ref:</strong> ${appt.paymentRef}<br>
@@ -1446,21 +1327,6 @@
     if (!date || !time) { toast('Please select a new date and time.', 'error'); return; }
 
     const p     = Store.get('hcms_patients',[]).find(x => x.id === currentStudent.patientId);
-    const weekday = new Date(`${date}T00:00:00`).getDay();
-    if (!p || weekday === 0 || weekday === 6) {
-      toast('Choose a future weekday for the reschedule request.', 'error');
-      return;
-    }
-    if (!facultyEligibleOnDate(p.faculty, date)) {
-      const block = facultyScheduleForDate(date);
-      toast(
-        block
-          ? `${block.faculty} is scheduled on that date. Choose a date assigned to your faculty.`
-          : 'No faculty clinic block is scheduled on that date. Choose another date.',
-        'warning'
-      );
-      return;
-    }
     const appts = Store.get('hcms_appointments',[]);
     const appt  = appts.find(a => a.patientId === p.id && a.status !== 'cancelled');
     if (!appt) { toast('No active appointment found.', 'error'); return; }
@@ -1483,9 +1349,6 @@
 
   function studentLogout() {
     StudentAuth.logout();
-    document.getElementById('portal-view').style.display = 'none';
-    document.getElementById('login-view').style.display  = 'block';
-    currentStudent = null;
   }
 
   // Keep the open portal in sync when staff update appointments or bills.
@@ -1509,15 +1372,13 @@
     }
   });
 
-  // Keep each role on its own entry point. Students can sign in directly here;
-  // staff who open this URL are sent to their staff dashboard.
   const s = StudentAuth.current();
   if (s) {
     loadPortal(s);
   } else if (Auth.current()?.active && Auth.current().role !== 'unassigned') {
-    window.location.href = 'dashboard.html';
+    window.location.replace('dashboard.html');
   } else {
-    document.getElementById('login-view').style.display = 'block';
+    window.location.replace('login.html');
   }
 </script>
 </body>
