@@ -732,6 +732,9 @@ const StudentData = {
   },
   requestReschedule(date, time, reason) {
     return this.request('request-reschedule', { date, time, reason });
+  },
+  requestFollowUp(reason) {
+    return this.request('request-follow-up', { reason });
   }
 };
 

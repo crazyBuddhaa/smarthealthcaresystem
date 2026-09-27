@@ -48,10 +48,12 @@ module.exports = async function studentAuthHandler(req, res) {
   }
   const matric = String(details.matric || '').trim().toUpperCase();
   const password = String(details.password || '');
-  const surname = String(details.surname || '').trim();
-  const firstName = String(details.firstName || '').trim();
-  const otherName = String(details.otherName || '').trim();
-  const name = String(details.name || [surname, firstName, otherName].filter(Boolean).join(' ')).trim();
+  // Names appear inside staff pages, so angle brackets are removed.
+  const plain = value => String(value || '').replace(/[<>]/g, '').trim().slice(0, 100);
+  const surname = plain(details.surname);
+  const firstName = plain(details.firstName);
+  const otherName = plain(details.otherName);
+  const name = plain(details.name || [surname, firstName, otherName].filter(Boolean).join(' '));
   const contactEmail = String(details.email || '').trim().toLowerCase();
 
   if (!/^[A-Z0-9/._-]{4,40}$/.test(matric) || !name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {

@@ -16,6 +16,7 @@
  *                               student is eligible and has none
  *          submit-bill-receipt  attach an uploaded receipt to a pending bill
  *          request-reschedule   ask the administrator for a different time
+ *          request-follow-up    ask for another visit after an attended one
  *
  * Appointment search uses the same rules as the staff pages
  * (assets/js/scheduling.js), applied here to the full appointment list.
@@ -60,8 +61,10 @@ function asList(value) {
   return Array.isArray(value) ? value : [];
 }
 
+// Staff pages display student-entered text inside HTML, so angle brackets
+// are removed from everything a student submits.
 function cleanText(value, max = 200) {
-  return String(value ?? '').trim().slice(0, max);
+  return String(value ?? '').replace(/[<>]/g, '').trim().slice(0, max);
 }
 
 async function loadCollections(keys) {
@@ -286,6 +289,64 @@ async function requestReschedule(patientId, body) {
   return { status: 200 };
 }
 
+async function requestFollowUp(patientId, body) {
+  const reason = cleanText(body.reason, 300);
+  if (reason.length < 3) {
+    return { status: 400, message: 'Please tell us briefly why you need another appointment.' };
+  }
+  const patients = asList(await readStoreValue('hcms_patients', []));
+  const patient = patients.find(item => Number(item.id) === patientId);
+  if (!patient || patient.profileComplete !== true) {
+    return { status: 400, message: 'Complete your Health Centre profile before requesting another appointment.' };
+  }
+
+  const appointments = asList(await readStoreValue('hcms_appointments', []));
+  const own = appointments.filter(item => Number(item.patientId) === patientId);
+  if (own.some(item => !['cancelled', 'completed'].includes(item.status))) {
+    return { status: 409, message: 'You already have an active appointment. Complete or cancel it before requesting another one.' };
+  }
+  if (!own.some(item => item.status === 'completed')) {
+    return { status: 400, message: 'A follow-up can be requested after you have attended an appointment.' };
+  }
+
+  const [queue, facultyBlocks] = await Promise.all([
+    readStoreValue('hcms_queue', []),
+    readStoreValue('hcms_faculty_schedules', [])
+  ]);
+  const now = clinicNow();
+  const slot = Scheduling.findNextAvailableSlot({
+    appointments,
+    queue: asList(queue),
+    facultyBlocks: asList(facultyBlocks),
+    faculty: patient.faculty,
+    todayKey: now.todayKey,
+    nowMinutes: now.nowMinutes
+  });
+  if (!slot) {
+    return { status: 409, message: 'No clinic appointment slots are available at the moment. Please try again later.' };
+  }
+
+  const appointment = {
+    id: nextId(appointments),
+    patientId,
+    matric: patient.matric,
+    name: patient.name,
+    faculty: patient.faculty || '',
+    dept: patient.dept || '',
+    date: slot.date,
+    time: slot.time,
+    reason,
+    appointmentType: 'follow-up',
+    requestedOn: now.todayKey,
+    status: 'pending',
+    paymentRef: '',
+    cardNo: patient.cardNo || ''
+  };
+  appointments.push(appointment);
+  await writeStoreValue('hcms_appointments', appointments);
+  return { status: 200, appointment };
+}
+
 module.exports = async function studentDataHandler(req, res) {
   if (!['GET', 'POST'].includes(req.method)) {
     res.setHeader('Allow', 'GET, POST');
@@ -331,6 +392,9 @@ module.exports = async function studentDataHandler(req, res) {
         break;
       case 'request-reschedule':
         result = await requestReschedule(patientId, body);
+        break;
+      case 'request-follow-up':
+        result = await requestFollowUp(patientId, body);
         break;
       default:
         return json(res, 400, { message: 'Unknown student action.' });

@@ -635,6 +635,21 @@
           </button>
         </div>
       </div>
+
+      <!-- Follow-up request -->
+      <div class="card" id="follow-up-card" style="display:none">
+        <div class="card-header"><h3><i class="fa fa-repeat"></i> Request a Follow-up Appointment</h3></div>
+        <div class="card-body">
+          <p style="font-size:13px;margin-top:0">If you need to see the Health Centre again, tell us briefly why. The next free clinic time is assigned automatically and confirmed by staff.</p>
+          <div class="form-group">
+            <label for="follow-up-reason">Reason for the follow-up <span class="req">*</span></label>
+            <input class="form-control" id="follow-up-reason" maxlength="300" placeholder="e.g. Review of test results"/>
+          </div>
+          <button class="btn btn-teal" id="follow-up-btn" style="margin-top:12px" onclick="requestFollowUp()">
+            <i class="fa fa-calendar-plus-o"></i> Request Follow-up
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Health Records tab -->
@@ -1095,8 +1110,17 @@
   }
 
   function loadAppointment(p) {
-    const appts = Store.get('hcms_appointments',[]);
-    const appt  = appts.find(a => a.patientId === p.id && a.status !== 'cancelled');
+    const appts = Store.get('hcms_appointments',[]).filter(a => a.patientId === p.id);
+    const active = appts.filter(a => !['cancelled', 'completed'].includes(a.status));
+    // Show the current appointment; otherwise the most recent attended one.
+    const appt  = active[active.length - 1] ||
+      [...appts].reverse().find(a => a.status !== 'cancelled');
+    const followUpCard = document.getElementById('follow-up-card');
+    if (followUpCard) {
+      followUpCard.style.display =
+        p.profileComplete === true && !active.length && appts.some(a => a.status === 'completed') ? 'block' : 'none';
+    }
+    document.getElementById('reschedule-card').style.display = 'none';
 
     const body  = document.getElementById('appt-details-body');
     const badge = document.getElementById('appt-status-badge');
@@ -1138,8 +1162,8 @@
         </div>
       </div>`;
 
-    // Reschedule card
-    if (appt.status !== 'cancelled') {
+    // Reschedule card (only for an appointment that is still to come)
+    if (!['cancelled', 'completed'].includes(appt.status)) {
       document.getElementById('reschedule-card').style.display = 'block';
       const minD = new Date(); minD.setDate(minD.getDate()+1);
       document.getElementById('r-date').min   = minD.toISOString().split('T')[0];
@@ -1288,6 +1312,21 @@
     const p = Store.get('hcms_patients',[]).find(x => x.id === currentStudent.patientId);
     toast(`Reschedule request submitted for ${formatDate(date)} at ${time}. Awaiting administrator confirmation.`, 'info', 4000);
     if (p) loadAppointment(p);
+  }
+
+  async function requestFollowUp() {
+    if (!currentStudent) return;
+    const reason = document.getElementById('follow-up-reason').value.trim();
+    if (reason.length < 3) { toast('Please tell us briefly why you need a follow-up appointment.', 'warning'); return; }
+    const button = document.getElementById('follow-up-btn');
+    if (button) button.disabled = true;
+    const result = await StudentData.requestFollowUp(reason);
+    if (button) button.disabled = false;
+    if (!result.ok) { toast(result.message, 'error', 5000); return; }
+    const p = Store.get('hcms_patients',[]).find(x => x.id === currentStudent.patientId);
+    document.getElementById('follow-up-reason').value = '';
+    if (p) { loadAppointment(p); loadStats(p); }
+    toast(`Follow-up requested for ${formatDate(result.appointment.date)} at ${result.appointment.time}. Awaiting staff confirmation.`, 'success', 5000);
   }
 
   function showTab(id, btn) {
