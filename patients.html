@@ -302,16 +302,39 @@
     document.getElementById('count-shown').textContent = filtered.length;
   }
 
-  function registrationDocumentActions(path, label) {
-    if (!path) return `<span class="text-muted">${label}: not available</span>`;
+  function registrationDocumentDetails(documents, pathKey, valueKey, arrayKey) {
+    const explicitPath = documents?.[pathKey];
+    const rawValue = arrayKey ? documents?.[arrayKey]?.[0] : documents?.[valueKey];
+    const value = rawValue && typeof rawValue === 'object' ? rawValue : {};
+    const pathCandidate = typeof explicitPath === 'string'
+      ? explicitPath
+      : (Array.isArray(explicitPath) ? explicitPath[0] : '');
+    const rawPath = typeof rawValue === 'string' && rawValue.startsWith('registration/')
+      ? rawValue
+      : '';
+    const path = pathCandidate || rawPath || value.path || value.storagePath || '';
+    const fileName = value.fileName || value.name ||
+      (typeof rawValue === 'string' && !rawValue.startsWith('registration/') ? rawValue : '');
+    return { path, fileName };
+  }
+
+  function registrationDocumentActions(details, label, patientId, type) {
+    if (!details.path && !details.fileName) return `<span class="text-muted">${label}: not available</span>`;
+    const fileLabel = details.path
+      ? details.path.split('/').pop()
+      : details.fileName;
+    const openAction = details.path
+      ? `data-path="${escapeHtml(details.path)}" onclick="openRegistrationDocument(this.dataset.path, 'view')"`
+      : `onclick="openRegistrationDocument('', 'view', {patientId:${Number(patientId)}, type:'${type}'})"`;
+    const downloadAction = details.path
+      ? `data-path="${escapeHtml(details.path)}" onclick="openRegistrationDocument(this.dataset.path, 'download')"`
+      : `onclick="openRegistrationDocument('', 'download', {patientId:${Number(patientId)}, type:'${type}'})"`;
     return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px">
-      <strong>${escapeHtml(label)}:</strong> <span>${escapeHtml(path.split('/').pop())}</span>
-      <button class="btn btn-sm btn-outline-teal" type="button" data-path="${escapeHtml(path)}"
-        onclick="openRegistrationDocument(this.dataset.path, 'view')">
+      <strong>${escapeHtml(label)}:</strong> <span>${escapeHtml(fileLabel)}</span>
+      <button class="btn btn-sm btn-outline-teal" type="button" ${openAction}>
         <i class="fa fa-eye"></i> Open
       </button>
-      <button class="btn btn-sm btn-gray" type="button" data-path="${escapeHtml(path)}"
-        onclick="openRegistrationDocument(this.dataset.path, 'download')">
+      <button class="btn btn-sm btn-gray" type="button" ${downloadAction}>
         <i class="fa fa-download"></i> Download
       </button>
     </div>`;
@@ -325,7 +348,15 @@
     const workflow = getRegistrationWorkflow(id);
     const progress = registrationProgress(workflow);
     const nextStep = workflow && workflow.steps.find(step => step.status !== 'complete');
-    const documents = workflow?.documents || {};
+    const documents = {
+      ...(workflow?.documents || {}),
+      ...(p.onlineDocuments || {})
+    };
+    const documentDetails = {
+      healthReceipt: registrationDocumentDetails(documents, 'healthReceiptPath', 'healthReceipt'),
+      schoolReceipt: registrationDocumentDetails(documents, 'schoolReceiptPath', 'schoolReceipt'),
+      passportPhoto: registrationDocumentDetails(documents, 'passportPhotoPaths', 'passportPhotos', 'passportPhotoPaths')
+    };
     const documentReviewActions = workflow && Auth.isAdmin() &&
       ['awaiting-review', 'rejected'].includes(workflow.documentReviewStatus)
       ? `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
@@ -366,9 +397,9 @@
       ${workflow.documents && Object.keys(workflow.documents).length ? `<div class="alert alert-info" style="margin-bottom:16px">
         <i class="fa fa-cloud-upload"></i>
         <div><strong>Online documents submitted:</strong><br>
-           ${registrationDocumentActions(documents.healthReceiptPath, 'Health Centre receipt')}
-           ${registrationDocumentActions(documents.schoolReceiptPath, 'School fees receipt')}
-           ${registrationDocumentActions(documents.passportPhotoPaths?.[0], 'Passport photograph')}
+           ${registrationDocumentActions(documentDetails.healthReceipt, 'Health Centre receipt', id, 'healthReceipt')}
+           ${registrationDocumentActions(documentDetails.schoolReceipt, 'School fees receipt', id, 'schoolReceipt')}
+           ${registrationDocumentActions(documentDetails.passportPhoto, 'Passport photograph', id, 'passportPhoto')}
         </div>
       </div>` : ''}` : ''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">
