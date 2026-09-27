@@ -542,7 +542,7 @@ const StudentAuth = {
     return user?.role === 'student' ? user : null;
   },
   logout() {
-    Auth.signOut('student-portal.html');
+    Auth.signOut('login.html');
   },
   async register(details = {}) {
     try {
