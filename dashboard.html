@@ -291,6 +291,20 @@
     <div class="admin-overview-grid" id="admin-overview-grid"></div>
   </section>
 
+  <!-- Admin faculty calendar and direct appointment actions -->
+  <section class="card" id="faculty-schedule-dashboard" style="display:none;margin-top:18px" aria-labelledby="faculty-schedule-dashboard-title">
+    <div class="card-header">
+      <div>
+        <h3 id="faculty-schedule-dashboard-title"><i class="fa fa-calendar"></i> Faculty clinic plan</h3>
+        <p class="text-muted" style="font-size:12px;margin:4px 0 0">
+          See which faculty is scheduled and move upcoming appointments without leaving the admin workspace.
+        </p>
+      </div>
+      <a href="queue-settings.html" class="btn btn-sm btn-teal"><i class="fa fa-sliders"></i> Manage calendar</a>
+    </div>
+    <div class="card-body" id="faculty-schedule-dashboard-body"></div>
+  </section>
+
   <!-- Role-specific workspace -->
   <div class="dashboard-section-heading">
     <div>
@@ -553,6 +567,77 @@
     overview.style.display = 'block';
   }
 
+  function renderAdminFacultyCalendar() {
+    const section = document.getElementById('faculty-schedule-dashboard');
+    const body = document.getElementById('faculty-schedule-dashboard-body');
+    if (user.role !== 'admin') {
+      section.style.display = 'none';
+      return;
+    }
+
+    const todayValue = today();
+    const blocks = getFacultySchedule()
+      .filter(block => block.endDate >= todayValue)
+      .slice(0, 8);
+    const upcomingAppointments = Store.get('hcms_appointments', [])
+      .filter(appointment =>
+        appointment.date >= todayValue &&
+        !['cancelled', 'completed'].includes(appointment.status)
+      )
+      .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))
+      .slice(0, 8);
+
+    const blocksMarkup = blocks.length
+      ? blocks.map(block => `
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border-bottom:1px solid var(--eksu-border);padding:9px 0">
+            <div>
+              <strong style="font-size:13px">${escapeHtml(block.faculty)}</strong>
+              <div style="font-size:11px;color:var(--eksu-muted);margin-top:3px">
+                ${formatDate(block.startDate)}${block.startDate !== block.endDate ? ` – ${formatDate(block.endDate)}` : ''}
+              </div>
+            </div>
+            <span class="badge badge-info">${escapeHtml(block.note || 'Clinic block')}</span>
+          </div>`).join('')
+      : '<p class="text-muted" style="font-size:12px;margin:0">No faculty blocks configured. General appointment scheduling is active.</p>';
+
+    const appointmentsMarkup = upcomingAppointments.length
+      ? `<div class="table-wrapper"><table>
+          <thead><tr><th>Date</th><th>Student</th><th>Faculty</th><th>Time</th><th>Action</th></tr></thead>
+          <tbody>${upcomingAppointments.map(appointment => {
+            const patient = Store.get('hcms_patients', []).find(item => item.id === appointment.patientId);
+            const faculty = appointment.faculty || patient?.faculty || 'Not provided';
+            return `<tr>
+              <td>${formatDate(appointment.date)}</td>
+              <td>${escapeHtml(appointment.name || 'Student')}</td>
+              <td>${escapeHtml(faculty)}</td>
+              <td>${escapeHtml(appointment.time || '—')}</td>
+              <td><a class="btn btn-sm btn-outline-red" href="appointment.html?reschedule=${encodeURIComponent(appointment.id)}">
+                <i class="fa fa-calendar"></i> Reschedule
+              </a></td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table></div>`
+      : '<p class="text-muted" style="font-size:12px;margin:0">No upcoming active appointments need attention.</p>';
+
+    body.innerHTML = `
+      <div class="dashboard-content-grid" style="margin:0 0 18px">
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--eksu-muted);margin-bottom:4px">Upcoming faculty blocks</div>
+          ${blocksMarkup}
+        </div>
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--eksu-muted);margin-bottom:4px">Scheduling rule</div>
+          <p style="font-size:12px;line-height:1.5;margin:0">
+            Students are automatically offered appointment dates that match their faculty.
+            A one-day block can be used when faculties rotate daily; a Monday–Friday block can be used for a full faculty week.
+          </p>
+        </div>
+      </div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--eksu-muted);margin-bottom:4px">Upcoming appointments</div>
+      ${appointmentsMarkup}`;
+    section.style.display = 'block';
+  }
+
   function renderDashboard() {
     const patients = Store.get('hcms_patients', []);
     const queue    = queueEntriesForDate(today());
@@ -569,6 +654,7 @@
         ? 'Per group'
         : Math.max(capacity.remaining, 0);
     renderAdminOverview(queue, bills, appointments);
+    renderAdminFacultyCalendar();
 
     const statsByRole = {
       admin: [
@@ -689,7 +775,9 @@
       'hcms_queue',
       'hcms_bills',
       'hcms_records',
-      'hcms_staff_tasks'
+      'hcms_staff_tasks',
+      'hcms_appointments',
+      'hcms_faculty_schedule'
     ]);
 
     window.addEventListener('hcms-data-changed', event => {

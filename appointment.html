@@ -95,6 +95,7 @@
             <th>Time</th>
             <th>Matric No.</th>
             <th>Student Name</th>
+            <th>Faculty</th>
             <th>Department</th>
             <th>Reason</th>
             <th>Payment Ref.</th>
@@ -116,10 +117,10 @@
     <div class="table-wrapper">
       <table>
         <thead>
-          <tr><th>Time</th><th>Student</th><th>Matric No.</th><th>Dept.</th><th>Reason</th><th>Status</th><th>Action</th></tr>
+           <tr><th>Time</th><th>Student</th><th>Matric No.</th><th>Faculty</th><th>Dept.</th><th>Reason</th><th>Status</th><th>Action</th></tr>
         </thead>
         <tbody id="today-tbody">
-          <tr><td colspan="7" class="text-center text-muted" style="padding:20px">No appointments scheduled for today.</td></tr>
+          <tr><td colspan="8" class="text-center text-muted" style="padding:20px">No appointments scheduled for today.</td></tr>
         </tbody>
       </table>
     </div>
@@ -168,7 +169,7 @@
             <textarea class="form-control" id="admin-reschedule-note" rows="2" maxlength="240" placeholder="Optional note for the appointment history"></textarea>
           </div>
         </div>
-        <small class="text-muted">Available clinic slots are Monday–Friday, 8:00 AM–12:00 PM and 2:00 PM–3:00 PM.</small>
+        <small class="text-muted">Available clinic slots are Monday–Friday, 8:00 AM–12:00 PM and 2:00 PM–3:00 PM. Faculty calendar rules also apply.</small>
       </div>
       <div class="modal-footer">
         <button class="btn btn-gray" type="button" onclick="closeModal('admin-reschedule-modal')">Cancel</button>
@@ -210,6 +211,11 @@
     if (!isClinicWeekday(dateValue)) return [];
 
     const appointments = Store.get('hcms_appointments', []);
+    const appointment = appointments.find(item => String(item.id) === String(appointmentId));
+    const patient = Store.get('hcms_patients', []).find(item => item.id === appointment?.patientId);
+    const faculty = appointment?.faculty || patient?.faculty || '';
+    if (!facultyEligibleOnDate(faculty, dateValue)) return [];
+
     const occupiedTimes = appointments
       .filter(item =>
         item.date === dateValue &&
@@ -258,7 +264,18 @@
     const slots = availableAdminAppointmentSlots(dateValue, appointmentId);
 
     if (!slots.length) {
-      select.innerHTML = '<option value="">No available slots — choose another weekday</option>';
+      const appointment = Store.get('hcms_appointments', [])
+        .find(item => String(item.id) === String(appointmentId));
+      const patient = Store.get('hcms_patients', [])
+        .find(item => item.id === appointment?.patientId);
+      const faculty = appointment?.faculty || patient?.faculty || '';
+      const block = facultyScheduleForDate(dateValue);
+      const message = getFacultySchedule().length && !block
+        ? 'No faculty clinic block on this date — choose another date'
+        : getFacultySchedule().length && block && normalizeFaculty(block.faculty) !== normalizeFaculty(faculty)
+          ? `${block.faculty} is scheduled on this date`
+          : 'No available slots — choose another weekday';
+      select.innerHTML = `<option value="">${escapeHtml(message)}</option>`;
       select.disabled = true;
       return;
     }
@@ -296,6 +313,7 @@
     document.getElementById('admin-reschedule-id').value = appointment.id;
     document.getElementById('admin-reschedule-current').innerHTML =
       `<strong>${escapeHtml(appointment.name)}</strong> · ${escapeHtml(appointment.matric)}<br>` +
+      `Faculty: ${escapeHtml(appointment.faculty || Store.get('hcms_patients', []).find(item => item.id === appointment.patientId)?.faculty || 'Not provided')}<br>` +
       `Current appointment: ${formatDate(appointment.date)} at ${escapeHtml(appointment.time)}`;
     document.getElementById('admin-reschedule-date').min = todayValue;
     document.getElementById('admin-reschedule-date').value = initialDate;
@@ -381,6 +399,10 @@
     document.getElementById('today-label').textContent = new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
     renderAppts();
     renderToday();
+    const requestedAppointment = new URLSearchParams(window.location.search).get('reschedule');
+    if (requestedAppointment && Auth.isAdmin()) {
+      setTimeout(() => openAdminReschedule(requestedAppointment), 0);
+    }
   }
 
   function renderAppts() {
@@ -419,7 +441,7 @@
     tbody.innerHTML = '';
 
     if (!filtered.length) {
-      tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted" style="padding:24px">No appointments match the current filter.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted" style="padding:24px">No appointments match the current filter.</td></tr>';
       return;
     }
 
@@ -431,6 +453,7 @@
         <td><strong>${a.time}</strong></td>
         <td><span class="text-red text-bold">${a.matric}</span></td>
         <td>${a.name}</td>
+        <td>${escapeHtml(a.faculty || Store.get('hcms_patients', []).find(patient => patient.id === a.patientId)?.faculty || '—')}</td>
         <td>${a.dept}</td>
         <td style="font-size:12px">${a.reason}</td>
         <td style="font-size:12px;color:var(--eksu-muted)">${a.paymentRef}</td>
@@ -477,7 +500,7 @@
 
     tbody.innerHTML = '';
     if (!appts.length) {
-      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted" style="padding:20px">No appointments scheduled for today.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted" style="padding:20px">No appointments scheduled for today.</td></tr>';
       return;
     }
     [...appts].sort((a,b) => a.time.localeCompare(b.time)).forEach(a => {
@@ -485,6 +508,7 @@
         <td><strong>${a.time}</strong></td>
         <td>${a.name}</td>
         <td>${a.matric}</td>
+        <td>${escapeHtml(a.faculty || Store.get('hcms_patients', []).find(patient => patient.id === a.patientId)?.faculty || '—')}</td>
         <td>${a.dept}</td>
         <td style="font-size:12px">${a.reason}</td>
         <td><span class="badge ${statusCls[a.status]||'badge-secondary'}">${a.status}</span></td>
@@ -522,6 +546,7 @@
           <strong>${a.name}</strong>, ${a.matric}<br>
           <span style="color:var(--eksu-muted)">${a.dept}</span>
         </div>
+        <div><strong>Faculty:</strong><br>${escapeHtml(a.faculty || p?.faculty || 'Not provided')}</div>
         <div><strong>Reason:</strong><br>${a.reason}</div>
         <div><strong>Status:</strong><br><span class="badge ${statusCls[a.status]}">${a.status}</span></div>
         <div><strong>Payment Ref:</strong><br>${a.paymentRef}</div>
@@ -560,7 +585,21 @@
     a.date   = a.rescheduleDate;
     a.time   = a.rescheduleTime;
     a.status = 'confirmed';
+    delete a.rescheduleDate;
+    delete a.rescheduleTime;
+    delete a.rescheduleReason;
     Store.set('hcms_appointments', appts);
+    const workflow = getRegistrationWorkflow(a.patientId);
+    if (workflow) {
+      workflow.appointmentDate = a.date;
+      workflow.appointmentTime = a.time;
+      workflow.updatedOn = today();
+      const workflows = Store.get('hcms_registration_workflows', []);
+      const workflowIndex = workflows.findIndex(item => item.patientId === a.patientId);
+      if (workflowIndex >= 0) workflows[workflowIndex] = workflow;
+      else workflows.push(workflow);
+      Store.set('hcms_registration_workflows', workflows);
+    }
     toast('Reschedule approved. New date: ' + formatDate(a.date) + ' at ' + a.time, 'success');
     renderAppts(); renderToday();
   }
@@ -580,6 +619,17 @@
   function sendToQueue(id) {
     const a = Store.get('hcms_appointments',[]).find(x => x.id === id);
     if (!a) return;
+    const patient = Store.get('hcms_patients', []).find(item => item.id === a.patientId);
+    if (!facultyEligibleOnDate(a.faculty || patient?.faculty, today())) {
+      const block = facultyScheduleForDate(today());
+      toast(
+        block
+          ? `Today is reserved for ${block.faculty}. This appointment cannot enter today’s queue.`
+          : 'No faculty clinic block is scheduled for today.',
+        'warning'
+      );
+      return;
+    }
     const queue = Store.get('hcms_queue',[]);
     const already = queue.find(q => q.patientId === a.patientId && q.status !== 'done');
     if (already) { toast(`${a.name} is already in the queue (#${already.token}).`, 'warning'); return; }
@@ -592,7 +642,7 @@
       name:      a.name,
       matric:    a.matric,
       dept:      a.dept,
-      faculty:   Store.get('hcms_patients', []).find(patient => patient.id === a.patientId)?.faculty || '',
+       faculty:   patient?.faculty || a.faculty || '',
       time:      a.time,
       appointmentTime: a.time,
       reason:    a.reason,

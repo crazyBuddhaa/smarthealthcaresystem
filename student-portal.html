@@ -393,7 +393,7 @@
               <option value="">-- Select --</option>
               <option>Arts</option><option>Education</option>
               <option>Engineering and Technology</option><option>Environmental Sciences</option>
-              <option>Law</option><option>Management Sciences</option>
+              <option>Law</option><option>Life Sciences</option><option>Management Sciences</option>
               <option>Medical Sciences</option><option>Physical Sciences</option>
               <option>Social Sciences</option>
             </select>
@@ -1181,6 +1181,7 @@
           </div>
         </div>
         <div style="grid-column:1/-1">
+           <strong>Faculty clinic:</strong> ${escapeHtml(appt.faculty || p.faculty || 'General clinic schedule')}<br>
           <strong>Reason:</strong> ${appt.reason}<br>
           <strong>Location:</strong> CarePoint Health Centre, Ado-Ekiti<br>
           <strong>Payment Ref:</strong> ${appt.paymentRef}<br>
@@ -1445,6 +1446,21 @@
     if (!date || !time) { toast('Please select a new date and time.', 'error'); return; }
 
     const p     = Store.get('hcms_patients',[]).find(x => x.id === currentStudent.patientId);
+    const weekday = new Date(`${date}T00:00:00`).getDay();
+    if (!p || weekday === 0 || weekday === 6) {
+      toast('Choose a future weekday for the reschedule request.', 'error');
+      return;
+    }
+    if (!facultyEligibleOnDate(p.faculty, date)) {
+      const block = facultyScheduleForDate(date);
+      toast(
+        block
+          ? `${block.faculty} is scheduled on that date. Choose a date assigned to your faculty.`
+          : 'No faculty clinic block is scheduled on that date. Choose another date.',
+        'warning'
+      );
+      return;
+    }
     const appts = Store.get('hcms_appointments',[]);
     const appt  = appts.find(a => a.patientId === p.id && a.status !== 'cancelled');
     if (!appt) { toast('No active appointment found.', 'error'); return; }

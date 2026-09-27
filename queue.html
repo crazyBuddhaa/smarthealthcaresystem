@@ -508,6 +508,17 @@
     const p = patients.find(x => x.id === patientId);
     if (!p) return;
 
+    if (!facultyEligibleOnDate(p.faculty, today())) {
+      const block = facultyScheduleForDate(today());
+      toast(
+        block
+          ? `Today is reserved for ${block.faculty}. This student can be checked in on their faculty clinic day.`
+          : 'No faculty clinic block is scheduled for today.',
+        'warning'
+      );
+      return;
+    }
+
     const queue = Store.get('hcms_queue', []);
     // Check if already in queue (not done)
     const already = queue.find(q =>

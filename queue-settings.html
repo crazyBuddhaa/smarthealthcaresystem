@@ -14,6 +14,8 @@
     .policy-option span { display:block; color:var(--eksu-muted); font-size:11px; line-height:1.45; margin-top:3px; }
     .policy-preview { background:#f8fafc; border:1px solid var(--eksu-border); border-radius:8px; padding:16px; }
     .policy-preview strong { color:var(--eksu-red); }
+    .faculty-calendar-help { background:#f8fafc; border:1px solid var(--eksu-border); border-radius:8px; padding:13px 14px; font-size:12px; line-height:1.5; }
+    .faculty-calendar-help strong { color:var(--eksu-red); }
     @media (max-width: 850px) { .policy-layout { grid-template-columns:1fr; } }
   </style>
 </head>
@@ -138,6 +140,101 @@
         </div>
       </div>
     </div>
+
+    <div class="card" style="margin-top:18px">
+      <div class="card-header">
+        <div>
+          <h3><i class="fa fa-calendar"></i> Faculty clinic calendar</h3>
+          <p class="text-muted" style="font-size:12px;margin:4px 0 0">
+            Reserve clinic dates for one faculty at a time.
+          </p>
+        </div>
+        <span class="badge badge-info">Admin only</span>
+      </div>
+      <div class="card-body">
+        <div class="faculty-calendar-help" style="margin-bottom:16px">
+          <i class="fa fa-info-circle"></i>
+          When at least one block is configured, automatic appointments and administrator rescheduling
+          will only offer dates assigned to the student’s faculty. Use the same start and end date for
+          one day, or use a Monday–Friday range for a faculty week. Blocks cannot overlap.
+        </div>
+        <form id="faculty-schedule-form" onsubmit="addFacultyScheduleBlock(event)">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="faculty-schedule-faculty">Faculty <span class="req">*</span></label>
+              <select class="form-control" id="faculty-schedule-faculty" required></select>
+            </div>
+            <div class="form-group">
+              <label for="faculty-schedule-start">Start date <span class="req">*</span></label>
+              <input class="form-control" type="date" id="faculty-schedule-start" required
+                onchange="document.getElementById('faculty-schedule-end').min=this.value"/>
+            </div>
+            <div class="form-group">
+              <label for="faculty-schedule-end">End date <span class="req">*</span></label>
+              <input class="form-control" type="date" id="faculty-schedule-end" required/>
+            </div>
+            <div class="form-group">
+              <label for="faculty-schedule-note">Note</label>
+              <input class="form-control" id="faculty-schedule-note" maxlength="160"
+                placeholder="e.g. New student screening week"/>
+            </div>
+          </div>
+          <button class="btn btn-red" type="submit"><i class="fa fa-plus"></i> Add faculty block</button>
+        </form>
+
+        <div style="border-top:1px solid var(--eksu-border);margin:22px 0 18px;padding-top:18px">
+          <h4 style="margin:0 0 5px"><i class="fa fa-refresh"></i> Generate weekly rotation</h4>
+          <p class="text-muted" style="font-size:12px;margin:0 0 14px">
+            Repeat the faculty sequence across consecutive Monday–Friday clinic weeks.
+          </p>
+          <form id="faculty-rotation-form" onsubmit="generateFacultyRotation(event)">
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="faculty-rotation-start">First Monday <span class="req">*</span></label>
+                <input class="form-control" type="date" id="faculty-rotation-start" required/>
+              </div>
+              <div class="form-group">
+                <label for="faculty-rotation-weeks">Number of weeks <span class="req">*</span></label>
+                <input class="form-control" type="number" id="faculty-rotation-weeks" min="1" max="12" value="4" required/>
+              </div>
+              <div class="form-group">
+                <label for="faculty-rotation-note">Note</label>
+                <input class="form-control" id="faculty-rotation-note" maxlength="160"
+                  placeholder="e.g. First semester screening rotation"/>
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="faculty-rotation-1">Week 1 <span class="req">*</span></label>
+                <select class="form-control faculty-rotation-select" id="faculty-rotation-1" required></select>
+              </div>
+              <div class="form-group">
+                <label for="faculty-rotation-2">Week 2</label>
+                <select class="form-control faculty-rotation-select" id="faculty-rotation-2"></select>
+              </div>
+              <div class="form-group">
+                <label for="faculty-rotation-3">Week 3</label>
+                <select class="form-control faculty-rotation-select" id="faculty-rotation-3"></select>
+              </div>
+              <div class="form-group">
+                <label for="faculty-rotation-4">Week 4</label>
+                <select class="form-control faculty-rotation-select" id="faculty-rotation-4"></select>
+              </div>
+            </div>
+            <button class="btn btn-outline-teal" type="submit"><i class="fa fa-refresh"></i> Generate rotation</button>
+          </form>
+        </div>
+
+        <div class="table-wrapper" style="margin-top:20px">
+          <table>
+            <thead>
+              <tr><th>Faculty</th><th>Clinic dates</th><th>Note</th><th>Action</th></tr>
+            </thead>
+            <tbody id="faculty-schedule-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 </main>
 
@@ -155,6 +252,8 @@
     alertBox.innerHTML = '<i class="fa fa-lock"></i><div>Only an administrator can change queue policy.</div>';
   } else {
     populatePolicyForm();
+    populateFacultyScheduleForm();
+    renderFacultySchedule();
   }
 
   function populatePolicyForm() {
@@ -218,6 +317,156 @@
     });
     populatePolicyForm();
     toast(`Queue policy saved. Reception will use ${QUEUE_CRITERIA.find(item => item.value === settings.criterion)?.label.toLowerCase()}.`, 'success');
+  }
+
+  function populateFacultyScheduleForm() {
+    document.getElementById('faculty-schedule-faculty').innerHTML =
+      '<option value="">Choose a faculty</option>' +
+      FACULTY_OPTIONS.map(faculty => `<option value="${escapeHtml(faculty)}">${escapeHtml(faculty)}</option>`).join('');
+    document.querySelectorAll('.faculty-rotation-select').forEach(select => {
+      select.innerHTML =
+        '<option value="">No faculty</option>' +
+        FACULTY_OPTIONS.map(faculty => `<option value="${escapeHtml(faculty)}">${escapeHtml(faculty)}</option>`).join('');
+    });
+  }
+
+  function renderFacultySchedule() {
+    const tbody = document.getElementById('faculty-schedule-tbody');
+    const blocks = getFacultySchedule();
+    if (!blocks.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted" style="padding:20px">No faculty clinic blocks configured. General appointment scheduling is active.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = blocks.map(block => `
+      <tr>
+        <td><strong>${escapeHtml(block.faculty)}</strong></td>
+        <td>${formatDate(block.startDate)}${block.startDate !== block.endDate ? ` – ${formatDate(block.endDate)}` : ''}</td>
+        <td>${escapeHtml(block.note || '—')}</td>
+        <td><button class="btn btn-sm btn-outline-red" type="button" onclick="removeFacultyScheduleBlock('${escapeHtml(String(block.id))}')">
+          <i class="fa fa-trash"></i> Remove
+        </button></td>
+      </tr>`).join('');
+  }
+
+  function addFacultyScheduleBlock(event) {
+    event.preventDefault();
+    if (!currentUser || currentUser.role !== 'admin') {
+      toast('Only an administrator can change the faculty clinic calendar.', 'error');
+      return;
+    }
+
+    const faculty = document.getElementById('faculty-schedule-faculty').value;
+    const startDate = document.getElementById('faculty-schedule-start').value;
+    const endDate = document.getElementById('faculty-schedule-end').value;
+    const note = document.getElementById('faculty-schedule-note').value.trim();
+    if (!faculty || !startDate || !endDate || startDate > endDate) {
+      toast('Choose a faculty and a valid date range.', 'error');
+      return;
+    }
+
+    const blocks = getFacultySchedule();
+    const overlaps = blocks.some(block => block.startDate <= endDate && block.endDate >= startDate);
+    if (overlaps) {
+      toast('That date range overlaps an existing faculty clinic block.', 'warning');
+      return;
+    }
+
+    const nextId = blocks.reduce((max, block) => Math.max(max, Number(block.id) || 0), 0) + 1;
+    const result = saveFacultySchedule([...blocks, { id: nextId, faculty, startDate, endDate, note }]);
+    if (!result.ok) {
+      toast(result.message, 'error');
+      return;
+    }
+    document.getElementById('faculty-schedule-form').reset();
+    document.getElementById('faculty-schedule-end').min = '';
+    renderFacultySchedule();
+    toast(`${faculty} clinic block added.`, 'success');
+  }
+
+  function rotationDateKey(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function generateFacultyRotation(event) {
+    event.preventDefault();
+    if (!currentUser || currentUser.role !== 'admin') {
+      toast('Only an administrator can change the faculty clinic calendar.', 'error');
+      return;
+    }
+
+    const startValue = document.getElementById('faculty-rotation-start').value;
+    const weeks = Number(document.getElementById('faculty-rotation-weeks').value);
+    const note = document.getElementById('faculty-rotation-note').value.trim();
+    const sequence = [...document.querySelectorAll('.faculty-rotation-select')]
+      .map(select => select.value)
+      .filter(Boolean);
+    const start = new Date(`${startValue}T00:00:00`);
+
+    if (!startValue || !Number.isInteger(weeks) || weeks < 1 || weeks > 12 || !sequence.length) {
+      toast('Choose a start date, 1–12 weeks, and at least one faculty.', 'error');
+      return;
+    }
+    if (start.getDay() !== 1) {
+      toast('The first rotation date must be a Monday.', 'error');
+      return;
+    }
+
+    const existingBlocks = getFacultySchedule();
+    const nextId = existingBlocks.reduce((max, block) => Math.max(max, Number(block.id) || 0), 0) + 1;
+    const generatedBlocks = [];
+    for (let index = 0; index < weeks; index += 1) {
+      const weekStart = new Date(start);
+      weekStart.setDate(start.getDate() + (index * 7));
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 4);
+      generatedBlocks.push({
+        id: nextId + index,
+        faculty: sequence[index % sequence.length],
+        startDate: rotationDateKey(weekStart),
+        endDate: rotationDateKey(weekEnd),
+        note: note || `Weekly faculty rotation · Week ${index + 1}`
+      });
+    }
+
+    const overlaps = [...existingBlocks, ...generatedBlocks].some((block, index, all) =>
+      all.some((other, otherIndex) =>
+        index !== otherIndex &&
+        block.startDate <= other.endDate &&
+        block.endDate >= other.startDate
+      )
+    );
+    if (overlaps) {
+      toast('The rotation overlaps an existing faculty clinic block. Choose another start date.', 'warning');
+      return;
+    }
+
+    const result = saveFacultySchedule([...existingBlocks, ...generatedBlocks]);
+    if (!result.ok) {
+      toast(result.message, 'error');
+      return;
+    }
+    document.getElementById('faculty-rotation-form').reset();
+    document.getElementById('faculty-rotation-weeks').value = 4;
+    renderFacultySchedule();
+    toast(`${weeks}-week faculty rotation generated.`, 'success', 5000);
+  }
+
+  function removeFacultyScheduleBlock(id) {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    const block = getFacultySchedule().find(item => String(item.id) === String(id));
+    if (!block) return;
+    confirmAction(`Remove the ${block.faculty} clinic block from ${formatDate(block.startDate)}${block.startDate !== block.endDate ? ` to ${formatDate(block.endDate)}` : ''}?`, () => {
+      const result = saveFacultySchedule(getFacultySchedule().filter(item => String(item.id) !== String(id)));
+      if (!result.ok) {
+        toast(result.message, 'error');
+        return;
+      }
+      renderFacultySchedule();
+      toast('Faculty clinic block removed.', 'success');
+    });
   }
 </script>
 </body>

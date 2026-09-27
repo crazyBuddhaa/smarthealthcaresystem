@@ -130,6 +130,26 @@ const QUEUE_OVERFLOW_POLICIES = [
   { value: 'continue', label: 'Continue beyond the quota', description: 'Treat the quota as a target and allow reception to keep serving.' }
 ];
 
+const FACULTY_OPTIONS = [
+  'Arts',
+  'Education',
+  'Engineering and Technology',
+  'Environmental Sciences',
+  'Law',
+  'Life Sciences',
+  'Management Sciences',
+  'Medical Sciences',
+  'Physical Sciences',
+  'Social Sciences'
+];
+
+const DEFAULT_FACULTY_SCHEDULE = {
+  version: 1,
+  blocks: [],
+  updatedOn: null,
+  updatedBy: ''
+};
+
 function getQueueSettings() {
   const saved = Store.get('hcms_queue_settings', {});
   const settings = { ...DEFAULT_QUEUE_SETTINGS, ...(saved && typeof saved === 'object' ? saved : {}) };
@@ -155,6 +175,64 @@ function saveQueueSettings(details = {}) {
   };
   Store.set('hcms_queue_settings', settings);
   return settings;
+}
+
+function normalizeFaculty(value) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function getFacultySchedule() {
+  const saved = Store.get('hcms_faculty_schedule', DEFAULT_FACULTY_SCHEDULE);
+  const blocks = Array.isArray(saved) ? saved : saved?.blocks;
+  return (Array.isArray(blocks) ? blocks : [])
+    .filter(block => block && block.faculty && block.startDate && block.endDate)
+    .map(block => ({
+      ...block,
+      id: block.id || `${block.startDate}-${block.endDate}-${normalizeFaculty(block.faculty)}`,
+      faculty: String(block.faculty).trim(),
+      startDate: String(block.startDate),
+      endDate: String(block.endDate)
+    }))
+    .sort((a, b) => `${a.startDate}${a.endDate}`.localeCompare(`${b.startDate}${b.endDate}`));
+}
+
+function saveFacultySchedule(blocks = []) {
+  if (!Auth.isAdmin()) return { ok: false, message: 'Only an administrator can change the faculty clinic calendar.' };
+  const cleanBlocks = (Array.isArray(blocks) ? blocks : [])
+    .filter(block => block && block.faculty && block.startDate && block.endDate)
+    .map(block => ({
+      id: block.id || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      faculty: String(block.faculty).trim(),
+      startDate: String(block.startDate),
+      endDate: String(block.endDate),
+      note: String(block.note || '').trim()
+    }))
+    .sort((a, b) => `${a.startDate}${a.endDate}`.localeCompare(`${b.startDate}${b.endDate}`));
+  const value = {
+    ...DEFAULT_FACULTY_SCHEDULE,
+    blocks: cleanBlocks,
+    updatedOn: today(),
+    updatedBy: Auth.current()?.name || Auth.current()?.username || 'Administrator'
+  };
+  Store.set('hcms_faculty_schedule', value);
+  return { ok: true, schedule: value };
+}
+
+function facultyScheduleForDate(dateValue) {
+  return getFacultySchedule().find(block =>
+    dateValue >= block.startDate && dateValue <= block.endDate
+  ) || null;
+}
+
+function facultyEligibleOnDate(faculty, dateValue) {
+  const blocks = getFacultySchedule();
+  // An empty calendar keeps the existing general clinic behaviour.
+  if (!blocks.length) return true;
+  // Students created before faculty scheduling was enabled, or profiles with
+  // no faculty selected yet, can still use any configured clinic block.
+  if (!normalizeFaculty(faculty)) return true;
+  const block = facultyScheduleForDate(dateValue);
+  return Boolean(block && normalizeFaculty(block.faculty) === normalizeFaculty(faculty));
 }
 
 function queueDateForEntry(entry) {
@@ -885,7 +963,7 @@ function dateAfterDays(days) {
   return localDateKey(date);
 }
 
-function findNextAvailableAppointmentSlot() {
+function findNextAvailableAppointmentSlot(faculty = '') {
   const appointments = Store.get('hcms_appointments', []);
   const queue = Store.get('hcms_queue', []);
   const currentDate = localDateKey(new Date());
@@ -895,6 +973,7 @@ function findNextAvailableAppointmentSlot() {
     const date = dateAfterDays(offset);
     const weekday = new Date(`${date}T00:00:00`).getDay();
     if (weekday === 0 || weekday === 6) continue;
+    if (!facultyEligibleOnDate(faculty, date)) continue;
 
     const occupiedTimes = appointments
       .filter(item => item.date === date && item.status !== 'cancelled')
@@ -945,7 +1024,7 @@ function scheduleNextAvailableAppointment(patientId, reason = 'Health Centre Reg
   );
   if (existing) return existing;
 
-  const slot = findNextAvailableAppointmentSlot();
+  const slot = findNextAvailableAppointmentSlot(patient.faculty);
   if (!slot) return null;
 
   const appointment = {
@@ -954,6 +1033,7 @@ function scheduleNextAvailableAppointment(patientId, reason = 'Health Centre Reg
     matric: patient.matric,
     name: patient.name,
     dept: patient.dept,
+    faculty: patient.faculty || '',
     date: slot.date,
     time: slot.time,
     reason,
@@ -990,7 +1070,7 @@ function createFollowUpAppointment(patientId, reason = '') {
     };
   }
 
-  const slot = findNextAvailableAppointmentSlot();
+  const slot = findNextAvailableAppointmentSlot(patient.faculty);
   if (!slot) {
     return { ok: false, message: 'No clinic appointment slots are available at the moment. Please try again later.' };
   }
@@ -1001,6 +1081,7 @@ function createFollowUpAppointment(patientId, reason = '') {
     matric: patient.matric,
     name: patient.name,
     dept: patient.dept,
+    faculty: patient.faculty || '',
     date: slot.date,
     time: slot.time,
     reason: trimmedReason,
@@ -1189,8 +1270,15 @@ window.STAFF_ROLE_DEFINITIONS = STAFF_ROLE_DEFINITIONS;
 window.DEFAULT_QUEUE_SETTINGS = DEFAULT_QUEUE_SETTINGS;
 window.QUEUE_CRITERIA = QUEUE_CRITERIA;
 window.QUEUE_OVERFLOW_POLICIES = QUEUE_OVERFLOW_POLICIES;
+window.FACULTY_OPTIONS = FACULTY_OPTIONS;
+window.DEFAULT_FACULTY_SCHEDULE = DEFAULT_FACULTY_SCHEDULE;
+window.normalizeFaculty = normalizeFaculty;
 window.getQueueSettings = getQueueSettings;
 window.saveQueueSettings = saveQueueSettings;
+window.getFacultySchedule = getFacultySchedule;
+window.saveFacultySchedule = saveFacultySchedule;
+window.facultyScheduleForDate = facultyScheduleForDate;
+window.facultyEligibleOnDate = facultyEligibleOnDate;
 window.queueDateForEntry = queueDateForEntry;
 window.nextClinicDate = nextClinicDate;
 window.queueGroupForEntry = queueGroupForEntry;
