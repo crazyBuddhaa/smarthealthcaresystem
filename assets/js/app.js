@@ -1233,12 +1233,254 @@ window.reviewRegistrationWorkflow = reviewRegistrationWorkflow;
 window.registrationProgress = registrationProgress;
 
 // ── Seed data ─────────────────────────────────────────────────────────────────
+const SYNTHETIC_STUDENT_SEED_KEY = 'hcms_synthetic_students_seeded_v1';
+const SYNTHETIC_OPERATION_SEED_KEY = 'hcms_synthetic_operations_seeded_v1';
+
+function ensureSyntheticStudentSeed() {
+  if (!Store.remote || Store.get(SYNTHETIC_STUDENT_SEED_KEY, false)) return;
+
+  const facultyDepartments = [
+    ['Arts', ['English and Literary Studies', 'History and International Studies', 'Theatre and Film Studies']],
+    ['Education', ['Educational Management', 'Guidance and Counselling', 'Science Education']],
+    ['Engineering and Technology', ['Civil Engineering', 'Computer Engineering', 'Electrical/Electronics Engineering', 'Mechanical Engineering']],
+    ['Environmental Sciences', ['Architecture', 'Estate Management', 'Quantity Surveying', 'Urban and Regional Planning']],
+    ['Law', ['Business Law', 'Private Law', 'Public Law']],
+    ['Life Sciences', ['Biochemistry', 'Botany', 'Microbiology', 'Zoology']],
+    ['Management Sciences', ['Accounting', 'Banking and Finance', 'Business Administration', 'Marketing']],
+    ['Medical Sciences', ['Anatomy', 'Medicine and Surgery', 'Nursing Science', 'Physiology']],
+    ['Physical Sciences', ['Chemistry', 'Computer Science', 'Mathematics', 'Physics', 'Statistics']],
+    ['Social Sciences', ['Economics', 'Mass Communication', 'Political Science', 'Psychology', 'Sociology']]
+  ];
+  const firstNames = [
+    'Adebayo', 'Aisha', 'Chiamaka', 'Chinedu', 'Daniel', 'Efe', 'Fatima', 'Femi',
+    'Grace', 'Ibrahim', 'Janet', 'Kabiru', 'Mariam', 'Michael', 'Nneka', 'Olamide',
+    'Rashidat', 'Samuel', 'Taiwo', 'Yusuf'
+  ];
+  const lastNames = [
+    'Abdullahi', 'Adekunle', 'Afolabi', 'Bello', 'Eze', 'Ibrahim',
+    'Lawal', 'Mohammed', 'Okafor', 'Olawale'
+  ];
+  const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'O+', 'O-'];
+  const genotypes = ['AA', 'AS', 'AC'];
+  const allergies = ['None', 'Penicillin', 'Dust', 'Seafood'];
+  const halls = ['Hall 1, Campus', 'Hall 2, Campus', 'Hall 3, Campus', 'Hall 5, Campus', 'Off Campus'];
+  const existingPatients = Store.get('hcms_patients', []);
+  const existingMatricNumbers = new Set(
+    existingPatients.map(patient => String(patient.matric || '').trim().toUpperCase())
+  );
+  const existingIds = existingPatients.map(patient => Number(patient.id) || 0);
+  let nextId = existingIds.length ? Math.max(...existingIds) + 1 : 1;
+  const syntheticPatients = [];
+
+  for (let index = 0; index < 100; index += 1) {
+    const facultyEntry = facultyDepartments[index % facultyDepartments.length];
+    const faculty = facultyEntry[0];
+    const departments = facultyEntry[1];
+    const department = departments[Math.floor(index / facultyDepartments.length) % departments.length];
+    const matric = `STU/${2022 + (index % 5)}/${String(index + 1).padStart(4, '0')}`;
+    if (existingMatricNumbers.has(matric)) continue;
+
+    const firstName = firstNames[index % firstNames.length];
+    const lastName = lastNames[Math.floor(index / firstNames.length) % lastNames.length];
+    const birthYear = 1999 + (index % 7);
+    const birthMonth = String((index % 12) + 1).padStart(2, '0');
+    const birthDay = String((index % 27) + 1).padStart(2, '0');
+    const level = String(100 + ((index * 100) % 500));
+    const phone = `080${String(10000000 + index * 7319).slice(0, 8)}`;
+    const cardNo = `HC-${String(2022 + (index % 5))}-${String(index + 1).padStart(4, '0')}`;
+    const cardIssued = index % 5 !== 0;
+
+    syntheticPatients.push({
+      id: nextId++,
+      matric,
+      name: `${firstName} ${lastName}`,
+      gender: index % 2 === 0 ? 'Female' : 'Male',
+      dob: `${birthYear}-${birthMonth}-${birthDay}`,
+      faculty,
+      dept: department,
+      level,
+      phone,
+      email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}${index + 1}@student.example.test`,
+      address: halls[index % halls.length],
+      blood: bloodGroups[index % bloodGroups.length],
+      genotype: genotypes[index % genotypes.length],
+      allergies: allergies[index % allergies.length],
+      conditions: index % 11 === 0 ? 'Asthma' : 'None',
+      emergency: `Emergency Contact ${index + 1}: 080${String(20000000 + index * 6137).slice(0, 8)}`,
+      notes: 'Synthetic demonstration profile; not a real student record.',
+      cardNo,
+      cardIssued,
+      profileComplete: true,
+      registrationStatus: cardIssued ? 'approved' : 'pending',
+      selfRegistered: false,
+      registeredOn: '2026-09-01',
+      syntheticDemo: true
+    });
+  }
+
+  if (syntheticPatients.length) {
+    Store.set('hcms_patients', [...existingPatients, ...syntheticPatients]);
+  }
+  Store.set(SYNTHETIC_STUDENT_SEED_KEY, true);
+}
+
+function ensureSyntheticOperationalSeed() {
+  if (!Store.remote || Store.get(SYNTHETIC_OPERATION_SEED_KEY, false)) return;
+
+  const syntheticPatients = Store.get('hcms_patients', [])
+    .filter(patient => patient.syntheticDemo === true);
+  if (!syntheticPatients.length) return;
+
+  const clinicSlots = [
+    '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
+    '11:00', '11:30', '12:00', '14:00', '14:30', '15:00'
+  ];
+  const dateFromToday = (dayOffset, direction = 1) => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() + (dayOffset * direction));
+    while (date.getDay() === 0 || date.getDay() === 6) {
+      date.setDate(date.getDate() + direction);
+    }
+    return localDateKey(date);
+  };
+  const nextIdFor = key => {
+    const ids = Store.get(key, []).map(item => Number(item.id) || 0);
+    return ids.length ? Math.max(...ids) + 1 : 1;
+  };
+  const appointmentReasons = [
+    'General check-up',
+    'Follow-up consultation',
+    'Blood pressure review',
+    'Malaria screening',
+    'Minor ailment review'
+  ];
+  const complaints = [
+    'Headache and fatigue',
+    'Stomach discomfort',
+    'Cough and catarrh',
+    'Routine wellness check',
+    'Lower back pain',
+    'Skin irritation'
+  ];
+  const diagnoses = [
+    'Mild malaria',
+    'Gastritis',
+    'Upper respiratory tract infection',
+    'No abnormality detected',
+    'Musculoskeletal pain',
+    'Allergic dermatitis'
+  ];
+
+  const appointments = Store.get('hcms_appointments', []);
+  const appointmentPatients = new Set(appointments.map(item => item.patientId));
+  let appointmentId = nextIdFor('hcms_appointments');
+  syntheticPatients.slice(0, 40).forEach((patient, index) => {
+    if (appointmentPatients.has(patient.id)) return;
+    const isPast = index < 20;
+    const date = isPast
+      ? dateFromToday(index + 1, -1)
+      : dateFromToday(index - 19, 1);
+    const completed = isPast && index % 5 !== 0;
+    appointments.push({
+      id: appointmentId++,
+      patientId: patient.id,
+      matric: patient.matric,
+      name: patient.name,
+      faculty: patient.faculty,
+      dept: patient.dept,
+      date,
+      time: clinicSlots[index % clinicSlots.length],
+      reason: appointmentReasons[index % appointmentReasons.length],
+      appointmentType: index % 3 === 0 ? 'follow-up' : 'general',
+      requestedOn: date,
+      status: completed ? 'completed' : (isPast ? 'cancelled' : (index % 2 ? 'pending' : 'confirmed')),
+      paymentRef: index % 3 === 0 ? `CARESEED${String(index + 1).padStart(4, '0')}` : '',
+      cardNo: patient.cardNo
+    });
+  });
+
+  const queue = Store.get('hcms_queue', []);
+  const queuePatients = new Set(queue.map(item => item.patientId));
+  let queueId = nextIdFor('hcms_queue');
+  syntheticPatients.slice(40, 52).forEach((patient, index) => {
+    if (queuePatients.has(patient.id)) return;
+    queue.push({
+      id: queueId++,
+      patientId: patient.id,
+      name: patient.name,
+      matric: patient.matric,
+      faculty: patient.faculty,
+      dept: patient.dept,
+      queueDate: today(),
+      time: clinicSlots[index % clinicSlots.length],
+      status: ['done', 'active', 'waiting'][index % 3],
+      priority: index % 5 === 0 ? 'urgent' : (index % 2 ? 'appointment' : 'walk-in'),
+      token: `S${String(index + 1).padStart(3, '0')}`
+    });
+  });
+
+  const records = Store.get('hcms_records', []);
+  const recordPatients = new Set(records.map(item => item.patientId));
+  let recordId = nextIdFor('hcms_records');
+  syntheticPatients.slice(0, 24).forEach((patient, index) => {
+    if (recordPatients.has(patient.id)) return;
+    records.push({
+      id: recordId++,
+      patientId: patient.id,
+      date: dateFromToday(index + 3, -1),
+      complaint: complaints[index % complaints.length],
+      diagnosis: diagnoses[index % diagnoses.length],
+      treatment: index % 2
+        ? 'Supportive care, hydration, and follow-up as needed'
+        : 'Prescribed medication and routine clinical review',
+      doctor: index % 2 ? 'Dr. A. Okafor' : 'Dr. M. Yusuf',
+      notes: 'Synthetic demonstration consultation; not a real clinical record.'
+    });
+  });
+
+  const bills = Store.get('hcms_bills', []);
+  const billPatients = new Set(bills.map(item => item.patientId));
+  let billId = nextIdFor('hcms_bills');
+  syntheticPatients.slice(0, 30).forEach((patient, index) => {
+    if (billPatients.has(patient.id)) return;
+    const items = [
+      { desc: 'Consultation', amount: 500 },
+      index % 2 ? { desc: 'Laboratory Test', amount: 1500 } : { desc: 'Drugs', amount: 2000 }
+    ];
+    if (index % 4 === 0) items.push({ desc: 'Registration Screening', amount: 1000 });
+    const total = items.reduce((sum, item) => sum + item.amount, 0);
+    const paid = index % 3 !== 0;
+    bills.push({
+      id: billId++,
+      patientId: patient.id,
+      matric: patient.matric,
+      name: patient.name,
+      date: dateFromToday(index + 2, -1),
+      items,
+      total,
+      status: paid ? 'paid' : 'pending',
+      ref: paid ? `RCPSEED${String(index + 1).padStart(4, '0')}` : ''
+    });
+  });
+
+  Store.set('hcms_appointments', appointments);
+  Store.set('hcms_queue', queue);
+  Store.set('hcms_records', records);
+  Store.set('hcms_bills', bills);
+  Store.set(SYNTHETIC_OPERATION_SEED_KEY, true);
+}
+
 function seedData() {
   if (!Store.remote) {
     toast('Supabase is not configured. Add SUPABASE_ANON_KEY in Vercel and redeploy.', 'error', 8000);
     return;
   }
-  if (Store.get('hcms_seeded', false)) return;
+  if (Store.get('hcms_seeded', false)) {
+    ensureSyntheticStudentSeed();
+    ensureSyntheticOperationalSeed();
+    return;
+  }
 
   const patients = [
     { id:1, matric:'STU/2021/0012', name:'Oluwaseun Adeyemi', gender:'Male',   dob:'2002-04-15', dept:'Computer Science',   phone:'08012345678', blood:'O+', allergies:'None', address:'Hall 3, Campus' },
@@ -1284,6 +1526,8 @@ function seedData() {
   Store.set('hcms_bills',        bills);
   Store.set('hcms_appointments', appointments);
   Store.set('hcms_seeded',       true);
+  ensureSyntheticStudentSeed();
+  ensureSyntheticOperationalSeed();
 }
 
 // ── Toast notifications ───────────────────────────────────────────────────────
