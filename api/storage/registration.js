@@ -69,6 +69,36 @@ function absoluteStorageUrl(value) {
     : `${base}/storage/v1${value.startsWith('/') ? value : `/${value}`}`;
 }
 
+async function findDocumentPath(patientId, type) {
+  const response = await fetch(
+    `${SUPABASE_URL.replace(/\/$/, '')}/storage/v1/object/list/${encodeURIComponent(BUCKET)}`,
+    {
+      method: 'POST',
+      headers: {
+        apikey: SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        prefix: `registration/${patientId}/`,
+        limit: 100,
+        offset: 0,
+        sortBy: { column: 'created_at', order: 'desc' }
+      })
+    }
+  );
+  const body = await response.json().catch(() => []);
+  if (!response.ok) {
+    throw new Error(body.message || body.error || 'Unable to list registration documents.');
+  }
+
+  const prefix = `${type}-`;
+  const match = (Array.isArray(body) ? body : [])
+    .filter(item => typeof item?.name === 'string' && item.name.startsWith(prefix))
+    .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))[0];
+  return match ? `registration/${patientId}/${match.name}` : '';
+}
+
 module.exports = async function registrationStorageHandler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
@@ -82,8 +112,21 @@ module.exports = async function registrationStorageHandler(req, res) {
   if (!caller) return json(res, 403, { message: 'Active staff authorization is required.' });
 
   const requestUrl = new URL(req.url || '/', 'http://localhost');
-  const path = requestUrl.searchParams.get('path') || '';
+  let path = requestUrl.searchParams.get('path') || '';
   const download = requestUrl.searchParams.get('download') === '1';
+  if (!path) {
+    const patientId = requestUrl.searchParams.get('patientId') || '';
+    const type = requestUrl.searchParams.get('type') || '';
+    if (!/^\d+$/.test(patientId) || !['healthReceipt', 'schoolReceipt', 'passportPhoto'].includes(type)) {
+      return json(res, 400, { message: 'Provide a valid registration document path or document lookup.' });
+    }
+    try {
+      path = await findDocumentPath(patientId, type);
+    } catch (error) {
+      return json(res, 502, { message: error.message || 'Unable to find the registration document.' });
+    }
+    if (!path) return json(res, 404, { message: 'The uploaded document could not be found in storage.' });
+  }
   if (!/^registration\/\d+\/[a-z0-9._-]+$/i.test(path) || path.includes('..')) {
     return json(res, 400, { message: 'Invalid registration document path.' });
   }
