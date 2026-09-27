@@ -1471,6 +1471,88 @@ function ensureSyntheticOperationalSeed() {
   Store.set(SYNTHETIC_OPERATION_SEED_KEY, true);
 }
 
+const SYNTHETIC_WEEKDAY_APPOINTMENT_SEED_KEY = 'hcms_synthetic_weekday_appointments_seeded_v1';
+
+function ensureSyntheticWeekdayAppointments() {
+  if (!Store.remote || Store.get(SYNTHETIC_WEEKDAY_APPOINTMENT_SEED_KEY, false)) return;
+
+  const syntheticPatients = Store.get('hcms_patients', [])
+    .filter(patient => patient.syntheticDemo === true);
+  if (!syntheticPatients.length) return;
+
+  const appointments = Store.get('hcms_appointments', []);
+  const clinicSlots = [
+    '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
+    '11:00', '11:30', '12:00', '14:00', '14:30', '15:00'
+  ];
+  const reasons = [
+    'General check-up',
+    'Follow-up consultation',
+    'Blood pressure review',
+    'Malaria screening',
+    'Minor ailment review'
+  ];
+  const occupiedPatients = new Set(
+    appointments
+      .filter(item => item.status !== 'cancelled')
+      .map(item => item.patientId)
+  );
+  let appointmentId = Math.max(0, ...appointments.map(item => Number(item.id) || 0)) + 1;
+  let dateCursor = new Date();
+  dateCursor.setHours(0, 0, 0, 0);
+  dateCursor.setDate(dateCursor.getDate() + 1);
+
+  syntheticPatients.forEach((patient, index) => {
+    if (occupiedPatients.has(patient.id)) return;
+
+    let assigned = null;
+    for (let attempts = 0; attempts < 180 && !assigned; attempts += 1) {
+      if (dateCursor.getDay() !== 0 && dateCursor.getDay() !== 6) {
+        const date = localDateKey(dateCursor);
+        const occupiedTimes = new Set(
+          appointments
+            .filter(item => item.date === date && item.status !== 'cancelled')
+            .map(item => item.time)
+        );
+        const time = clinicSlots.find(slot => !occupiedTimes.has(slot));
+        if (time) assigned = { date, time };
+      }
+      if (!assigned) dateCursor.setDate(dateCursor.getDate() + 1);
+    }
+
+    if (!assigned) return;
+
+    appointments.push({
+      id: appointmentId++,
+      patientId: patient.id,
+      matric: patient.matric,
+      name: patient.name,
+      faculty: patient.faculty,
+      dept: patient.dept,
+      date: assigned.date,
+      time: assigned.time,
+      reason: reasons[index % reasons.length],
+      appointmentType: 'general',
+      requestedOn: assigned.date,
+      status: 'confirmed',
+      paymentRef: '',
+      assignment: 'automatic',
+      cardNo: patient.cardNo
+    });
+    occupiedPatients.add(patient.id);
+  });
+
+  const scheduledSyntheticPatients = new Set(
+    appointments
+      .filter(item => item.status !== 'cancelled' && syntheticPatients.some(patient => patient.id === item.patientId))
+      .map(item => item.patientId)
+  );
+  if (scheduledSyntheticPatients.size === syntheticPatients.length) {
+    Store.set('hcms_appointments', appointments);
+    Store.set(SYNTHETIC_WEEKDAY_APPOINTMENT_SEED_KEY, true);
+  }
+}
+
 function seedData() {
   if (!Store.remote) {
     toast('Supabase is not configured. Add SUPABASE_ANON_KEY in Vercel and redeploy.', 'error', 8000);
@@ -1479,6 +1561,7 @@ function seedData() {
   if (Store.get('hcms_seeded', false)) {
     ensureSyntheticStudentSeed();
     ensureSyntheticOperationalSeed();
+    ensureSyntheticWeekdayAppointments();
     return;
   }
 
@@ -1528,6 +1611,7 @@ function seedData() {
   Store.set('hcms_seeded',       true);
   ensureSyntheticStudentSeed();
   ensureSyntheticOperationalSeed();
+  ensureSyntheticWeekdayAppointments();
 }
 
 // ── Toast notifications ───────────────────────────────────────────────────────
