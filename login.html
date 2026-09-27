@@ -164,9 +164,9 @@
 
     const existingUser = Auth.current();
     if (existingUser?.role === 'student') {
-      window.location.href = 'student-portal.html';
+      window.location.replace('student-portal.html');
     } else if (existingUser?.active && existingUser.role !== 'unassigned') {
-      window.location.href = 'dashboard.html';
+      window.location.replace('dashboard.html');
     }
 
     const registered = new URLSearchParams(window.location.search).get('registered');
@@ -189,11 +189,11 @@
       submit.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Signing in...';
       const user = await Auth.login(username, password);
       if (user?.active && user.role === 'student') {
-        window.location.href = 'student-portal.html';
+        window.location.replace('student-portal.html');
         return;
       }
       if (user?.active && user.role !== 'unassigned') {
-        window.location.href = 'dashboard.html';
+        window.location.replace('dashboard.html');
         return;
       }
 
