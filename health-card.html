@@ -496,6 +496,7 @@
 </div>
 
 <script src="/api/config.js"></script>
+<script src="assets/js/scheduling.js"></script>
 <script src="assets/js/app.js"></script>
 <script>
   function loadCard() {
@@ -532,8 +533,8 @@
     }
 
     const workflow = getRegistrationWorkflow(p.id);
-    const cardIssued = !workflow || (p.cardIssued === true && workflow.reviewStatus === 'approved');
-    if (workflow && !cardIssued && !staffViewing) {
+    const cardIssued = CarePointScheduling.cardIsIssued(p, workflow);
+    if (!cardIssued && !staffViewing) {
       // The card becomes available only after final approval.
       document.getElementById('card-subtitle').textContent = 'Your card has not been activated yet.';
       document.getElementById('card-notice').style.display = 'flex';
@@ -567,7 +568,7 @@
 
     // Subtitle
     document.getElementById('card-subtitle').textContent =
-      workflow && !cardIssued && !staffViewing
+      !cardIssued && !staffViewing
         ? `Provisional card preview for ${p.name} (${p.matric})`
         : `Health Centre Card for ${p.name} (${p.matric})`;
   }

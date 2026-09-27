@@ -724,6 +724,7 @@
 </div><!-- end portal-view -->
 
 <script src="/api/config.js"></script>
+<script src="assets/js/scheduling.js"></script>
 <script src="assets/js/app.js"></script>
 <script>
   let currentStudent = null;
@@ -754,8 +755,16 @@
     // Card link
     document.getElementById('view-print-card').href = `health-card.html?matric=${encodeURIComponent(p.matric)}`;
 
-    if (p.profileComplete === true && p.selfRegistered) {
-      scheduleNextAvailableAppointment(p.id);
+    if (p.profileComplete === true && p.selfRegistered &&
+        !Store.get('hcms_appointments', []).some(a => a.patientId === p.id && a.status !== 'cancelled')) {
+      // The server assigns the registration appointment if one is due.
+      StudentData.ensureAppointment().then(result => {
+        if (!result.ok || !result.appointment) return;
+        const updated = Store.get('hcms_patients', []).find(x => x.id === p.id) || p;
+        loadAppointment(updated);
+        loadStats(updated);
+        loadRegistrationJourney(updated);
+      });
     }
     updateAppointmentVisibility(p);
     loadAppointment(p);
@@ -839,7 +848,6 @@
     const allergies = document.getElementById('setup-allergies').value.trim() || 'None';
     const conditions = document.getElementById('setup-conditions').value.trim();
     const notes = document.getElementById('setup-notes').value.trim();
-    const cardNo = p.cardNo || `HC-${p.matric.replace(/[^0-9]/g, '').slice(-8) || p.id}`;
 
     // Upload the three documents to the student's private storage folder
     // before the registration is saved.
@@ -867,54 +875,43 @@
       uploads.push(result);
     }
     const [healthUpload, schoolUpload, photoUpload] = uploads;
+    if (submit) submit.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving your registration...';
+
+    // The server saves the form, assigns the appointment and starts the
+    // registration checklist, all on this student's own records only.
+    const result = await StudentData.completeProfile(
+      {
+        gender,
+        dob: document.getElementById('setup-dob').value,
+        phone,
+        faculty,
+        dept,
+        level,
+        address,
+        blood,
+        genotype,
+        allergies,
+        conditions,
+        emergency,
+        notes
+      },
+      {
+        healthReceipt: { path: healthUpload.path, fileName: healthUpload.fileName },
+        schoolReceipt: { path: schoolUpload.path, fileName: schoolUpload.fileName },
+        passportPhoto: { path: photoUpload.path, fileName: photoUpload.fileName }
+      }
+    );
     if (submit) {
       submit.disabled = false;
       submit.innerHTML = submitLabel;
     }
-
-    patients[patientIndex] = {
-      ...p,
-      gender,
-      dob: document.getElementById('setup-dob').value,
-      phone,
-      faculty,
-      dept,
-      level,
-      address,
-      blood,
-      genotype,
-      allergies,
-      conditions,
-      emergency,
-      notes,
-      cardNo,
-      onlineDocuments: {
-        healthReceipt: healthUpload.fileName,
-        healthReceiptPath: healthUpload.path,
-        schoolReceipt: schoolUpload.fileName,
-        schoolReceiptPath: schoolUpload.path,
-        passportPhotos: [photoUpload.fileName],
-        passportPhotoPaths: [photoUpload.path]
-      },
-      profileComplete: true,
-      cardIssued: false
-    };
-    Store.set('hcms_patients', patients);
-
-    const appointment = scheduleNextAvailableAppointment(p.id);
-    const workflows = Store.get('hcms_registration_workflows', []);
-    const workflow = createRegistrationWorkflow(p.id, {
-      appointmentDate: appointment?.date || '',
-      appointmentTime: appointment?.time || '',
-      formSubmitted: true,
-      documents: patients[patientIndex].onlineDocuments
-    });
-    const workflowIndex = workflows.findIndex(item => item.patientId === p.id);
-    if (workflowIndex >= 0) workflows[workflowIndex] = workflow;
-    else workflows.push(workflow);
-    Store.set('hcms_registration_workflows', workflows);
-
-    const updatedPatient = patients[patientIndex];
+    if (!result.ok) {
+      showAlert(alert, 'danger', escapeHtml(result.message));
+      return;
+    }
+    const appointment = result.appointment;
+    const updatedPatient = Store.get('hcms_patients', []).find(item => item.id === p.id) || p;
+    const cardNo = updatedPatient.cardNo || '';
     toggleStudentSetup(updatedPatient);
     updateAppointmentVisibility(updatedPatient);
     loadAppointment(updatedPatient);
@@ -1078,7 +1075,7 @@
     if (!link || !notice) return;
 
     const workflow = getRegistrationWorkflow(p.id);
-    const issued = !workflow || (p.cardIssued === true && workflow.reviewStatus === 'approved');
+    const issued = CarePointScheduling.cardIsIssued(p, workflow);
     link.href = `health-card.html?matric=${encodeURIComponent(p.matric)}`;
 
     if (issued) {
@@ -1264,7 +1261,7 @@
     const bills    = Store.get('hcms_bills',[]).filter(b => b.patientId === p.id);
     const pending  = bills.filter(b => b.status==='pending');
     const workflow = getRegistrationWorkflow(p.id);
-    const cardIssued = !workflow || (p.cardIssued === true && workflow.reviewStatus === 'approved');
+    const cardIssued = CarePointScheduling.cardIsIssued(p, workflow);
 
     document.getElementById('student-stats').innerHTML = `
       <div class="stat-card teal"><div class="stat-icon"><i class="fa fa-calendar-check-o"></i></div>
@@ -1280,24 +1277,17 @@
          <div class="stat-change up">${cardIssued ? '▲ Activated' : 'Awaiting approval'}</div></div></div>`;
   }
 
-  function requestReschedule() {
+  async function requestReschedule() {
     const date   = document.getElementById('r-date').value;
     const time   = document.getElementById('r-time').value;
     const reason = document.getElementById('r-reason').value;
     if (!date || !time) { toast('Please select a new date and time.', 'error'); return; }
 
-    const p     = Store.get('hcms_patients',[]).find(x => x.id === currentStudent.patientId);
-    const appts = Store.get('hcms_appointments',[]);
-    const appt  = appts.find(a => a.patientId === p.id && a.status !== 'cancelled');
-    if (!appt) { toast('No active appointment found.', 'error'); return; }
-
-    appt.status       = 'rescheduled';
-    appt.rescheduleDate   = date;
-    appt.rescheduleTime   = time;
-    appt.rescheduleReason = reason;
-    Store.set('hcms_appointments', appts);
-    toast(`Reschedule request submitted for ${formatDate(date)} at ${time}. Awaiting staff confirmation.`, 'info', 4000);
-    loadAppointment(p);
+    const result = await StudentData.requestReschedule(date, time, reason);
+    if (!result.ok) { toast(result.message, 'error'); return; }
+    const p = Store.get('hcms_patients',[]).find(x => x.id === currentStudent.patientId);
+    toast(`Reschedule request submitted for ${formatDate(date)} at ${time}. Awaiting administrator confirmation.`, 'info', 4000);
+    if (p) loadAppointment(p);
   }
 
   function showTab(id, btn) {
