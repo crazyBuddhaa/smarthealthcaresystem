@@ -79,6 +79,7 @@
         </select>
         <select class="form-control" id="registration-filter" onchange="filterTable()" style="max-width:220px">
           <option value="">All Registration Statuses</option>
+          <option value="profile-incomplete">Online form not submitted</option>
           <option value="awaiting-review">Awaiting document review</option>
           <option value="rejected">Rejected documents</option>
           <option value="approved">Documents approved</option>
@@ -220,7 +221,8 @@
 
   function registrationReviewStatus(p) {
     if (!p?.selfRegistered) return 'not-applicable';
-    if (p.profileComplete !== true && !p.registrationStatus) return 'not-applicable';
+    // Signed up online but has not yet submitted the health centre form.
+    if (p.profileComplete !== true && !p.registrationStatus) return 'profile-incomplete';
     const workflow = getRegistrationWorkflow(p.id);
     if (p.registrationStatus === 'documents-rejected' || workflow?.documentReviewStatus === 'rejected') {
       return 'rejected';
@@ -237,6 +239,7 @@
       'awaiting-review': 'Awaiting document review',
       rejected: 'Documents rejected',
       approved: 'Documents approved',
+      'profile-incomplete': 'Online form not submitted',
       'not-applicable': 'Staff-created record'
     })[status] || 'Not reviewed';
   }
@@ -246,6 +249,7 @@
       'awaiting-review': 'badge-pending',
       rejected: 'badge-danger',
       approved: 'badge-success',
+      'profile-incomplete': 'badge-info',
       'not-applicable': 'badge-secondary'
     };
     return `<span class="badge ${classes[status] || 'badge-secondary'}">${registrationReviewLabel(status)}</span>`;
@@ -274,10 +278,10 @@
         <td>${i+1}</td>
         <td><strong class="text-red">${p.matric}</strong></td>
         <td>${p.name}</td>
-        <td><span class="badge ${p.gender==='Male'?'badge-info':'badge-pending'}">${p.gender}</span></td>
-        <td>${p.dept}</td>
-        <td><span class="badge badge-secondary">${p.blood}</span></td>
-        <td>${p.phone}</td>
+        <td>${p.gender ? `<span class="badge ${p.gender==='Male'?'badge-info':'badge-pending'}">${p.gender}</span>` : '<span class="text-muted">—</span>'}</td>
+        <td>${p.dept || '<span class="text-muted">Not provided</span>'}</td>
+        <td>${p.blood ? `<span class="badge badge-secondary">${p.blood}</span>` : '<span class="text-muted">—</span>'}</td>
+        <td>${p.phone || '<span class="text-muted">—</span>'}</td>
         <td>${p.allergies||'None'}</td>
         <td>${registrationReviewBadge(registrationReviewStatus(p))}</td>
         <td>
