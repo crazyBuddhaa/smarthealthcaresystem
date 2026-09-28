@@ -11,6 +11,42 @@ const supabaseConfig = window.SUPABASE_CONFIG || {};
 const supabaseStoreUrl = supabaseConfig.url
   ? `${supabaseConfig.url.replace(/\/$/, '')}/rest/v1/${SUPABASE_STORE_TABLE}`
   : '';
+// ── Online clock ──────────────────────────────────────────────────────────────
+// A device whose clock is wrong would otherwise treat a fresh sign-in as
+// expired, or show the wrong clinic day. At sign-in, the token's "issued at"
+// time (set by the Supabase server) is compared with the device clock, and the
+// difference is kept for the session. serverNow() is the device time corrected
+// by that difference; the rest of the app uses it instead of Date.now().
+const CLOCK_OFFSET_KEY = 'carepoint_clock_offset';
+
+function clockOffset() {
+  try {
+    const value = Number(sessionStorage.getItem(CLOCK_OFFSET_KEY));
+    return Number.isFinite(value) ? value : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function serverNow() {
+  return Date.now() + clockOffset();
+}
+
+// Current date and time according to the online clock.
+function clinicDate() {
+  return new Date(serverNow());
+}
+
+function rememberClockOffset(accessToken) {
+  try {
+    const payload = JSON.parse(atob(String(accessToken).split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (!Number.isFinite(payload?.iat)) return;
+    sessionStorage.setItem(CLOCK_OFFSET_KEY, String(payload.iat * 1000 - Date.now()));
+  } catch {
+    // Keep the device clock if the token cannot be read.
+  }
+}
+
 // Data requests are sent with the signed-in user's access token so that the
 // Row Level Security policies on hcms_store can apply role-based rules.
 function storeAccessToken() {
@@ -19,7 +55,7 @@ function storeAccessToken() {
     const token = session?.access_token || '';
     if (!token) return '';
     const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-    return payload?.exp && payload.exp * 1000 <= Date.now() ? '' : token;
+    return payload?.exp && payload.exp * 1000 <= serverNow() ? '' : token;
   } catch {
     return '';
   }
@@ -395,11 +431,13 @@ function readAuthSession() {
 }
 
 function writeAuthSession(session) {
+  rememberClockOffset(session?.access_token);
   sessionStorage.setItem(SUPABASE_AUTH_SESSION_KEY, JSON.stringify(session));
 }
 
 function clearAuthSession() {
   sessionStorage.removeItem(SUPABASE_AUTH_SESSION_KEY);
+  sessionStorage.removeItem(CLOCK_OFFSET_KEY);
 }
 
 function decodeJwtPayload(token) {
@@ -490,7 +528,7 @@ const Auth = {
     const session = readAuthSession();
     if (!session?.access_token || !session.user) return null;
     const claims = decodeJwtPayload(session.access_token);
-    if (claims?.exp && claims.exp * 1000 <= Date.now()) return null;
+    if (claims?.exp && claims.exp * 1000 <= serverNow()) return null;
     return normalizedAuthUser(session.user);
   },
   accessToken() {
@@ -1025,7 +1063,7 @@ function localDateKey(date) {
 }
 
 function dateAfterDays(days) {
-  const date = new Date();
+  const date = clinicDate();
   date.setHours(0, 0, 0, 0);
   date.setDate(date.getDate() + days);
   return localDateKey(date);
@@ -1445,7 +1483,7 @@ function ensureSyntheticOperationalSeed() {
     '11:00', '11:30', '12:00', '14:00', '14:30', '15:00'
   ];
   const dateFromToday = (dayOffset, direction = 1) => {
-    const date = new Date();
+    const date = clinicDate();
     date.setHours(0, 0, 0, 0);
     date.setDate(date.getDate() + (dayOffset * direction));
     while (date.getDay() === 0 || date.getDay() === 6) {
@@ -1607,7 +1645,7 @@ function ensureSyntheticWeekdayAppointments() {
       .map(item => item.patientId)
   );
   let appointmentId = Math.max(0, ...appointments.map(item => Number(item.id) || 0)) + 1;
-  let dateCursor = new Date();
+  let dateCursor = clinicDate();
   dateCursor.setHours(0, 0, 0, 0);
   dateCursor.setDate(dateCursor.getDate() + 1);
 
@@ -1825,8 +1863,8 @@ function renderTopnavUser() {
 }
 
 // ── Date/time utils ───────────────────────────────────────────────────────────
-function today() { return localDateKey(new Date()); }
-function nowTime() { return new Date().toTimeString().slice(0,5); }
+function today() { return localDateKey(clinicDate()); }
+function nowTime() { return clinicDate().toTimeString().slice(0,5); }
 function formatDate(d) {
   if (!d) return 'Not available';
   const parts = d.split('-');
@@ -1901,6 +1939,8 @@ window.initPage = initPage;
 window.formatDate  = formatDate;
 window.formatNaira = formatNaira;
 window.today    = today;
+window.serverNow = serverNow;
+window.clinicDate = clinicDate;
 window.nowTime  = nowTime;
 window.seedData = seedData;
 window.escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({

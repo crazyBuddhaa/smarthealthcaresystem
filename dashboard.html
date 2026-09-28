@@ -614,12 +614,12 @@
 
   function initializeDashboard() {
     document.getElementById('welcome-greeting').textContent = (() => {
-      const hour = new Date().getHours();
+      const hour = clinicDate().getHours();
       return hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
     })();
     document.getElementById('welcome-name').textContent = user.name;
     document.getElementById('today-date').textContent =
-      new Date().toLocaleDateString('en-GB', {
+      clinicDate().toLocaleDateString('en-GB', {
         weekday:'long',
         day:'numeric',
         month:'long',
