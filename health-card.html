@@ -172,7 +172,8 @@
     .hc-card,
     .hc-card-back {
       width: 390px;
-      height: 510px;
+      height: auto;
+      min-height: 510px;
       border-radius: 0;
       background: #fff;
       color: #111;
@@ -365,6 +366,13 @@
       line-height: 1.55;
     }
 
+    /* Single-sided card: the footer follows the content instead of sitting
+       over it, so the card can grow with the details it shows. */
+    .hc-card .hc-receipt-footer {
+      position: static;
+      margin-top: 12px;
+    }
+
     @media (max-width: 480px) {
       .hc-card,
       .hc-card-back {
@@ -392,98 +400,47 @@
 
   <div class="cards-wrapper" style="display:flex;flex-direction:column;align-items:center;gap:16px">
 
-    <!-- FRONT -->
-    <div>
-      <p style="font-size:11px;color:var(--eksu-muted);text-align:center;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Front</p>
-      <div class="hc-card" id="card-front">
-        <div class="hc-receipt-header">
-          <div class="hc-receipt-heading">
-            <div class="hc-receipt-title">CAREPOINT HEALTH CENTRE</div>
-            <div class="hc-receipt-subtitle">STUDENT HEALTH CARD</div>
-          </div>
-          <img class="hc-receipt-logo" src="assets/images/healthcare_logo.svg" alt="CarePoint"/>
+    <div class="hc-card" id="card-front">
+      <div class="hc-receipt-header">
+        <div class="hc-receipt-heading">
+          <div class="hc-receipt-title">CAREPOINT HEALTH CENTRE</div>
+          <div class="hc-receipt-subtitle">STUDENT HEALTH CARD</div>
         </div>
-
-        <div class="hc-receipt-meta">
-          <div><span class="hc-receipt-label">Card No.</span><strong class="hc-receipt-value" id="fc-card-no">Not issued</strong></div>
-          <div><span class="hc-receipt-label">Session</span><strong class="hc-receipt-value">2025/2026</strong></div>
-        </div>
-
-        <div class="hc-receipt-section-title">Patient Information</div>
-        <div class="hc-receipt-table">
-          <div class="hc-receipt-row">
-            <span>Full Name</span><strong id="fc-name">Not available</strong>
-          </div>
-          <div class="hc-receipt-row">
-            <span>Matric No.</span><strong id="fc-matric">Not available</strong>
-          </div>
-          <div class="hc-receipt-row">
-            <span>Department</span><strong id="fc-dept">Not available</strong>
-          </div>
-          <div class="hc-receipt-row">
-            <span>Blood Group</span><strong id="fc-blood">Not available</strong>
-          </div>
-          <div class="hc-receipt-row">
-            <span>Genotype</span><strong id="fc-geno">Not available</strong>
-          </div>
-          <div class="hc-receipt-row">
-            <span>Allergies</span><strong id="fc-allergies">Not available</strong>
-          </div>
-        </div>
-
-        <div class="hc-receipt-section-title">Clinic Visit</div>
-        <div class="hc-receipt-appointment">
-          <div class="hc-receipt-row" style="border-bottom:0;padding:0">
-            <span>Appointment</span><strong id="fc-appt">Not scheduled</strong>
-          </div>
-        </div>
-
-        <div class="hc-receipt-note">NOTE: PRESENT THIS CARD AT EVERY HEALTH CENTRE VISIT</div>
-        <div class="hc-receipt-footer">CarePoint Health Centre · Ado-Ekiti · Official Student Record</div>
-        <div class="hc-card-stripe"></div>
+        <img class="hc-receipt-logo" src="assets/images/healthcare_logo.svg" alt="CarePoint"/>
       </div>
-    </div>
 
-    <!-- BACK -->
-    <div>
-      <p style="font-size:11px;color:var(--eksu-muted);text-align:center;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Back</p>
-      <div class="hc-card-back">
-        <div class="hc-receipt-header">
-          <div class="hc-receipt-heading">
-            <div class="hc-receipt-title">CAREPOINT HEALTH CENTRE</div>
-            <div class="hc-receipt-subtitle">STUDENT HEALTH CARD · REVERSE</div>
-          </div>
-          <img class="hc-receipt-logo" src="assets/images/healthcare_logo.svg" alt="CarePoint"/>
-        </div>
-        <div class="hc-receipt-section-title">Contact Information</div>
-        <div class="hc-card-back-body">
-          <div class="hc-card-back-row">
-            <span>Emergency Contact</span>
-            <span id="bc-emergency">Not available</span>
-          </div>
-          <div class="hc-card-back-row">
-            <span>Phone</span>
-            <span id="bc-phone">Not available</span>
-          </div>
-          <div class="hc-card-back-row">
-            <span>Department</span>
-            <span id="bc-dept">Not available</span>
-          </div>
-          <div class="hc-card-back-row">
-            <span>Registered On</span>
-            <span id="bc-registered">Not available</span>
-          </div>
-        </div>
-        <div class="hc-receipt-section-title">Important Information</div>
-        <div class="hc-receipt-instructions">
-          If found, please return this card to CarePoint Health Centre, Ado-Ekiti.
-          This card is valid for the 2025/2026 academic session only.
-          <br/><br/>
-          For emergencies, contact the Health Centre before presenting this card.
-        </div>
-        <div class="hc-receipt-note">THIS CARD REMAINS THE PROPERTY OF CAREPOINT HEALTH CENTRE</div>
-        <div class="hc-receipt-footer">Keep this card clean and present it during every visit.</div>
+      <div class="hc-receipt-meta">
+        <div><span class="hc-receipt-label">Card No.</span><strong class="hc-receipt-value" id="fc-card-no">Not issued</strong></div>
+        <div><span class="hc-receipt-label">Session</span><strong class="hc-receipt-value">2025/2026</strong></div>
       </div>
+
+      <div class="hc-receipt-section-title">Patient Information</div>
+      <div class="hc-receipt-table">
+        <div class="hc-receipt-row"><span>Full Name</span><strong id="fc-name">Not available</strong></div>
+        <div class="hc-receipt-row"><span>Matric No.</span><strong id="fc-matric">Not available</strong></div>
+        <div class="hc-receipt-row"><span>Department</span><strong id="fc-dept">Not available</strong></div>
+        <div class="hc-receipt-row"><span>Blood Group</span><strong id="fc-blood">Not available</strong></div>
+        <div class="hc-receipt-row"><span>Genotype</span><strong id="fc-geno">Not available</strong></div>
+        <div class="hc-receipt-row"><span>Allergies</span><strong id="fc-allergies">Not available</strong></div>
+      </div>
+
+      <div class="hc-receipt-section-title">Contact Information</div>
+      <div class="hc-receipt-table">
+        <div class="hc-receipt-row"><span>Emergency Contact</span><strong id="bc-emergency">Not available</strong></div>
+        <div class="hc-receipt-row"><span>Phone</span><strong id="bc-phone">Not available</strong></div>
+        <div class="hc-receipt-row"><span>Registered On</span><strong id="bc-registered">Not available</strong></div>
+      </div>
+
+      <div class="hc-receipt-section-title">Clinic Visit</div>
+      <div class="hc-receipt-appointment">
+        <div class="hc-receipt-row" style="border-bottom:0;padding:0">
+          <span>Appointment</span><strong id="fc-appt">Not scheduled</strong>
+        </div>
+      </div>
+
+      <div class="hc-receipt-note">PRESENT THIS CARD AT EVERY HEALTH CENTRE VISIT</div>
+      <div class="hc-receipt-footer">If found, please return to CarePoint Health Centre, Ado-Ekiti · Valid for the 2025/2026 session</div>
+      <div class="hc-card-stripe"></div>
     </div>
 
   </div><!-- end cards-wrapper -->
@@ -548,7 +505,7 @@
     // Get appointment
     const appt = Store.get('hcms_appointments',[]).find(a => a.patientId === p.id && a.status !== 'cancelled');
 
-    // Populate front
+    // Populate the card
     document.getElementById('fc-name').textContent    = p.name;
     document.getElementById('fc-matric').textContent  = 'MATRIC: ' + p.matric;
     document.getElementById('fc-dept').textContent    = p.dept + (p.level ? ' | Level ' + p.level : '');
@@ -560,10 +517,9 @@
       ? 'Appt: ' + formatDate(appt.date) + ' ' + appt.time
       : 'No appointment booked';
 
-    // Populate back
+    // Contact details
     document.getElementById('bc-emergency').textContent  = p.emergency || 'Not available';
     document.getElementById('bc-phone').textContent      = p.phone || 'Not available';
-    document.getElementById('bc-dept').textContent       = p.dept || 'Not available';
     document.getElementById('bc-registered').textContent = formatDate(p.registeredOn || today());
 
     // Subtitle
