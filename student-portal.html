@@ -1165,7 +1165,7 @@
     // Reschedule card (only for an appointment that is still to come)
     if (!['cancelled', 'completed'].includes(appt.status)) {
       document.getElementById('reschedule-card').style.display = 'block';
-      const minD = new Date(); minD.setDate(minD.getDate()+1);
+      const minD = clinicDate(); minD.setDate(minD.getDate()+1);
       document.getElementById('r-date').min   = minD.toISOString().split('T')[0];
       document.getElementById('r-date').value = minD.toISOString().split('T')[0];
     }

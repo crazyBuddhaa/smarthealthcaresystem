@@ -190,7 +190,7 @@
     '11:00', '11:30', '12:00', '14:00', '14:30', '15:00'
   ];
 
-  function localDateValue(date = new Date()) {
+  function localDateValue(date = clinicDate()) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
@@ -234,7 +234,7 @@
     }
 
     const currentMinutes = dateValue === localDateValue()
-      ? appointmentMinutes(new Date().toTimeString().slice(0, 5))
+      ? appointmentMinutes(clinicDate().toTimeString().slice(0, 5))
       : null;
 
     return ADMIN_APPOINTMENT_SLOTS.filter(slot => {
@@ -249,7 +249,7 @@
 
   function findFirstAvailableAdminDate(appointmentId) {
     for (let offset = 0; offset <= 120; offset += 1) {
-      const date = new Date();
+      const date = clinicDate();
       date.setHours(0, 0, 0, 0);
       date.setDate(date.getDate() + offset);
       const dateValue = localDateValue(date);
@@ -397,7 +397,7 @@
   }
 
   function init() {
-    document.getElementById('today-label').textContent = new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+    document.getElementById('today-label').textContent = clinicDate().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
     renderAppts();
     renderToday();
     const requestedAppointment = new URLSearchParams(window.location.search).get('reschedule');
