@@ -24,4 +24,10 @@ assert.strictEqual(S.cardIsIssued({}, null), true);
 assert.strictEqual(S.cardIsIssued({ cardIssued: false }, null), false);
 assert.strictEqual(S.cardIsIssued({ cardIssued: true }, { reviewStatus: 'awaiting-review' }), false);
 assert.strictEqual(S.cardIsIssued({ cardIssued: true }, { reviewStatus: 'approved' }), true);
-console.log('scheduler and card rules: all assertions passed');
+// Booking eligibility: online sign-ups wait for document approval
+assert.strictEqual(S.canScheduleRegistrationAppointment({ profileComplete: true, selfRegistered: true }), false);
+assert.strictEqual(S.canScheduleRegistrationAppointment({ profileComplete: true, selfRegistered: true, registrationStatus: 'documents-rejected' }), false);
+assert.strictEqual(S.canScheduleRegistrationAppointment({ profileComplete: true, selfRegistered: true, registrationStatus: 'approved' }), true);
+assert.strictEqual(S.canScheduleRegistrationAppointment({ profileComplete: true, selfRegistered: false }), true);
+assert.strictEqual(S.canScheduleRegistrationAppointment({ profileComplete: false, selfRegistered: true, registrationStatus: 'approved' }), false);
+console.log('scheduler, booking and card rules: all assertions passed');

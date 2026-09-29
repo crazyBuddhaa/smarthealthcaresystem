@@ -812,7 +812,7 @@ const REGISTRATION_STEP_DEFINITIONS = [
     key: 'appointment-booked',
     label: 'Appointment scheduled automatically',
     icon: 'fa-calendar-check-o',
-    description: 'The system assigns the next available clinic time based on appointments and the queue.',
+    description: 'Once your documents are approved, the system assigns the next available clinic time.',
     action: 'Appointment assigned'
   },
   {
