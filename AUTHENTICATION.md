@@ -98,10 +98,12 @@ Apply the migrations in order:
   faculty calendar and demonstration data flags by the administrator only;
   all other collections by any active staff member.
 
-The staff pages apply the same limits: `billing.html` opens only for the
-administrator and cashier/reception, `records.html` only for the
+The staff pages apply the same limits: `billing.html` and `register.html` open
+only for the administrator and cashier/reception, `records.html` only for the
 administrator, doctors and nurses, and `staff-management.html` and
-`queue-settings.html` only for the administrator. Demonstration data is loaded
+`queue-settings.html` only for the administrator. The side menu is built for
+each role from one definition in `app.js` (`SIDEBAR_SECTIONS`), so it only
+lists pages the signed-in user can open. Demonstration data is loaded
 only when the administrator signs in.
 
 All users must sign in again after the first migration so that their access
