@@ -340,33 +340,6 @@
 <body class="student-portal-page">
 
 <!-- Login state (shown before auth) -->
-<div id="login-view">
-  <div class="student-login-background">
-    <div class="student-login-card">
-      <div class="login-brand">
-        <a href="index.html"><img src="assets/images/healthcare_logo.svg" alt="CarePoint Health Centre"/></a>
-        <div class="login-brand-title"><i class="fa fa-lock"></i> SIGN-IN</div>
-      </div>
-      <div class="login-body">
-        <div class="notice-box" style="margin-bottom:16px">
-          <div class="notice-icon" style="font-size:26px"><i class="fa fa-info-circle"></i></div>
-          <div class="notice-content">
-            <h5>Shared sign-in</h5>
-            <p>Students and staff use the same sign-in page. Student accounts use the matric number as the username.</p>
-          </div>
-        </div>
-        <p class="text-center text-muted" style="font-size:13px;padding:16px 0">
-          Redirecting you to the shared sign-in page…
-        </p>
-        <a href="login.html" class="btn btn-red btn-block">
-          <i class="fa fa-sign-in"></i> Go to Sign In
-        </a>
-      </div>
-      <div class="login-footer">CarePoint Health Centre &copy; 2026</div>
-    </div>
-  </div>
-</div>
-
 <!-- Portal (shown after auth) -->
 <div id="portal-view" style="display:none">
 
@@ -746,7 +719,6 @@
 
   function loadPortal(u) {
     currentStudent = u;
-    document.getElementById('login-view').style.display  = 'none';
     document.getElementById('portal-view').style.display = 'block';
 
     const p = Store.get('hcms_patients',[]).find(x => x.id === u.patientId);
@@ -1354,7 +1326,6 @@
   function studentLogout() {
     StudentAuth.logout();
     document.getElementById('portal-view').style.display = 'none';
-    document.getElementById('login-view').style.display  = 'block';
     currentStudent = null;
   }
 
