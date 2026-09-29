@@ -313,7 +313,7 @@
 
     const tbody = document.getElementById('bills-tbody');
     tbody.innerHTML = '';
-    [...filtered].reverse().forEach(b => {
+    newestFirst(filtered).forEach(b => {
       const invNo = `INV-${String(b.id).padStart(4, '0')}`;
       tbody.innerHTML += `<tr>
         <td><strong class="text-red">${invNo}</strong></td>

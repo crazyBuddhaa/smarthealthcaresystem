@@ -264,7 +264,7 @@
     }
 
     tbody.innerHTML = '';
-    [...records].reverse().forEach((r, i) => {
+    newestFirst(records).forEach((r, i) => {
       tbody.innerHTML += `<tr>
         <td>${records.length - i}</td>
         <td>${formatDate(r.date)}</td>
@@ -299,7 +299,7 @@
     allRecCard.style.display = 'block';
     const tbody = document.getElementById('all-records-tbody');
     tbody.innerHTML = '';
-    [...records].reverse().forEach((r, i) => {
+    newestFirst(records).forEach((r, i) => {
       const p = patients.find(x => x.id === r.patientId);
       tbody.innerHTML += `<tr>
         <td>${records.length - i}</td>

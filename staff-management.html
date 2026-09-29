@@ -243,7 +243,9 @@
   }
 
   function renderStaff() {
-    const staff = StaffAdmin.listStaff();
+    // Newest accounts first
+    const staff = [...StaffAdmin.listStaff()].sort((a, b) =>
+      String(b.createdOn || '').localeCompare(String(a.createdOn || '')));
     document.getElementById('staff-count').textContent = `${staff.length} account${staff.length === 1 ? '' : 's'}`;
     const body = document.getElementById('staff-table-body');
     body.innerHTML = staff.map(user => {
@@ -303,7 +305,7 @@
       return;
     }
     body.innerHTML = tasks
-      .sort((a, b) => (a.status === 'revoked') - (b.status === 'revoked'))
+      .sort((a, b) => (a.status === 'revoked') - (b.status === 'revoked') || (Number(b.id) || 0) - (Number(a.id) || 0))
       .map(task => {
         const revoked = task.status === 'revoked';
         const statusClass = task.status === 'completed' ? 'badge-success' : revoked ? 'badge-secondary' : 'badge-pending';

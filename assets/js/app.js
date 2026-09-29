@@ -1864,6 +1864,13 @@ function renderTopnavUser() {
 
 // ── Date/time utils ───────────────────────────────────────────────────────────
 function today() { return localDateKey(clinicDate()); }
+
+// Lists show the newest record first. Record ids are assigned in creation
+// order, so the highest id is the most recently created.
+function newestFirst(list) {
+  return [...(Array.isArray(list) ? list : [])]
+    .sort((a, b) => (Number(b?.id) || 0) - (Number(a?.id) || 0));
+}
 function nowTime() { return clinicDate().toTimeString().slice(0,5); }
 function formatDate(d) {
   if (!d) return 'Not available';
@@ -1939,6 +1946,7 @@ window.initPage = initPage;
 window.formatDate  = formatDate;
 window.formatNaira = formatNaira;
 window.today    = today;
+window.newestFirst = newestFirst;
 window.serverNow = serverNow;
 window.clinicDate = clinicDate;
 window.nowTime  = nowTime;
