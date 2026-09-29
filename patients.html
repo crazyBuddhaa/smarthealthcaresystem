@@ -199,10 +199,12 @@
   let allPatients = [];
 
   function render() {
-    allPatients = Store.get('hcms_patients', []);
+    // Newest students first: ids are assigned in the order records are created.
+    allPatients = [...Store.get('hcms_patients', [])]
+      .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 
     // Populate dept filter
-    const depts = [...new Set(allPatients.map(p=>p.dept))].sort();
+    const depts = [...new Set(allPatients.map(p=>p.dept).filter(Boolean))].sort();
     const df = document.getElementById('dept-filter');
     if (df.options.length <= 1) {
       depts.forEach(d => { const o=document.createElement('option'); o.textContent=d; df.appendChild(o); });
