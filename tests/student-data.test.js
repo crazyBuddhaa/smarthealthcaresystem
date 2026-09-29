@@ -117,6 +117,28 @@ const profile = { gender: 'Female', phone: '0801', dept: 'Law', faculty: 'Law', 
   assert.strictEqual(wf.steps.find(s => s.key === 'appointment-booked').status, 'complete');
   console.log('ok  weekday appointment assigned only after documents are approved');
 
+  // Faculty calendar: today is another faculty's day. With capacity sharing
+  // (default) and nobody from that faculty waiting, the student is booked on it.
+  {
+    const saved = JSON.parse(JSON.stringify(store));
+    const todayKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Lagos' }).format(new Date());
+    const futureDays = [...Array(70).keys()].map(i => S.addDaysToKey(todayKey, i));
+    store.hcms_appointments = store.hcms_appointments.filter(a => a.patientId !== 7);
+    store.hcms_faculty_schedules = futureDays.map(d => ({ faculty: 'Arts', startDate: d, endDate: d }));
+    r = await call('POST', 'tok7', { action: 'ensure-appointment' });
+    assert.ok(r.body.appointment, 'shared: booked on an Arts day');
+    store.hcms_appointments = store.hcms_appointments.filter(a => a.patientId !== 7);
+    store.hcms_queue_settings = { underQuotaPolicy: 'respect-groups' };
+    r = await call('POST', 'tok7', { action: 'ensure-appointment' });
+    assert.strictEqual(r.body.appointment, null, 'strict: no Law day, no booking');
+    store.hcms_queue_settings = {};
+    store.hcms_patients.push({ id: 50, faculty: 'Arts', profileComplete: true, selfRegistered: true, registrationStatus: 'approved' });
+    r = await call('POST', 'tok7', { action: 'ensure-appointment' });
+    assert.strictEqual(r.body.appointment, null, 'shared: an Arts student is still waiting, so Arts days stay theirs');
+    Object.keys(store).forEach(k => delete store[k]); Object.assign(store, saved);
+  }
+  console.log('ok  faculty days shared only when that faculty has nobody waiting; strict policy respected');
+
   // Resubmission refused; ensure-appointment returns existing, no duplicate
   assert.strictEqual((await call('POST', 'tok7', { action: 'complete-profile', profile, documents: docs(7) })).status, 409);
   const before = store.hcms_appointments.length;
