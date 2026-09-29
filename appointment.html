@@ -446,8 +446,8 @@
       return;
     }
 
-    // Sort by date then time
-    [...filtered].sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time)).forEach((a, i) => {
+    // Newest appointments first
+    newestFirst(filtered).forEach((a, i) => {
       tbody.innerHTML += `<tr>
         <td>${i+1}</td>
         <td>${formatDate(a.date)}</td>

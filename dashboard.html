@@ -551,7 +551,7 @@
         </div>
       </div>`).join('');
 
-    document.getElementById('recent-patients').innerHTML = patients.slice(-5).reverse().map(patient => `
+    document.getElementById('recent-patients').innerHTML = newestFirst(patients).slice(0, 5).map(patient => `
       <tr>
         <td><span class="text-red text-bold">${escapeHtml(patient.matric)}</span></td>
         <td>${escapeHtml(patient.name)}</td>
@@ -568,7 +568,7 @@
         <td><span class="badge ${statusMap[item.status] || 'badge-secondary'}">${escapeHtml(item.status)}</span></td>
       </tr>`).join('');
 
-    document.getElementById('recent-bills').innerHTML = bills.slice(-4).reverse().map(bill => `
+    document.getElementById('recent-bills').innerHTML = newestFirst(bills).slice(0, 4).map(bill => `
       <tr>
         <td>${formatDate(bill.date)}</td>
         <td>${escapeHtml(bill.matric)}</td>
@@ -581,8 +581,8 @@
   function renderMyTasks() {
     const body = document.getElementById('my-tasks-body');
     const tasks = StaffAdmin.listTasks()
-      .filter(task => task.assigneeUsername === user.username && task.status !== 'revoked')
-      .sort((a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999'));
+      .filter(task => task.assigneeUsername === user.username && task.status !== 'revoked');
+    tasks.sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
     if (!tasks.length) {
       body.innerHTML = '<p class="text-muted" style="font-size:13px;margin:0">No active tasks assigned to you.</p>';
       return;
