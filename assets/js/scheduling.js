@@ -69,10 +69,47 @@
   }
 
   /**
+   * Whether a day is open to a student of the given faculty.
+   *  - No current or future faculty calendar: every day is open.
+   *  - The faculty's own reserved day: open.
+   *  - policy 'respect-groups': nothing else is open (strict faculty days).
+   *  - policy 'fill-available' (default): days reserved for nobody are open, and
+   *    another faculty's day is open once that faculty has no students waiting
+   *    for an appointment (waitingFaculties). When waitingFaculties is null (queue
+   *    check-in), another faculty's day is open; the daily quota limits capacity.
+   */
+  function dayOpenToFaculty(options) {
+    const valid = (Array.isArray(options.blocks) ? options.blocks : []).filter(validFacultyBlock);
+    if (!valid.some(block => block.endDate >= options.todayKey)) return true;
+    const block = valid.find(item => item.startDate <= options.dateKey && item.endDate >= options.dateKey);
+    if (block && normalizeFaculty(block.faculty) === normalizeFaculty(options.faculty)) return true;
+    if (options.policy === 'respect-groups') return false;
+    if (!block) return true;
+    if (!options.waitingFaculties) return true;
+    return !options.waitingFaculties.has(normalizeFaculty(block.faculty));
+  }
+
+  // Faculties that still have students waiting for their registration
+  // appointment (eligible, but no appointment that is not cancelled).
+  function facultiesWaitingForAppointment(patients, appointments, excludePatientId) {
+    const booked = new Set((Array.isArray(appointments) ? appointments : [])
+      .filter(item => item.status !== 'cancelled')
+      .map(item => Number(item.patientId)));
+    const waiting = new Set();
+    (Array.isArray(patients) ? patients : []).forEach(patient => {
+      if (Number(patient.id) === Number(excludePatientId)) return;
+      if (!patient.faculty || booked.has(Number(patient.id))) return;
+      if (canScheduleRegistrationAppointment(patient)) waiting.add(normalizeFaculty(patient.faculty));
+    });
+    return waiting;
+  }
+
+  /**
    * Finds the first free weekday slot within SEARCH_DAYS days.
    * A slot is taken when a non-cancelled appointment, or (today only) a
    * student still in the queue, is less than 30 minutes away from it.
-   * @param {object} input { appointments, queue, facultyBlocks, faculty, todayKey, nowMinutes }
+   * @param {object} input { appointments, queue, facultyBlocks, faculty, todayKey, nowMinutes,
+   *                         policy, waitingFaculties }
    */
   function findNextAvailableSlot(input) {
     const appointments = Array.isArray(input.appointments) ? input.appointments : [];
@@ -84,7 +121,14 @@
       const date = addDaysToKey(todayKey, offset);
       const weekday = weekdayOfKey(date);
       if (weekday === 0 || weekday === 6) continue;
-      if (!facultyEligibleOnDate(input.facultyBlocks, input.faculty, date, todayKey)) continue;
+      if (!dayOpenToFaculty({
+        blocks: input.facultyBlocks,
+        faculty: input.faculty,
+        dateKey: date,
+        todayKey,
+        policy: input.policy || 'respect-groups',
+        waitingFaculties: input.waitingFaculties || new Set()
+      })) continue;
 
       const occupied = appointments
         .filter(item => item.date === date && item.status !== 'cancelled')
@@ -165,6 +209,8 @@
     normalizeFaculty,
     validFacultyBlock,
     facultyEligibleOnDate,
+    dayOpenToFaculty,
+    facultiesWaitingForAppointment,
     findNextAvailableSlot,
     buildRegistrationWorkflow,
     canScheduleRegistrationAppointment,

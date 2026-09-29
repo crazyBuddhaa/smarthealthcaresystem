@@ -515,7 +515,7 @@
       const block = facultyScheduleForDate(today());
       toast(
         block
-          ? `Today is reserved for ${block.faculty}. This student can be checked in on their faculty clinic day.`
+          ? `Today is reserved for ${block.faculty}, and the queue policy keeps faculty days strict. This student can be checked in on their faculty clinic day.`
           : 'No faculty clinic block is scheduled for today.',
         'warning'
       );

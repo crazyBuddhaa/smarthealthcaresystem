@@ -98,6 +98,19 @@ function nextId(list) {
   return list.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1;
 }
 
+// Queue policy "If capacity remains unused" (defaults to sharing free days) and
+// the faculties that still have students waiting for an appointment.
+async function capacityRules(appointments, patientId) {
+  const [settings, patients] = await Promise.all([
+    readStoreValue('hcms_queue_settings', {}),
+    readStoreValue('hcms_patients', [])
+  ]);
+  return {
+    policy: settings?.underQuotaPolicy === 'respect-groups' ? 'respect-groups' : 'fill-available',
+    waitingFaculties: Scheduling.facultiesWaitingForAppointment(asList(patients), appointments, patientId)
+  };
+}
+
 /**
  * Assigns the registration appointment when the student is eligible and has
  * no appointment that is still standing. Returns the appointment (new or
@@ -122,7 +135,8 @@ async function ensureRegistrationAppointment(patient) {
     facultyBlocks: asList(facultyBlocks),
     faculty: patient.faculty,
     todayKey: now.todayKey,
-    nowMinutes: now.nowMinutes
+    nowMinutes: now.nowMinutes,
+    ...(await capacityRules(appointments, patient.id))
   });
   if (!slot) return null;
 
@@ -320,7 +334,8 @@ async function requestFollowUp(patientId, body) {
     facultyBlocks: asList(facultyBlocks),
     faculty: patient.faculty,
     todayKey: now.todayKey,
-    nowMinutes: now.nowMinutes
+    nowMinutes: now.nowMinutes,
+    ...(await capacityRules(appointments, patient.id))
   });
   if (!slot) {
     return { status: 409, message: 'No clinic appointment slots are available at the moment. Please try again later.' };

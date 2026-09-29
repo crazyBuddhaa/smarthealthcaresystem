@@ -215,7 +215,7 @@
     const appointment = appointments.find(item => String(item.id) === String(appointmentId));
     const patient = Store.get('hcms_patients', []).find(item => item.id === appointment?.patientId);
     const faculty = appointment?.faculty || patient?.faculty || '';
-    if (!facultyEligibleOnDate(faculty, dateValue)) return [];
+    if (!facultyEligibleOnDate(faculty, dateValue, { forBooking: true, excludePatientId: appointment?.patientId })) return [];
 
     const occupiedTimes = appointments
       .filter(item =>
@@ -271,9 +271,10 @@
         .find(item => item.id === appointment?.patientId);
       const faculty = appointment?.faculty || patient?.faculty || '';
       const block = facultyScheduleForDate(dateValue);
-      const message = getFacultySchedule().length && !block
-        ? 'No faculty clinic block on this date — choose another date'
-        : getFacultySchedule().length && block && normalizeFaculty(block.faculty) !== normalizeFaculty(faculty)
+      const closedToFaculty = !facultyEligibleOnDate(faculty, dateValue, { forBooking: true, excludePatientId: appointment?.patientId });
+      const message = closedToFaculty && !block
+        ? 'This date is not open to this faculty — choose another date'
+        : closedToFaculty && block
           ? `${block.faculty} is scheduled on this date`
           : 'No available slots — choose another weekday';
       select.innerHTML = `<option value="">${escapeHtml(message)}</option>`;

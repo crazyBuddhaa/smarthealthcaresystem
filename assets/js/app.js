@@ -418,8 +418,22 @@ function facultyCalendarActive(fromDate = today()) {
   return getFacultySchedule().some(block => block.endDate >= fromDate);
 }
 
-function facultyEligibleOnDate(faculty, dateValue) {
-  return CarePointScheduling.facultyEligibleOnDate(getFacultySchedule(), faculty, dateValue, today());
+// Whether a clinic day is open to a student of this faculty, following the
+// faculty calendar and the "If capacity remains unused" queue policy.
+// options.forBooking: judge other faculties' days by whether they still have
+// students waiting for an appointment (excluding options.excludePatientId).
+function facultyEligibleOnDate(faculty, dateValue, options = {}) {
+  return CarePointScheduling.dayOpenToFaculty({
+    blocks: getFacultySchedule(),
+    faculty,
+    dateKey: dateValue,
+    todayKey: today(),
+    policy: getQueueSettings().underQuotaPolicy,
+    waitingFaculties: options.forBooking
+      ? CarePointScheduling.facultiesWaitingForAppointment(
+          Store.get('hcms_patients', []), Store.get('hcms_appointments', []), options.excludePatientId)
+      : null
+  });
 }
 
 function readAuthSession() {
@@ -1072,14 +1086,18 @@ function dateAfterDays(days) {
 // Staff pages schedule in the browser with the full data set. Students never
 // hold the full appointment list; their scheduling runs in api/student/data.js
 // with the same rules from assets/js/scheduling.js.
-function findNextAvailableAppointmentSlot(faculty = '') {
+function findNextAvailableAppointmentSlot(faculty = '', patientId = null) {
+  const appointments = Store.get('hcms_appointments', []);
   return CarePointScheduling.findNextAvailableSlot({
-    appointments: Store.get('hcms_appointments', []),
+    appointments,
     queue: Store.get('hcms_queue', []),
     facultyBlocks: getFacultySchedule(),
     faculty,
     todayKey: today(),
-    nowMinutes: timeToMinutes(nowTime())
+    nowMinutes: timeToMinutes(nowTime()),
+    policy: getQueueSettings().underQuotaPolicy,
+    waitingFaculties: CarePointScheduling.facultiesWaitingForAppointment(
+      Store.get('hcms_patients', []), appointments, patientId)
   });
 }
 
@@ -1098,7 +1116,7 @@ function scheduleNextAvailableAppointment(patientId, reason = 'Health Centre Reg
   );
   if (existing) return existing;
 
-  const slot = findNextAvailableAppointmentSlot(patient.faculty);
+  const slot = findNextAvailableAppointmentSlot(patient.faculty, patientId);
   if (!slot) return null;
 
   const appointment = {
@@ -1143,7 +1161,7 @@ function createFollowUpAppointment(patientId, reason = '') {
     };
   }
 
-  const slot = findNextAvailableAppointmentSlot(patient.faculty);
+  const slot = findNextAvailableAppointmentSlot(patient.faculty, patientId);
   if (!slot) {
     return { ok: false, message: 'No clinic appointment slots are available at the moment. Please try again later.' };
   }
