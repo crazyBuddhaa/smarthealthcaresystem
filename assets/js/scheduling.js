@@ -150,6 +150,27 @@
     return null;
   }
 
+  // Appointments still confirmed or pending after their day has passed are
+  // marked missed (a no-show). A reschedule request waiting for the
+  // administrator is left alone. Returns how many were marked.
+  const MISSABLE_STATUSES = ['confirmed', 'pending'];
+  function markMissedAppointments(appointments, todayKey) {
+    let marked = 0;
+    (Array.isArray(appointments) ? appointments : []).forEach(item => {
+      if (MISSABLE_STATUSES.includes(item.status) && item.date && item.date < todayKey) {
+        item.status = 'missed';
+        item.missedOn = todayKey;
+        marked += 1;
+      }
+    });
+    return marked;
+  }
+
+  // An appointment still to be attended: not cancelled, completed or missed.
+  function appointmentIsActive(appointment) {
+    return Boolean(appointment) && !['cancelled', 'completed', 'missed'].includes(appointment.status);
+  }
+
   function buildRegistrationWorkflow(patientId, details, todayKey) {
     const steps = REGISTRATION_STEP_KEYS.map(key => ({ key, status: 'pending', completedOn: null }));
     const documents = details.documents || {};
@@ -210,6 +231,8 @@
     validFacultyBlock,
     facultyEligibleOnDate,
     dayOpenToFaculty,
+    markMissedAppointments,
+    appointmentIsActive,
     facultiesWaitingForAppointment,
     findNextAvailableSlot,
     buildRegistrationWorkflow,

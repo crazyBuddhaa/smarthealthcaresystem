@@ -74,6 +74,7 @@
       <option value="rescheduled">Rescheduled</option>
       <option value="cancelled">Cancelled</option>
       <option value="completed">Completed</option>
+      <option value="missed">Missed</option>
     </select>
     <button class="btn btn-teal btn-sm" onclick="document.getElementById('appt-date-filter').value='';renderAppts()">
       <i class="fa fa-times"></i> Clear Filter
@@ -424,6 +425,7 @@
     const pending      = appts.filter(a => a.status === 'pending').length;
     const rescheduled  = appts.filter(a => a.status === 'rescheduled').length;
     const completed    = appts.filter(a => a.status === 'completed').length;
+    const missed       = appts.filter(a => a.status === 'missed').length;
 
     document.getElementById('appt-stats').innerHTML = `
       <div class="stat-card teal"><div class="stat-icon"><i class="fa fa-check-circle"></i></div>
@@ -433,11 +435,13 @@
       <div class="stat-card red"><div class="stat-icon"><i class="fa fa-refresh"></i></div>
         <div class="stat-info"><div class="stat-value">${rescheduled}</div><div class="stat-label">Rescheduled</div></div></div>
       <div class="stat-card green"><div class="stat-icon"><i class="fa fa-flag-checkered"></i></div>
-        <div class="stat-info"><div class="stat-value">${completed}</div><div class="stat-label">Completed</div></div></div>`;
+        <div class="stat-info"><div class="stat-value">${completed}</div><div class="stat-label">Completed</div></div></div>
+      <div class="stat-card red"><div class="stat-icon"><i class="fa fa-calendar-times-o"></i></div>
+        <div class="stat-info"><div class="stat-value">${missed}</div><div class="stat-label">Missed</div></div></div>`;
 
     document.getElementById('appt-count').textContent = `${filtered.length} result(s)`;
 
-    const statusCls = { confirmed:'badge-success', pending:'badge-pending', rescheduled:'badge-info', cancelled:'badge-danger', completed:'badge-secondary' };
+    const statusCls = { confirmed:'badge-success', pending:'badge-pending', rescheduled:'badge-info', cancelled:'badge-danger', completed:'badge-secondary', missed:'badge-danger' };
     const canAdminReschedule = Auth.isAdmin();
     const tbody = document.getElementById('appt-tbody');
     tbody.innerHTML = '';
@@ -498,7 +502,7 @@
     const todayStr = today();
     const appts = Store.get('hcms_appointments',[]).filter(a => a.date === todayStr);
     const tbody = document.getElementById('today-tbody');
-    const statusCls = { confirmed:'badge-success', pending:'badge-pending', rescheduled:'badge-info', cancelled:'badge-danger', completed:'badge-secondary' };
+    const statusCls = { confirmed:'badge-success', pending:'badge-pending', rescheduled:'badge-info', cancelled:'badge-danger', completed:'badge-secondary', missed:'badge-danger' };
 
     tbody.innerHTML = '';
     if (!appts.length) {
@@ -525,7 +529,7 @@
     const a = Store.get('hcms_appointments',[]).find(x => x.id === id);
     if (!a) return;
     const p = Store.get('hcms_patients',[]).find(x => x.id === a.patientId);
-    const statusCls = { confirmed:'badge-success', pending:'badge-pending', rescheduled:'badge-info', cancelled:'badge-danger', completed:'badge-secondary' };
+    const statusCls = { confirmed:'badge-success', pending:'badge-pending', rescheduled:'badge-info', cancelled:'badge-danger', completed:'badge-secondary', missed:'badge-danger' };
     const latestAdminReschedule = Array.isArray(a.rescheduleHistory)
       ? a.rescheduleHistory[a.rescheduleHistory.length - 1]
       : null;

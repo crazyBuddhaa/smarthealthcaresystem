@@ -609,6 +609,21 @@
         </div>
       </div>
 
+      <!-- Missed appointment: the student requests a new slot -->
+      <div class="card" id="missed-card" style="display:none">
+        <div class="card-header"><h3><i class="fa fa-calendar-times-o"></i> Missed Appointment</h3></div>
+        <div class="card-body">
+          <div class="alert alert-danger" style="margin:0 0 12px">
+            <i class="fa fa-exclamation-circle"></i>
+            <div id="missed-text">You did not attend your appointment.</div>
+          </div>
+          <p style="font-size:13px;margin:0 0 12px">Request a new appointment and the system will give you the next available clinic slot.</p>
+          <button class="btn btn-red" id="missed-btn" onclick="requestNewSlot()">
+            <i class="fa fa-calendar-plus-o"></i> Request a New Appointment
+          </button>
+        </div>
+      </div>
+
       <!-- Follow-up request -->
       <div class="card" id="follow-up-card" style="display:none">
         <div class="card-header"><h3><i class="fa fa-repeat"></i> Request a Follow-up Appointment</h3></div>
@@ -1098,14 +1113,23 @@
 
   function loadAppointment(p) {
     const appts = Store.get('hcms_appointments',[]).filter(a => a.patientId === p.id);
-    const active = appts.filter(a => !['cancelled', 'completed'].includes(a.status));
-    // Show the current appointment; otherwise the most recent attended one.
-    const appt  = active[active.length - 1] ||
-      [...appts].reverse().find(a => a.status !== 'cancelled');
+    const active = appts.filter(a => appointmentIsActive(a));
+    const latest = newestFirst(appts.filter(a => a.status !== 'cancelled'))[0];
+    // Show the current appointment; otherwise the most recent one.
+    const appt  = newestFirst(active)[0] || latest;
+    const missed = !active.length && latest?.status === 'missed';
     const followUpCard = document.getElementById('follow-up-card');
     if (followUpCard) {
       followUpCard.style.display =
-        p.profileComplete === true && !active.length && appts.some(a => a.status === 'completed') ? 'block' : 'none';
+        p.profileComplete === true && !active.length && latest?.status === 'completed' ? 'block' : 'none';
+    }
+    const missedCard = document.getElementById('missed-card');
+    if (missedCard) {
+      missedCard.style.display = missed ? 'block' : 'none';
+      if (missed) {
+        document.getElementById('missed-text').textContent =
+          `You did not attend your appointment on ${formatDate(latest.date)} at ${latest.time}.`;
+      }
     }
     document.getElementById('reschedule-card').style.display = 'none';
 
@@ -1120,7 +1144,7 @@
       return;
     }
 
-    const statusMap = { confirmed:'badge-success', pending:'badge-pending', cancelled:'badge-danger', rescheduled:'badge-info' };
+    const statusMap = { confirmed:'badge-success', pending:'badge-pending', cancelled:'badge-danger', rescheduled:'badge-info', missed:'badge-danger', completed:'badge-secondary' };
     badge.innerHTML = `<span class="badge ${statusMap[appt.status]||'badge-secondary'}">${appt.status}</span>`;
 
     body.innerHTML = `
@@ -1150,7 +1174,7 @@
       </div>`;
 
     // Reschedule card (only for an appointment that is still to come)
-    if (!['cancelled', 'completed'].includes(appt.status)) {
+    if (appointmentIsActive(appt)) {
       document.getElementById('reschedule-card').style.display = 'block';
       const minD = clinicDate(); minD.setDate(minD.getDate()+1);
       document.getElementById('r-date').min   = minD.toISOString().split('T')[0];
@@ -1160,8 +1184,9 @@
     // Appointment reminder on overview tab
     const reminder = document.getElementById('appt-reminder');
     reminder.style.display = 'flex';
-    document.getElementById('appt-reminder-text').innerHTML =
-      `<strong>Upcoming Appointment:</strong> ${formatDate(appt.date)} at ${appt.time}, ${appt.reason}.
+    document.getElementById('appt-reminder-text').innerHTML = missed
+      ? `<strong>Missed appointment:</strong> ${formatDate(appt.date)} at ${appt.time}. Open My Appointment to request a new one.`
+      : `<strong>Upcoming Appointment:</strong> ${formatDate(appt.date)} at ${appt.time}, ${escapeHtml(appt.reason || '')}.
        Your forms and documents are already submitted online. Check the portal after the appointment for your result.`;
   }
 
@@ -1299,6 +1324,18 @@
     const p = Store.get('hcms_patients',[]).find(x => x.id === currentStudent.patientId);
     toast(`Reschedule request submitted for ${formatDate(date)} at ${time}. Awaiting administrator confirmation.`, 'info', 4000);
     if (p) loadAppointment(p);
+  }
+
+  async function requestNewSlot() {
+    if (!currentStudent) return;
+    const button = document.getElementById('missed-btn');
+    if (button) button.disabled = true;
+    const result = await StudentData.requestNewSlot();
+    if (button) button.disabled = false;
+    if (!result.ok) { toast(result.message, 'error', 5000); return; }
+    const p = Store.get('hcms_patients',[]).find(x => x.id === currentStudent.patientId);
+    if (p) { loadAppointment(p); loadStats(p); loadRegistrationJourney(p); }
+    if (result.appointment) toast(`New appointment: ${formatDate(result.appointment.date)} at ${result.appointment.time}.`, 'success', 6000);
   }
 
   async function requestFollowUp() {

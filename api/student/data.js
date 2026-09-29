@@ -17,6 +17,7 @@
  *          submit-bill-receipt  attach an uploaded receipt to a pending bill
  *          request-reschedule   ask the administrator for a different time
  *          request-follow-up    ask for another visit after an attended one
+ *          request-new-slot     after a missed appointment, take the next free slot
  *
  * Appointment search uses the same rules as the staff pages
  * (assets/js/scheduling.js), applied here to the full appointment list.
@@ -291,7 +292,7 @@ async function requestReschedule(patientId, body) {
 
   const appointments = asList(await readStoreValue('hcms_appointments', []));
   const appointment = appointments.find(item =>
-    Number(item.patientId) === patientId && !['cancelled', 'completed'].includes(item.status));
+    Number(item.patientId) === patientId && Scheduling.appointmentIsActive(item));
   if (!appointment) return { status: 404, message: 'No active appointment found.' };
 
   appointment.status = 'rescheduled';
@@ -316,7 +317,7 @@ async function requestFollowUp(patientId, body) {
 
   const appointments = asList(await readStoreValue('hcms_appointments', []));
   const own = appointments.filter(item => Number(item.patientId) === patientId);
-  if (own.some(item => !['cancelled', 'completed'].includes(item.status))) {
+  if (own.some(item => Scheduling.appointmentIsActive(item))) {
     return { status: 409, message: 'You already have an active appointment. Complete or cancel it before requesting another one.' };
   }
   if (!own.some(item => item.status === 'completed')) {
@@ -362,6 +363,75 @@ async function requestFollowUp(patientId, body) {
   return { status: 200, appointment };
 }
 
+// Unattended appointments from earlier days become "missed" (no-show).
+async function markMissed() {
+  const appointments = asList(await readStoreValue('hcms_appointments', []));
+  if (Scheduling.markMissedAppointments(appointments, clinicNow().todayKey)) {
+    await writeStoreValue('hcms_appointments', appointments);
+  }
+}
+
+// After a missed appointment the student asks for a new one; the system gives
+// the next free slot using the same rules as the original booking.
+async function requestNewSlot(patientId) {
+  const appointments = asList(await readStoreValue('hcms_appointments', []));
+  const own = appointments.filter(item => Number(item.patientId) === patientId);
+  if (own.some(item => Scheduling.appointmentIsActive(item))) {
+    return { status: 409, message: 'You already have an active appointment.' };
+  }
+  const latest = [...own].filter(item => item.status !== 'cancelled')
+    .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0))[0];
+  if (!latest || latest.status !== 'missed') {
+    return { status: 400, message: 'A new slot can be requested after a missed appointment.' };
+  }
+
+  const patients = asList(await readStoreValue('hcms_patients', []));
+  const patient = patients.find(item => Number(item.id) === patientId);
+  if (!patient) return { status: 404, message: 'Your student profile could not be found.' };
+
+  const [queue, facultyBlocks] = await Promise.all([
+    readStoreValue('hcms_queue', []),
+    readStoreValue('hcms_faculty_schedules', [])
+  ]);
+  const now = clinicNow();
+  const slot = Scheduling.findNextAvailableSlot({
+    appointments,
+    queue: asList(queue),
+    facultyBlocks: asList(facultyBlocks),
+    faculty: patient.faculty,
+    todayKey: now.todayKey,
+    nowMinutes: now.nowMinutes,
+    ...(await capacityRules(appointments, patientId))
+  });
+  if (!slot) {
+    return { status: 409, message: 'No clinic appointment slots are available at the moment. Please try again later.' };
+  }
+
+  const appointment = {
+    id: nextId(appointments),
+    patientId,
+    matric: patient.matric,
+    name: patient.name,
+    faculty: patient.faculty || '',
+    dept: patient.dept || '',
+    date: slot.date,
+    time: slot.time,
+    reason: latest.reason || 'Health Centre appointment',
+    appointmentType: latest.appointmentType || 'general',
+    requestedOn: now.todayKey,
+    status: 'confirmed',
+    assignment: 'student-request',
+    rebookedFrom: latest.id,
+    paymentRef: '',
+    cardNo: patient.cardNo || ''
+  };
+  latest.rebookedTo = appointment.id;
+  appointments.push(appointment);
+  await writeStoreValue('hcms_appointments', appointments);
+  if (latest.appointmentType !== 'follow-up') await recordAppointmentOnWorkflow(patientId, appointment);
+  return { status: 200, appointment };
+}
+
 module.exports = async function studentDataHandler(req, res) {
   if (!['GET', 'POST'].includes(req.method)) {
     res.setHeader('Allow', 'GET, POST');
@@ -378,6 +448,7 @@ module.exports = async function studentDataHandler(req, res) {
   }
 
   try {
+    await markMissed();
     if (req.method === 'GET') {
       return json(res, 200, { data: await studentSnapshot(patientId) });
     }
@@ -410,6 +481,9 @@ module.exports = async function studentDataHandler(req, res) {
         break;
       case 'request-follow-up':
         result = await requestFollowUp(patientId, body);
+        break;
+      case 'request-new-slot':
+        result = await requestNewSlot(patientId);
         break;
       default:
         return json(res, 400, { message: 'Unknown student action.' });

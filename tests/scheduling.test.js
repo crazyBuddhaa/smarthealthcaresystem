@@ -49,6 +49,14 @@ const pts = [
 assert.deepStrictEqual([...S.facultiesWaitingForAppointment(pts, [{ patientId: 4, status: 'confirmed' }], null)].sort(), ['arts', 'law']);
 assert.deepStrictEqual([...S.facultiesWaitingForAppointment(pts, [{ patientId: 4, status: 'confirmed' }], 1)].sort(), ['law']);
 
+// No-shows: confirmed/pending appointments before today become missed
+const ap = [{ date: '2026-09-25', status: 'confirmed' }, { date: '2026-09-25', status: 'pending' }, { date: '2026-09-25', status: 'rescheduled' },
+            { date: '2026-09-25', status: 'completed' }, { date: '2026-09-28', status: 'confirmed' }];
+assert.strictEqual(S.markMissedAppointments(ap, '2026-09-28'), 2);
+assert.deepStrictEqual(ap.map(a => a.status), ['missed', 'missed', 'rescheduled', 'completed', 'confirmed']);
+assert.strictEqual(S.appointmentIsActive({ status: 'missed' }), false);
+assert.strictEqual(S.appointmentIsActive({ status: 'confirmed' }), true);
+
 // Booking eligibility: online sign-ups wait for document approval
 assert.strictEqual(S.canScheduleRegistrationAppointment({ profileComplete: true, selfRegistered: true }), false);
 assert.strictEqual(S.canScheduleRegistrationAppointment({ profileComplete: true, selfRegistered: true, registrationStatus: 'documents-rejected' }), false);
