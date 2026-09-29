@@ -942,7 +942,7 @@
     toast(
       appointment
         ? `Registration complete. Your appointment is ${formatDate(appointment.date)} at ${appointment.time}.`
-        : 'Registration submitted. The next available appointment could not be assigned yet.',
+        : 'Registration submitted. Your appointment will be assigned once the Health Centre approves your documents.',
       appointment ? 'success' : 'warning',
       5000
     );
@@ -953,6 +953,18 @@
     if (!panel || !workflow) return;
 
     const states = {
+      'awaiting-document-review': {
+        type: 'info',
+        icon: 'fa-hourglass-half',
+        title: 'Documents under review',
+        message: 'Your form and documents are on file. The Health Centre is checking your documents. Your appointment will be assigned automatically once they are approved.'
+      },
+      'documents-rejected': {
+        type: 'danger',
+        icon: 'fa-exclamation-circle',
+        title: 'Documents need attention',
+        message: 'Your registration documents were not approved. Please contact the Health Centre team for the next steps.'
+      },
       'awaiting-appointment': {
         type: 'info',
         icon: 'fa-calendar-check-o',
@@ -981,7 +993,10 @@
         action: '<button class="btn btn-sm btn-teal" onclick="checkRegistrationResult()"><i class="fa fa-refresh"></i> Check result</button>'
       }
     };
-    const state = states[workflow.reviewStatus] || states['awaiting-appointment'];
+    let state = states[workflow.reviewStatus] || states['awaiting-appointment'];
+    if (workflow.reviewStatus === 'awaiting-appointment' && !(workflow.appointmentDate && workflow.appointmentTime)) {
+      state = { ...state, title: 'Documents approved', message: 'Your documents were approved. Your appointment will be assigned as soon as a clinic slot is free. Check back here shortly.' };
+    }
     panel.style.display = 'block';
     panel.innerHTML = `<div class="alert alert-${state.type} result-status-card" style="margin:0">
       <i class="fa ${state.icon}"></i>
@@ -1037,7 +1052,7 @@
         : definition.key === 'card-activated'
           ? `<span class="badge badge-pending journey-step-action"><i class="fa fa-lock"></i> Awaiting approval</span>`
         : current && definition.key === 'appointment-booked'
-          ? `<span class="badge badge-info journey-step-action">Awaiting clinic scheduling</span>`
+          ? `<span class="badge badge-info journey-step-action">${workflow.documentReviewStatus === 'approved' ? 'Awaiting a free clinic slot' : 'Awaiting document approval'}</span>`
         : current
           ? `<span class="badge badge-secondary journey-step-action">Complete online form above</span>`
           : `<span class="badge badge-secondary journey-step-action">Complete previous step</span>`;

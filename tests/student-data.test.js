@@ -86,20 +86,36 @@ const profile = { gender: 'Female', phone: '0801', dept: 'Law', faculty: 'Law', 
   assert.strictEqual(r.status, 400);
   console.log('ok  profile rejected for missing field or documents outside own folder');
 
-  // Valid profile: saved, extra fields ignored, appointment + workflow
+  // Valid profile: saved, extra fields ignored, workflow started, NO appointment yet
   r = await call('POST', 'tok7', { action: 'complete-profile', profile, documents: docs(7) });
   assert.strictEqual(r.status, 200, JSON.stringify(r.body));
   const p7 = store.hcms_patients.find(p => p.id === 7);
   assert.strictEqual(p7.profileComplete, true);
   assert.strictEqual(p7.cardIssued, false);
   assert.strictEqual(p7.registrationStatus, undefined);
+  assert.strictEqual(r.body.appointment, null);
+  assert.ok(!store.hcms_appointments.some(a => a.patientId === 7));
+  let wf = store.hcms_registration_workflows.find(w => w.patientId === 7);
+  assert.strictEqual(wf.steps.filter(s => s.status === 'complete').length, 4);
+  assert.strictEqual(wf.reviewStatus, 'awaiting-document-review');
+  assert.deepStrictEqual(store.hcms_patients.find(p => p.id === 8).genotype, 'AS');
+  console.log('ok  profile saved, protected fields ignored, 4/8 steps, no appointment before approval');
+
+  // Opening the portal before approval still books nothing
+  r = await call('POST', 'tok7', { action: 'ensure-appointment' });
+  assert.strictEqual(r.body.appointment, null);
+  assert.ok(!store.hcms_appointments.some(a => a.patientId === 7));
+
+  // Administrator approves the documents (as patients.html does)
+  store.hcms_patients.find(p => p.id === 7).registrationStatus = 'approved';
+  wf.documentReviewStatus = 'approved'; wf.reviewStatus = 'awaiting-appointment';
+  r = await call('POST', 'tok7', { action: 'ensure-appointment' });
   assert.ok(r.body.appointment && r.body.appointment.patientId === 7);
   const wd = S.weekdayOfKey(r.body.appointment.date);
   assert.ok(wd >= 1 && wd <= 5);
-  const wf = store.hcms_registration_workflows.find(w => w.patientId === 7);
-  assert.strictEqual(wf.steps.filter(s => s.status === 'complete').length, 5);
-  assert.deepStrictEqual(store.hcms_patients.find(p => p.id === 8).genotype, 'AS');
-  console.log('ok  profile saved, protected fields ignored, weekday appointment and 5/8 workflow steps');
+  wf = store.hcms_registration_workflows.find(w => w.patientId === 7);
+  assert.strictEqual(wf.steps.find(s => s.key === 'appointment-booked').status, 'complete');
+  console.log('ok  weekday appointment assigned only after documents are approved');
 
   // Resubmission refused; ensure-appointment returns existing, no duplicate
   assert.strictEqual((await call('POST', 'tok7', { action: 'complete-profile', profile, documents: docs(7) })).status, 409);

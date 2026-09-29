@@ -138,10 +138,12 @@
 
   // A student receives one automatic registration appointment. It is not
   // assigned again once an appointment exists, unless that one was cancelled.
+  // Students who registered online are booked only after the administrator
+  // has approved their documents; staff-created records can be booked once
+  // the profile is complete.
   function canScheduleRegistrationAppointment(patient) {
     if (!patient || patient.profileComplete !== true) return false;
-    if (patient.selfRegistered && patient.registrationStatus &&
-        patient.registrationStatus !== 'approved') return false;
+    if (patient.selfRegistered && patient.registrationStatus !== 'approved') return false;
     return true;
   }
 
