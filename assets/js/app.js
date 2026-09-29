@@ -1101,6 +1101,15 @@ function findNextAvailableAppointmentSlot(faculty = '', patientId = null) {
   });
 }
 
+// A student's active (not cancelled or completed) appointment for a given
+// day, used to decide who may join that day's queue.
+function activeAppointmentOn(patientId, dateValue = today()) {
+  return Store.get('hcms_appointments', []).find(item =>
+    Number(item.patientId) === Number(patientId) &&
+    item.date === dateValue &&
+    appointmentIsActive(item)) || null;
+}
+
 function appointmentIsActive(appointment) {
   return Boolean(appointment) && !['cancelled', 'completed'].includes(appointment.status);
 }
@@ -2020,6 +2029,7 @@ window.formatDate  = formatDate;
 window.formatNaira = formatNaira;
 window.today    = today;
 window.newestFirst = newestFirst;
+window.activeAppointmentOn = activeAppointmentOn;
 window.serverNow = serverNow;
 window.clinicDate = clinicDate;
 window.nowTime  = nowTime;

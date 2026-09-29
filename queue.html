@@ -150,8 +150,9 @@
         <div class="form-group" style="margin-bottom:14px">
           <label>Select Student <span class="req">*</span></label>
           <select class="form-control" id="q-patient" required>
-            <option value="">-- Choose registered student --</option>
+            <option value="">-- Choose a student with an appointment today --</option>
           </select>
+          <small class="text-muted" id="q-patient-hint">Only students with an active appointment today can join the queue. Choose Urgent to add any registered student.</small>
         </div>
         <div class="form-group" style="margin-bottom:14px">
           <label>Arrival Time</label>
@@ -159,9 +160,8 @@
         </div>
         <div class="form-group" style="margin-bottom:14px">
           <label>Queue priority</label>
-          <select class="form-control" id="q-priority">
-            <option value="walk-in">Walk-in</option>
-            <option value="appointment">Appointment</option>
+          <select class="form-control" id="q-priority" onchange="populateQueueStudents()">
+            <option value="appointment">Appointment (today)</option>
             <option value="urgent">Urgent / clinical instruction</option>
           </select>
         </div>
@@ -200,16 +200,33 @@
   setInterval(updateClock, 1000);
   updateClock();
 
-  function init() {
+  // Students offered in the form: those with an active appointment today, or
+  // any registered student when the visit is marked urgent.
+  function populateQueueStudents() {
+    const urgent = document.getElementById('q-priority').value === 'urgent';
     const patients = Store.get('hcms_patients', []);
     const sel = document.getElementById('q-patient');
+    const selected = sel.value;
     while (sel.options.length > 1) sel.remove(1);
-    patients.forEach(p => {
+    sel.options[0].textContent = urgent ? '-- Choose registered student --' : '-- Choose a student with an appointment today --';
+    const rows = urgent
+      ? patients.map(p => ({ p, appt: activeAppointmentOn(p.id) }))
+      : patients.map(p => ({ p, appt: activeAppointmentOn(p.id) })).filter(row => row.appt)
+          .sort((a, b) => String(a.appt.time).localeCompare(String(b.appt.time)));
+    rows.forEach(({ p, appt }) => {
       const o = document.createElement('option');
       o.value = p.id;
-      o.textContent = `${p.matric}, ${p.name} (${p.dept || 'Department not provided'})`;
+      o.textContent = `${p.matric}, ${p.name}${appt ? ` (appointment ${appt.time})` : ` (${p.dept || 'Department not provided'})`}`;
       sel.appendChild(o);
     });
+    if ([...sel.options].some(o => o.value === selected)) sel.value = selected;
+    if (!urgent && !rows.length) {
+      sel.options[0].textContent = '-- No students have an appointment today --';
+    }
+  }
+
+  function init() {
+    populateQueueStudents();
     document.getElementById('q-time').value = nowTime();
     renderQueue();
   }
@@ -509,8 +526,14 @@
     const p = patients.find(x => x.id === patientId);
     if (!p) return;
 
-    // Urgent cases are always seen, whatever the faculty clinic calendar says.
+    // Only students with an active appointment today join the queue; urgent
+    // cases are always seen, whatever the appointments or calendar say.
     const urgent = document.getElementById('q-priority').value === 'urgent';
+    const appointment = activeAppointmentOn(patientId);
+    if (!urgent && !appointment) {
+      toast(`${p.name} has no active appointment today. Only students with an appointment today can join the queue.`, 'warning', 5000);
+      return;
+    }
     if (!urgent && !facultyEligibleOnDate(p.faculty, today())) {
       const block = facultyScheduleForDate(today());
       toast(
@@ -540,8 +563,10 @@
       dept:      p.dept,
       faculty:   p.faculty || '',
       time:      document.getElementById('q-time').value || nowTime(),
-      reason:    document.getElementById('q-reason').value,
-      priority:  document.getElementById('q-priority').value || 'walk-in',
+      reason:    document.getElementById('q-reason').value || appointment?.reason || '',
+      priority:  urgent ? 'urgent' : 'appointment',
+      appointmentId:   appointment?.id || null,
+      appointmentTime: appointment?.time || '',
       queueDate: today(),
       source:    'reception',
       status:    'waiting',
@@ -549,9 +574,20 @@
     });
 
     Store.set('hcms_queue', queue);
+    // The appointment is fulfilled once the student is in the queue, as on
+    // the appointments page.
+    if (appointment) {
+      const appointments = Store.get('hcms_appointments', []);
+      const target = appointments.find(item => item.id === appointment.id);
+      if (target) {
+        target.status = 'completed';
+        Store.set('hcms_appointments', appointments);
+      }
+    }
     closeModal('add-queue-modal');
     document.getElementById('queue-form').reset();
     document.getElementById('q-time').value = nowTime();
+    populateQueueStudents();
     toast(`${p.name} added to queue as #${token}.`, 'success');
     renderQueue();
   }
