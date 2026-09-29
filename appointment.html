@@ -621,6 +621,13 @@
   function sendToQueue(id) {
     const a = Store.get('hcms_appointments',[]).find(x => x.id === id);
     if (!a) return;
+    // Only an active appointment for today can join today's queue.
+    if (!appointmentIsActive(a) || a.date !== today()) {
+      toast(a.date !== today()
+        ? `This appointment is for ${formatDate(a.date)}. Only today's appointments can join the queue.`
+        : 'Only active appointments can join the queue.', 'warning', 5000);
+      return;
+    }
     const patient = Store.get('hcms_patients', []).find(item => item.id === a.patientId);
     if (!facultyEligibleOnDate(a.faculty || patient?.faculty, today())) {
       const block = facultyScheduleForDate(today());
