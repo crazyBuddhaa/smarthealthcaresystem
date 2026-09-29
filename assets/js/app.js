@@ -1845,7 +1845,7 @@ function confirmAction(msg, onConfirm) {
 
 // ── Set active nav item ───────────────────────────────────────────────────────
 function setActiveNav() {
-  const page = window.location.pathname.split('/').pop();
+  const page = currentPageFile();
   document.querySelectorAll('.sidebar-item a').forEach(a => {
     const href = a.getAttribute('href');
     if (href && href === page) a.classList.add('active');
@@ -1896,6 +1896,7 @@ function initSidebarToggle() {
 // same limits to the collections these pages change (see the migrations).
 const PAGE_ROLES = {
   'billing.html': ['admin', 'cashier'],
+  'register.html': ['admin', 'cashier'],
   'records.html': ['admin', 'doctor', 'nurse'],
   'staff-management.html': ['admin'],
   'queue-settings.html': ['admin']
@@ -1906,29 +1907,83 @@ function pageAllowedForRole(page, role) {
   return !roles || roles.includes(role);
 }
 
-function hideLinksOutsideRole(role) {
-  document.querySelectorAll('.sidebar-item a[href]').forEach(link => {
-    const page = link.getAttribute('href').split('?')[0];
-    if (!pageAllowedForRole(page, role)) link.closest('.sidebar-item').style.display = 'none';
+// Side menu for each role, built from one definition so every page shows the
+// same menu. Items outside a role (see PAGE_ROLES and roles below) are left out,
+// and a section with nothing left in it is dropped.
+const SIDEBAR_SECTIONS = [
+  { title: 'Main', items: [
+    { href: 'dashboard.html', icon: 'fa-tachometer', label: 'Dashboard' }
+  ] },
+  { title: 'Students', items: [
+    { href: 'patients.html', icon: 'fa-users', label: 'Student Profiles' },
+    { href: 'register.html', icon: 'fa-user-plus', label: 'Register Student' },
+    { href: 'records.html', icon: 'fa-file-text', label: 'Health Records' }
+  ] },
+  { title: 'Operations', items: [
+    { href: 'appointment.html', icon: 'fa-calendar', label: 'Appointments' },
+    { href: 'queue.html', icon: 'fa-list-ol', label: { admin: 'Queue Management', cashier: 'Reception Queue', doctor: 'Care Queue', nurse: 'Care Queue' } },
+    { href: 'billing.html', icon: 'fa-money', label: 'Billing' }
+  ] },
+  { title: 'Administration', items: [
+    { href: 'staff-management.html', icon: 'fa-user-secret', label: 'Staff & Tasks' },
+    { href: 'queue-settings.html', icon: 'fa-sliders', label: 'Queue Policy' }
+  ] }
+];
+
+function currentPageFile() {
+  return (window.location.pathname.split('/').pop() || 'dashboard.html').replace(/^([^.]+)$/, '$1.html');
+}
+
+function renderSidebar(role) {
+  const sidebar = document.querySelector('aside.sidebar');
+  if (!sidebar) return;
+  const esc = value => String(value).replace(/[&<>"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char]));
+  const sections = SIDEBAR_SECTIONS
+    .map(section => ({
+      title: section.title,
+      items: section.items.filter(item => pageAllowedForRole(item.href, role))
+    }))
+    .filter(section => section.items.length);
+  const html = sections.map(section => `
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">${esc(section.title)}</div>
+    ${section.items.map(item => {
+      const label = typeof item.label === 'string' ? item.label : (item.label[role] || item.label.admin);
+      return `<div class="sidebar-item"><a href="${item.href}"><i class="fa ${item.icon}"></i> ${esc(label)}</a></div>`;
+    }).join('')}
+  </div>`).join('<div class="sidebar-divider"></div>');
+  sidebar.innerHTML = html + `
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-item"><a href="index.html" onclick="Auth.logout();return false"><i class="fa fa-sign-out"></i> Logout</a></div>
+  </div>`;
+}
+
+// Page elements that only some roles may use, e.g. data-roles="admin cashier".
+function applyRoleElements(role) {
+  document.querySelectorAll('[data-roles]').forEach(element => {
+    const roles = element.getAttribute('data-roles').split(/\s+/);
+    if (!roles.includes(role)) element.style.display = 'none';
   });
 }
 
 function initPage() {
   const user = Auth.require();
   if (!user) return null;
-  const page = (window.location.pathname.split('/').pop() || 'dashboard.html').replace(/^([^.]+)$/, '$1.html');
+  const page = currentPageFile();
   if (!pageAllowedForRole(page, user.role)) {
     window.location.href = 'dashboard.html';
     return null;
   }
   seedData();
+  renderSidebar(user.role);
   setActiveNav();
   renderTopnavUser();
   initSidebarToggle();
   document.querySelectorAll('[data-admin-only]').forEach(item => {
     item.style.display = user.role === 'admin' ? '' : 'none';
   });
-  hideLinksOutsideRole(user.role);
+  applyRoleElements(user.role);
   return user;
 }
 
