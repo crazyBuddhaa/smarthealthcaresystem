@@ -81,7 +81,13 @@ Apply the migrations in order:
 1. `supabase/migrations/20260927000000_secure_data_access.sql` copies existing
    roles into app_metadata and replaces the open `hcms_store` policies.
 2. `supabase/migrations/20260928000000_role_scoped_data_access.sql` replaces
-   those policies with the current rules:
+   those policies with the current rules.
+3. `supabase/migrations/20260929000000_student_document_read_back.sql` lets a
+   student read back objects in their own folders. Supabase Storage saves an
+   upload with `INSERT ... RETURNING *`, so without it every student upload
+   fails with "new row violates row-level security policy".
+
+The rules are:
 
 - visitors who are not signed in have no access;
 - students have **no direct access** to `hcms_store`. The student portal calls
