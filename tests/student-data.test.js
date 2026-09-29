@@ -185,6 +185,28 @@ const profile = { gender: 'Female', phone: '0801', dept: 'Law', faculty: 'Law', 
   assert.strictEqual((await call('POST', 'tok7', { action: 'request-follow-up', reason: 'Again please' })).status, 409);
   console.log('ok  follow-up only after an attended visit, one at a time, text cleaned');
 
+  // No-show: yesterday's unattended appointment is marked missed; nothing is rebooked
+  // automatically; the student requests a new slot themselves.
+  {
+    const followUp = store.hcms_appointments.find(a => a.patientId === 7 && a.appointmentType === 'follow-up');
+    followUp.date = '2000-01-03';
+    const countBefore = store.hcms_appointments.length;
+    r = await call('GET', 'tok7');
+    assert.strictEqual(store.hcms_appointments.find(a => a.id === followUp.id).status, 'missed');
+    assert.strictEqual(store.hcms_appointments.find(a => a.patientId === 8).status, 'confirmed', 'future appointments untouched');
+    r = await call('POST', 'tok7', { action: 'ensure-appointment' });
+    assert.strictEqual(store.hcms_appointments.length, countBefore, 'no automatic rebooking');
+    assert.strictEqual((await call('POST', 'tok7', { action: 'request-reschedule', date: '2099-01-05', time: '09:00' })).status, 404);
+    r = await call('POST', 'tok7', { action: 'request-new-slot' });
+    assert.strictEqual(r.status, 200, JSON.stringify(r.body));
+    assert.strictEqual(r.body.appointment.status, 'confirmed');
+    assert.strictEqual(r.body.appointment.rebookedFrom, followUp.id);
+    assert.strictEqual(store.hcms_appointments.find(a => a.id === followUp.id).rebookedTo, r.body.appointment.id);
+    assert.strictEqual((await call('POST', 'tok7', { action: 'request-new-slot' })).status, 409, 'already has an active appointment');
+    assert.strictEqual((await call('POST', 'tok8', { action: 'request-new-slot' })).status, 409, 'nothing missed for student 8');
+  }
+  console.log('ok  no-shows marked missed; no auto-rebook; student requests a new slot once');
+
   assert.strictEqual((await call('POST', 'tok7', { action: 'delete-everything' })).status, 400);
   console.log('ok  unknown actions refused');
 })().catch(e => { console.error('FAIL', e); process.exit(1); });

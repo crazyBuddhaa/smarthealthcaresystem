@@ -787,6 +787,9 @@ const StudentData = {
   },
   requestFollowUp(reason) {
     return this.request('request-follow-up', { reason });
+  },
+  requestNewSlot() {
+    return this.request('request-new-slot');
   }
 };
 
@@ -1111,7 +1114,16 @@ function activeAppointmentOn(patientId, dateValue = today()) {
 }
 
 function appointmentIsActive(appointment) {
-  return Boolean(appointment) && !['cancelled', 'completed'].includes(appointment.status);
+  return CarePointScheduling.appointmentIsActive(appointment);
+}
+
+// Marks yesterday's (and older) unattended appointments as missed. Run when a
+// staff page opens; the student data function does the same for students.
+function markMissedAppointmentsNow() {
+  const appointments = Store.get('hcms_appointments', []);
+  if (CarePointScheduling.markMissedAppointments(appointments, today())) {
+    Store.set('hcms_appointments', appointments);
+  }
 }
 
 function scheduleNextAvailableAppointment(patientId, reason = 'Health Centre Registration & General Check-up') {
@@ -2003,6 +2015,7 @@ function initPage() {
     return null;
   }
   seedData();
+  markMissedAppointmentsNow();
   renderSidebar(user.role);
   setActiveNav();
   renderTopnavUser();
